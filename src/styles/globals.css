@@ -1,0 +1,210 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+
+    /* Sidebar specific */
+    --sidebar: 0 0% 97%;
+    --sidebar-foreground: 222.2 84% 4.9%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+  }
+
+  .dark {
+    --background: 222.2 47% 11.2%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 47% 13%;
+    --card-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 20%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+
+    /* Sidebar specific */
+    --sidebar: 222.2 47% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    @apply text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Transparent for vibrancy effect */
+    background: transparent;
+  }
+}
+
+/* macOS traffic light spacing */
+.titlebar-drag-region {
+  -webkit-app-region: drag;
+  height: 52px;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Prevent text selection on drag areas */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Custom scrollbar - native macOS style */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Vibrancy compatible backgrounds */
+.bg-vibrancy {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+}
+
+.dark .bg-vibrancy {
+  background: rgba(30, 30, 30, 0.7);
+}
+
+.bg-vibrancy-sidebar {
+  background: rgba(246, 246, 246, 0.8);
+  backdrop-filter: blur(20px);
+}
+
+.dark .bg-vibrancy-sidebar {
+  background: rgba(28, 28, 30, 0.8);
+}
+
+/* Native-like hover effects */
+.hover-native {
+  @apply transition-colors duration-100;
+}
+
+.hover-native:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dark .hover-native:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Active/selected state */
+.active-native {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.dark .active-native {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Focus ring - macOS style */
+.focus-ring {
+  @apply outline-none;
+}
+
+.focus-ring:focus-visible {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+/* Separator line */
+.separator {
+  background: rgba(0, 0, 0, 0.1);
+  height: 1px;
+}
+
+.dark .separator {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Command palette overlay */
+[cmdk-overlay] {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 150ms ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Command palette animation */
+[cmdk-dialog] {
+  animation: slideIn 200ms ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
