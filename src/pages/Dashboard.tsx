@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import {
   Plus,
   FolderPlus,
@@ -7,6 +7,7 @@ import {
   ArrowUpDown,
   Tag,
   X,
+  FolderInput,
 } from "lucide-react";
 import { useScopesStore } from "../stores/scopes";
 import { useProjectsStore } from "../stores/projects";
@@ -21,7 +22,8 @@ import { EditScopeDialog } from "../components/scopes/EditScopeDialog";
 import { DeleteScopeDialog } from "../components/scopes/DeleteScopeDialog";
 import { ScopeLinksDialog } from "../components/scopes/ScopeLinksDialog";
 import { open } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { cn } from "../lib/utils";
 import type { ProjectWithStatus } from "../types";
 
@@ -60,8 +62,52 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const [showEditScope, setShowEditScope] = useState(false);
   const [showDeleteScope, setShowDeleteScope] = useState(false);
   const [showScopeLinks, setShowScopeLinks] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const currentScope = getCurrentScope();
+
+  // Handle dropped folders to add as projects
+  const handleDroppedPaths = useCallback(
+    async (paths: string[]) => {
+      if (!currentScopeId) return;
+
+      for (const path of paths) {
+        const name = path.split("/").pop() || "Untitled";
+        try {
+          await createProject({
+            scopeId: currentScopeId,
+            name,
+            path,
+          });
+        } catch (e) {
+          console.log("Skipping (may already exist):", path, e);
+        }
+      }
+      await fetchProjects(currentScopeId);
+    },
+    [currentScopeId, createProject, fetchProjects]
+  );
+
+  // Listen for drag-drop events from Tauri
+  useEffect(() => {
+    const webview = getCurrentWebview();
+    const unlisten = webview.onDragDropEvent((event) => {
+      if (event.payload.type === "over") {
+        setIsDragOver(true);
+      } else if (event.payload.type === "drop") {
+        setIsDragOver(false);
+        handleDroppedPaths(event.payload.paths);
+      } else {
+        setIsDragOver(false);
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [handleDroppedPaths]);
 
   // Get all unique tags from projects
   const allTags = useMemo(() => {
@@ -142,6 +188,70 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
     const interval = setInterval(refreshAll, 15 * 60 * 1000); // 15 minutes
     return () => clearInterval(interval);
   }, [projects.length, refreshGitStatus]);
+
+  // Reset selection when filtered projects change
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [searchQuery, selectedTags, sortBy, currentScopeId]);
+
+  // Keyboard navigation for project list
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if not in an input/textarea
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+
+      if (filteredProjects.length === 0) return;
+
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          setSelectedIndex((prev) =>
+            prev < filteredProjects.length - 1 ? prev + 1 : prev
+          );
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+          break;
+        case "Enter":
+          if (selectedIndex >= 0 && selectedIndex < filteredProjects.length) {
+            e.preventDefault();
+            const project = filteredProjects[selectedIndex];
+            handleOpenProject(
+              project.project.id,
+              project.project.path,
+              project.project.preferredEditorId
+            );
+          }
+          break;
+        case "Escape":
+          setSelectedIndex(-1);
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [filteredProjects, selectedIndex]);
+
+  // Scroll selected item into view
+  useEffect(() => {
+    if (selectedIndex >= 0 && listRef.current) {
+      const items = listRef.current.querySelectorAll("[data-project-item]");
+      if (items[selectedIndex]) {
+        items[selectedIndex].scrollIntoView({
+          block: "nearest",
+          behavior: "smooth",
+        });
+      }
+    }
+  }, [selectedIndex]);
 
   const handleAddProject = async () => {
     if (!currentScopeId) return;
@@ -264,7 +374,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
 
   const handleRevealInFinder = async (projectPath: string) => {
     try {
-      await invoke("plugin:shell|open", { path: projectPath });
+      await revealItemInDir(projectPath);
     } catch (e) {
       console.error("Failed to reveal in finder:", e);
     }
@@ -312,17 +422,42 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
     : getDefaultEditor();
 
   return (
-    <div className="flex-1 flex bg-vibrancy-sidebar overflow-hidden p-2 pt-0 gap-2">
+    <div className="flex-1 flex bg-vibrancy-sidebar overflow-hidden p-2 pt-0">
       {/* Main Content Island */}
       <div
         className={cn(
-          "flex-1 flex flex-col min-w-0",
+          "flex-1 flex flex-col min-w-0 relative",
           "bg-white/80 dark:bg-neutral-900/80",
           "rounded-xl",
           "border border-black/[0.08] dark:border-white/[0.08]",
-          "overflow-hidden"
+          "overflow-hidden",
+          isDragOver && "border-primary border-2"
         )}
       >
+        {/* Drag overlay */}
+        {isDragOver && (
+          <div
+            className={cn(
+              "absolute inset-0 z-50",
+              "bg-primary/10 backdrop-blur-sm",
+              "flex flex-col items-center justify-center gap-3",
+              "pointer-events-none"
+            )}
+          >
+            <div
+              className={cn(
+                "h-16 w-16 rounded-2xl",
+                "bg-primary/20 border-2 border-dashed border-primary",
+                "flex items-center justify-center"
+              )}
+            >
+              <FolderInput className="h-8 w-8 text-primary" />
+            </div>
+            <p className="text-[14px] font-medium text-primary">
+              Drop folder to add project
+            </p>
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between px-3 pt-3 pb-2">
           <div className="flex items-center gap-3">
@@ -445,7 +580,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
         )}
 
         {/* Projects List */}
-        <div className="flex-1 overflow-y-auto px-3 pb-4">
+        <div ref={listRef} className="flex-1 overflow-y-auto px-3 pb-4">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
@@ -511,53 +646,55 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
             </div>
           ) : (
             <div className="space-y-1">
-              {filteredProjects.map((project) => (
-                <ProjectListItem
-                  key={project.project.id}
-                  project={project}
-                  editor={
-                    project.project.preferredEditorId
-                      ? editors.find(
-                          (e) => e.id === project.project.preferredEditorId
-                        )
-                      : scopeDefaultEditor
-                  }
-                  editors={editors}
-                  scopes={scopes}
-                  currentScopeId={currentScopeId}
-                  onOpen={() =>
-                    handleOpenProject(
-                      project.project.id,
-                      project.project.path,
+              {filteredProjects.map((project, index) => (
+                <div key={project.project.id} data-project-item>
+                  <ProjectListItem
+                    project={project}
+                    isSelected={index === selectedIndex}
+                    editor={
                       project.project.preferredEditorId
-                    )
-                  }
-                  onOpenWithEditor={(editorId) =>
-                    handleOpenWithEditor(
-                      project.project.id,
-                      project.project.path,
-                      editorId
-                    )
-                  }
-                  onDelete={() => deleteProject(project.project.id)}
-                  onRefreshGit={() =>
-                    refreshGitStatus(project.project.id, project.project.path)
-                  }
-                  onPull={() =>
-                    handlePull(project.project.path, project.project.id)
-                  }
-                  onPush={() =>
-                    handlePush(project.project.path, project.project.id)
-                  }
-                  onRevealInFinder={() =>
-                    handleRevealInFinder(project.project.path)
-                  }
-                  onCopyPath={() => handleCopyPath(project.project.path)}
-                  onMoveToScope={(scopeId) =>
-                    handleMoveToScope(project.project.id, scopeId)
-                  }
-                  onManageTags={() => setTagsProject(project)}
-                />
+                        ? editors.find(
+                            (e) => e.id === project.project.preferredEditorId
+                          )
+                        : scopeDefaultEditor
+                    }
+                    editors={editors}
+                    scopes={scopes}
+                    currentScopeId={currentScopeId}
+                    onOpen={() =>
+                      handleOpenProject(
+                        project.project.id,
+                        project.project.path,
+                        project.project.preferredEditorId
+                      )
+                    }
+                    onOpenWithEditor={(editorId) =>
+                      handleOpenWithEditor(
+                        project.project.id,
+                        project.project.path,
+                        editorId
+                      )
+                    }
+                    onDelete={() => deleteProject(project.project.id)}
+                    onRefreshGit={() =>
+                      refreshGitStatus(project.project.id, project.project.path)
+                    }
+                    onPull={() =>
+                      handlePull(project.project.path, project.project.id)
+                    }
+                    onPush={() =>
+                      handlePush(project.project.path, project.project.id)
+                    }
+                    onRevealInFinder={() =>
+                      handleRevealInFinder(project.project.path)
+                    }
+                    onCopyPath={() => handleCopyPath(project.project.path)}
+                    onMoveToScope={(scopeId) =>
+                      handleMoveToScope(project.project.id, scopeId)
+                    }
+                    onManageTags={() => setTagsProject(project)}
+                  />
+                </div>
               ))}
             </div>
           )}
@@ -565,18 +702,21 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
       </div>
 
       {/* Right Sidebar - Scope Info */}
-      {rightPanelVisible && (
-        <div className="w-[260px] shrink-0 hidden lg:block">
-          <ScopeInfoPanel
-            scope={currentScope}
-            projectCount={projects.length}
-            defaultEditor={scopeDefaultEditor}
-            onEditScope={() => setShowEditScope(true)}
-            onManageLinks={() => setShowScopeLinks(true)}
-            onDeleteScope={() => setShowDeleteScope(true)}
-          />
-        </div>
-      )}
+      <div
+        className={cn(
+          "shrink-0 hidden lg:block transition-all duration-200 ease-out overflow-hidden",
+          rightPanelVisible ? "w-[260px] opacity-100 ml-2" : "w-0 opacity-0"
+        )}
+      >
+        <ScopeInfoPanel
+          scope={currentScope}
+          projectCount={projects.length}
+          defaultEditor={scopeDefaultEditor}
+          onEditScope={() => setShowEditScope(true)}
+          onManageLinks={() => setShowScopeLinks(true)}
+          onDeleteScope={() => setShowDeleteScope(true)}
+        />
+      </div>
 
       {/* Dialogs */}
       <TempProjectDialog

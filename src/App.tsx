@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { Titlebar } from "./components/layout/Titlebar";
 import { Dashboard } from "./pages/Dashboard";
 import { NewScopeDialog } from "./components/scopes/NewScopeDialog";
 import { CommandPalette } from "./components/ui/CommandPalette";
 import { SettingsDialog } from "./components/settings/SettingsDialog";
+import { AboutDialog } from "./components/settings/AboutDialog";
 import { useSettingsStore } from "./stores/settings";
 import { useEditorsStore } from "./stores/editors";
 import { useScopesStore } from "./stores/scopes";
@@ -19,6 +21,7 @@ function App() {
   const [showNewScope, setShowNewScope] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
 
   // Register global shortcut (Cmd+Shift+O)
   useGlobalShortcut();
@@ -49,6 +52,25 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [toggleRightPanel]);
 
+  // Listen for menu bar events from Tauri
+  useEffect(() => {
+    const unlistenAbout = listen("menu-about", () => {
+      setShowAbout(true);
+    });
+    const unlistenSettings = listen("menu-settings", () => {
+      setShowSettings(true);
+    });
+    const unlistenSidebar = listen("menu-toggle-sidebar", () => {
+      toggleRightPanel();
+    });
+
+    return () => {
+      unlistenAbout.then((unlisten) => unlisten());
+      unlistenSettings.then((unlisten) => unlisten());
+      unlistenSidebar.then((unlisten) => unlisten());
+    };
+  }, [toggleRightPanel]);
+
   const handleSettingsClick = useCallback(() => {
     setShowSettings(true);
   }, []);
@@ -77,6 +99,7 @@ function App() {
         onSettingsClick={handleSettingsClick}
       />
       <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
+      <AboutDialog open={showAbout} onOpenChange={setShowAbout} />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   FolderOpen,
   Copy,
   ArrowRightLeft,
+  Folder,
 } from "lucide-react";
 import type { ProjectWithStatus, Editor, ScopeWithLinks } from "../../types";
 import { cn } from "../../lib/utils";
@@ -31,6 +32,7 @@ interface ProjectListItemProps {
   editors?: Editor[];
   scopes?: ScopeWithLinks[];
   currentScopeId?: string;
+  isSelected?: boolean;
   onOpen: () => void;
   onOpenWithEditor?: (editorId: string) => void;
   onDelete: () => void;
@@ -49,6 +51,7 @@ export function ProjectListItem({
   editors = [],
   scopes = [],
   currentScopeId,
+  isSelected = false,
   onOpen,
   onOpenWithEditor,
   onDelete,
@@ -78,18 +81,39 @@ export function ProjectListItem({
   return (
     <div
       className={cn(
-        "group px-3 py-2.5 rounded-xl transition-all cursor-pointer",
+        "group flex gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer",
         "hover:bg-black/[0.03] dark:hover:bg-white/[0.03]",
-        "border border-transparent hover:border-black/[0.05] dark:hover:border-white/[0.05]"
+        "border border-transparent hover:border-black/[0.05] dark:hover:border-white/[0.05]",
+        isSelected && "bg-black/[0.05] dark:bg-white/[0.05] border-black/[0.08] dark:border-white/[0.08]"
       )}
       onClick={onOpen}
     >
-      {/* Row 1: Name + Tags + Status */}
-      <div className="flex items-center gap-2 mb-1">
-        {/* Project Name */}
-        <h3 className="text-[14px] font-medium text-foreground/90 truncate">
-          {p.name}
-        </h3>
+      {/* Icon */}
+      <div className="shrink-0 pt-0.5">
+        <div
+          className={cn(
+            "h-8 w-8 rounded-lg flex items-center justify-center",
+            "bg-black/[0.04] dark:bg-white/[0.08]",
+            isSelected && "bg-primary/10"
+          )}
+        >
+          <Folder
+            className={cn(
+              "h-4 w-4 text-muted-foreground/60",
+              isSelected && "text-primary"
+            )}
+          />
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        {/* Row 1: Name + Tags + Status */}
+        <div className="flex items-center gap-2 mb-1">
+          {/* Project Name */}
+          <h3 className="text-[14px] font-medium text-foreground/90 truncate">
+            {p.name}
+          </h3>
 
         {/* Temp Badge */}
         {p.isTemp && (
@@ -341,6 +365,7 @@ export function ProjectListItem({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
         </div>
       </div>
     </div>

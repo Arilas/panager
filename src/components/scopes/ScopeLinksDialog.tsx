@@ -18,6 +18,15 @@ import {
   Github,
   Link as LinkIcon,
 } from "lucide-react";
+import {
+  JiraIcon,
+  GitLabIcon,
+  BitbucketIcon,
+  ConfluenceIcon,
+  NotionIcon,
+  LinearIcon,
+  SlackIcon,
+} from "../icons/ServiceIcons";
 
 interface ScopeLinksDialogProps {
   scope: ScopeWithLinks | null;
@@ -71,7 +80,7 @@ export function ScopeLinksDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LinkIcon className="h-5 w-5" />
@@ -83,7 +92,7 @@ export function ScopeLinksDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto">
           {/* Existing Links */}
           <div className="space-y-2">
             {scope?.links.length === 0 && !adding ? (
@@ -206,6 +215,29 @@ export function ScopeLinksDialog({
   );
 }
 
+function getLinkIcon(linkType: string) {
+  switch (linkType) {
+    case "github":
+      return <Github className="h-4 w-4" />;
+    case "gitlab":
+      return <GitLabIcon className="h-4 w-4" />;
+    case "bitbucket":
+      return <BitbucketIcon className="h-4 w-4" />;
+    case "jira":
+      return <JiraIcon className="h-4 w-4" />;
+    case "confluence":
+      return <ConfluenceIcon className="h-4 w-4" />;
+    case "notion":
+      return <NotionIcon className="h-4 w-4" />;
+    case "linear":
+      return <LinearIcon className="h-4 w-4" />;
+    case "slack":
+      return <SlackIcon className="h-4 w-4" />;
+    default:
+      return <LinkIcon className="h-4 w-4" />;
+  }
+}
+
 function LinkItem({
   link,
   onDelete,
@@ -224,12 +256,8 @@ function LinkItem({
         "group"
       )}
     >
-      <div className="h-8 w-8 rounded-md bg-black/5 dark:bg-white/10 flex items-center justify-center">
-        {link.linkType === "github" ? (
-          <Github className="h-4 w-4 text-foreground/60" />
-        ) : (
-          <LinkIcon className="h-4 w-4 text-foreground/60" />
-        )}
+      <div className="h-8 w-8 rounded-md bg-black/5 dark:bg-white/10 flex items-center justify-center text-foreground/60">
+        {getLinkIcon(link.linkType)}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -242,7 +270,7 @@ function LinkItem({
           href={link.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[11px] text-muted-foreground hover:text-primary truncate block"
+          className="text-[11px] text-muted-foreground hover:text-primary block break-all"
           onClick={(e) => e.stopPropagation()}
         >
           {link.url}

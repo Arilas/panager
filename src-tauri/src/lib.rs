@@ -5,10 +5,11 @@ mod services;
 use db::Database;
 use services::cleanup::CleanupServiceState;
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Emitter, Manager, RunEvent, WindowEvent,
 };
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -17,6 +18,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             // Initialize database
             let database = Database::new().expect("Failed to initialize database");
@@ -46,6 +48,119 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 services::cleanup::start_cleanup_service(app_handle).await;
             });
+
+            // Setup application menu bar (macOS)
+            #[cfg(target_os = "macos")]
+            {
+                // Panager menu
+                let about_item =
+                    MenuItem::with_id(app, "about", "About Panager", true, None::<&str>)?;
+                let separator_about = PredefinedMenuItem::separator(app)?;
+                let settings_item =
+                    MenuItem::with_id(app, "settings", "Settings...", true, Some("CmdOrCtrl+,"))?;
+                let separator = PredefinedMenuItem::separator(app)?;
+                let hide = PredefinedMenuItem::hide(app, Some("Hide Panager"))?;
+                let hide_others = PredefinedMenuItem::hide_others(app, Some("Hide Others"))?;
+                let show_all = PredefinedMenuItem::show_all(app, Some("Show All"))?;
+                let separator2 = PredefinedMenuItem::separator(app)?;
+                let quit = PredefinedMenuItem::quit(app, Some("Quit Panager"))?;
+
+                let app_menu = Submenu::with_items(
+                    app,
+                    "Panager",
+                    true,
+                    &[
+                        &about_item,
+                        &separator_about,
+                        &settings_item,
+                        &separator,
+                        &hide,
+                        &hide_others,
+                        &show_all,
+                        &separator2,
+                        &quit,
+                    ],
+                )?;
+
+                // Edit menu
+                let undo = PredefinedMenuItem::undo(app, None)?;
+                let redo = PredefinedMenuItem::redo(app, None)?;
+                let cut = PredefinedMenuItem::cut(app, None)?;
+                let copy = PredefinedMenuItem::copy(app, None)?;
+                let paste = PredefinedMenuItem::paste(app, None)?;
+                let select_all = PredefinedMenuItem::select_all(app, None)?;
+                let edit_separator = PredefinedMenuItem::separator(app)?;
+
+                let edit_menu = Submenu::with_items(
+                    app,
+                    "Edit",
+                    true,
+                    &[
+                        &undo,
+                        &redo,
+                        &edit_separator,
+                        &cut,
+                        &copy,
+                        &paste,
+                        &select_all,
+                    ],
+                )?;
+
+                // View menu
+                let toggle_sidebar = MenuItem::with_id(
+                    app,
+                    "toggle_sidebar",
+                    "Toggle Sidebar",
+                    true,
+                    Some("CmdOrCtrl+B"),
+                )?;
+                let view_separator = PredefinedMenuItem::separator(app)?;
+                let fullscreen = PredefinedMenuItem::fullscreen(app, None)?;
+
+                let view_menu = Submenu::with_items(
+                    app,
+                    "View",
+                    true,
+                    &[&toggle_sidebar, &view_separator, &fullscreen],
+                )?;
+
+                // Window menu
+                let minimize = PredefinedMenuItem::minimize(app, None)?;
+                let window_separator = PredefinedMenuItem::separator(app)?;
+                let close_window =
+                    PredefinedMenuItem::close_window(app, Some("Close Window"))?;
+
+                let window_menu = Submenu::with_items(
+                    app,
+                    "Window",
+                    true,
+                    &[&minimize, &window_separator, &close_window],
+                )?;
+
+                let menu =
+                    Menu::with_items(app, &[&app_menu, &edit_menu, &view_menu, &window_menu])?;
+
+                app.set_menu(menu)?;
+
+                app.on_menu_event(|app, event| match event.id.as_ref() {
+                    "about" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.emit("menu-about", ());
+                        }
+                    }
+                    "settings" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.emit("menu-settings", ());
+                        }
+                    }
+                    "toggle_sidebar" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.emit("menu-toggle-sidebar", ());
+                        }
+                    }
+                    _ => {}
+                });
+            }
 
             // Setup system tray
             let quit_item = MenuItem::with_id(app, "quit", "Quit Panager", true, None::<&str>)?;
@@ -85,7 +200,26 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            // Register global shortcut (Cmd+Shift+O)
+            let shortcut: Shortcut = "CommandOrControl+Shift+O".parse().unwrap();
+            app.global_shortcut().on_shortcut(shortcut, |app, _shortcut, _event| {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+            })?;
+
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // On macOS, hide the window instead of closing to keep the app running
+            // This allows the global shortcut to still work
+            #[cfg(target_os = "macos")]
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             // Scopes
@@ -130,6 +264,16 @@ pub fn run() {
             services::cleanup::cleanup_temp_projects_now,
             services::cleanup::get_cleanup_candidates,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // Handle dock click on macOS to reopen the window
+            #[cfg(target_os = "macos")]
+            if let RunEvent::Reopen { .. } = event {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+        });
 }

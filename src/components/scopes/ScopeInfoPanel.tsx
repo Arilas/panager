@@ -9,6 +9,15 @@ import {
   Calendar,
   Trash2,
 } from "lucide-react";
+import {
+  JiraIcon,
+  GitLabIcon,
+  BitbucketIcon,
+  ConfluenceIcon,
+  NotionIcon,
+  LinearIcon,
+  SlackIcon,
+} from "../icons/ServiceIcons";
 import type { ScopeWithLinks, Editor } from "../../types";
 import { cn } from "../../lib/utils";
 import { LINK_TYPES } from "../../types";
@@ -42,7 +51,7 @@ export function ScopeInfoPanel({
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="p-4">
+      <div className="p-2">
         <div className="flex items-center gap-3 mb-3">
           <div
             className="h-10 w-10 rounded-lg flex items-center justify-center"
@@ -81,7 +90,7 @@ export function ScopeInfoPanel({
 
       {/* Default Editor */}
       {defaultEditor && (
-        <div className="px-4 py-3">
+        <div className="px-2 py-3">
           <div className="flex items-center gap-2 text-[12px] text-muted-foreground mb-1">
             <Code className="h-3 w-3" />
             <span>Default Editor</span>
@@ -94,7 +103,7 @@ export function ScopeInfoPanel({
 
       {/* Links Section */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-4">
+        <div className="p-2">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[12px] font-medium text-foreground/70 uppercase tracking-wider">
               Quick Links
@@ -121,9 +130,7 @@ export function ScopeInfoPanel({
               </p>
               <button
                 onClick={onManageLinks}
-                className={cn(
-                  "text-[12px] text-primary hover:underline"
-                )}
+                className={cn("text-[12px] text-primary hover:underline")}
               >
                 Add your first link
               </button>
@@ -139,7 +146,7 @@ export function ScopeInfoPanel({
       </div>
 
       {/* Danger Zone */}
-      <div className="p-4">
+      <div className="p-2">
         <button
           onClick={onDeleteScope}
           className={cn(
@@ -156,15 +163,31 @@ export function ScopeInfoPanel({
   );
 }
 
-function LinkCard({ link }: { link: { id: string; linkType: string; label: string; url: string } }) {
+function LinkCard({
+  link,
+}: {
+  link: { id: string; linkType: string; label: string; url: string };
+}) {
   const typeInfo = LINK_TYPES.find((t) => t.id === link.linkType);
 
   const getIcon = () => {
     switch (link.linkType) {
       case "github":
-      case "gitlab":
-      case "bitbucket":
         return <Github className="h-4 w-4" />;
+      case "gitlab":
+        return <GitLabIcon className="h-4 w-4" />;
+      case "bitbucket":
+        return <BitbucketIcon className="h-4 w-4" />;
+      case "jira":
+        return <JiraIcon className="h-4 w-4" />;
+      case "confluence":
+        return <ConfluenceIcon className="h-4 w-4" />;
+      case "notion":
+        return <NotionIcon className="h-4 w-4" />;
+      case "linear":
+        return <LinearIcon className="h-4 w-4" />;
+      case "slack":
+        return <SlackIcon className="h-4 w-4" />;
       default:
         return <LinkIcon className="h-4 w-4" />;
     }
