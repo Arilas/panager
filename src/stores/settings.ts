@@ -7,6 +7,7 @@ interface Settings {
   temp_project_path: string;
   global_hotkey: string;
   theme: "light" | "dark" | "system";
+  default_editor_id: string;
 }
 
 const defaultSettings: Settings = {
@@ -15,6 +16,7 @@ const defaultSettings: Settings = {
   temp_project_path: "",
   global_hotkey: "CmdOrCtrl+Shift+O",
   theme: "system",
+  default_editor_id: "",
 };
 
 interface SettingsState {
@@ -56,6 +58,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           (allSettings.global_hotkey as string) ?? defaultSettings.global_hotkey,
         theme:
           (allSettings.theme as Settings["theme"]) ?? defaultSettings.theme,
+        default_editor_id:
+          (allSettings.default_editor_id as string) ??
+          defaultSettings.default_editor_id,
       };
       set({ settings, loading: false });
 

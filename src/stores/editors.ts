@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Editor } from "../types";
 import * as api from "../lib/tauri";
+import { useSettingsStore } from "./settings";
 
 interface EditorsState {
   editors: Editor[];
@@ -71,10 +72,21 @@ export const useEditorsStore = create<EditorsState>((set, get) => ({
 
   getDefaultEditor: () => {
     const { editors } = get();
-    // Prefer VS Code or Cursor as default
+    const { settings } = useSettingsStore.getState();
+
+    // First check if user has set a default editor
+    if (settings.default_editor_id) {
+      const defaultEditor = editors.find((e) => e.id === settings.default_editor_id);
+      if (defaultEditor?.isAvailable) {
+        return defaultEditor;
+      }
+    }
+
+    // Fallback: prefer VS Code or Cursor
     return (
-      editors.find((e) => e.command === "code") ||
-      editors.find((e) => e.command === "cursor") ||
+      editors.find((e) => e.command === "code" && e.isAvailable) ||
+      editors.find((e) => e.command === "cursor" && e.isAvailable) ||
+      editors.find((e) => e.isAvailable) ||
       editors[0]
     );
   },

@@ -21,6 +21,7 @@ import {
   Code,
   Trash2,
   RefreshCw,
+  Check,
 } from "lucide-react";
 
 interface TempProjectInfo {
@@ -43,7 +44,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
 
-        <Tabs.Root defaultValue="general" className="flex min-h-[400px]">
+        <Tabs.Root defaultValue="general" className="flex h-[400px]">
           <Tabs.List
             className={cn(
               "flex flex-col w-[160px] shrink-0",
@@ -56,14 +57,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <TabTrigger value="shortcuts">Shortcuts</TabTrigger>
           </Tabs.List>
 
-          <div className="flex-1 p-6 overflow-y-auto">
-            <Tabs.Content value="general">
+          <div className="flex-1 overflow-y-auto">
+            <Tabs.Content value="general" className="px-6 pt-2 pb-6">
               <GeneralSettings />
             </Tabs.Content>
-            <Tabs.Content value="editors">
+            <Tabs.Content value="editors" className="px-6 pt-2 pb-6">
               <EditorsSettings />
             </Tabs.Content>
-            <Tabs.Content value="shortcuts">
+            <Tabs.Content value="shortcuts" className="px-6 pt-2 pb-6">
               <ShortcutsSettings />
             </Tabs.Content>
           </div>
@@ -274,7 +275,8 @@ function GeneralSettings() {
 }
 
 function EditorsSettings() {
-  const { editors, syncEditors, deleteEditor } = useEditorsStore();
+  const { editors, syncEditors, deleteEditor, getDefaultEditor } = useEditorsStore();
+  const { settings, updateSetting } = useSettingsStore();
   const [syncing, setSyncing] = useState(false);
 
   const handleSync = async () => {
@@ -286,10 +288,56 @@ function EditorsSettings() {
     }
   };
 
+  const handleSetDefault = async (editorId: string) => {
+    await updateSetting("default_editor_id", editorId);
+  };
+
+  const currentDefaultId = settings.default_editor_id || getDefaultEditor()?.id;
+
   return (
     <div className="space-y-6">
-      <Section title="Detected Editors" icon={<Code className="h-4 w-4" />}>
-        <div className="space-y-2">
+      <Section title="Default Editor" icon={<Code className="h-4 w-4" />}>
+        <p className="text-[12px] text-muted-foreground mb-3">
+          Used when opening projects without a specific editor preference.
+        </p>
+        <div className="space-y-1.5">
+          {editors.filter((e) => e.isAvailable).length === 0 ? (
+            <p className="text-[13px] text-muted-foreground py-4 text-center">
+              No editors available
+            </p>
+          ) : (
+            editors
+              .filter((e) => e.isAvailable)
+              .map((editor) => (
+                <button
+                  key={editor.id}
+                  onClick={() => handleSetDefault(editor.id)}
+                  className={cn(
+                    "w-full flex items-center justify-between",
+                    "px-3 py-2.5 rounded-lg text-left",
+                    "transition-colors",
+                    currentDefaultId === editor.id
+                      ? "bg-primary/10 border border-primary/20"
+                      : "bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+                  )}
+                >
+                  <div>
+                    <div className="text-[13px] font-medium">{editor.name}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {editor.command}
+                    </div>
+                  </div>
+                  {currentDefaultId === editor.id && (
+                    <Check className="h-4 w-4 text-primary" />
+                  )}
+                </button>
+              ))
+          )}
+        </div>
+      </Section>
+
+      <Section title="All Editors" icon={<Code className="h-4 w-4" />}>
+        <div className="space-y-1.5">
           {editors.length === 0 ? (
             <p className="text-[13px] text-muted-foreground py-4 text-center">
               No editors detected
@@ -311,6 +359,7 @@ function EditorsSettings() {
                       "w-2 h-2 rounded-full",
                       editor.isAvailable ? "bg-green-500" : "bg-red-500"
                     )}
+                    title={editor.isAvailable ? "Available" : "Not available"}
                   />
                   <div>
                     <div className="text-[13px] font-medium">{editor.name}</div>
@@ -355,16 +404,34 @@ function EditorsSettings() {
 function ShortcutsSettings() {
   const { settings } = useSettingsStore();
 
+  const formatHotkey = (hotkey: string) => {
+    return hotkey
+      .replace("CmdOrCtrl", "\u2318")
+      .replace("Shift", "\u21E7")
+      .replace("+", "");
+  };
+
   return (
     <div className="space-y-6">
-      <Section title="Keyboard Shortcuts" icon={<Keyboard className="h-4 w-4" />}>
-        <div className="space-y-3">
+      <Section title="Global" icon={<Keyboard className="h-4 w-4" />}>
+        <div className="space-y-1">
           <ShortcutRow
             label="Open Panager"
-            shortcut={settings.global_hotkey.replace("CmdOrCtrl", "\u2318")}
+            shortcut={formatHotkey(settings.global_hotkey)}
           />
-          <ShortcutRow label="Command Palette" shortcut="\u2318K" />
-          <ShortcutRow label="Close Dialog" shortcut="Esc" />
+        </div>
+      </Section>
+
+      <Section title="Navigation" icon={<Keyboard className="h-4 w-4" />}>
+        <div className="space-y-1">
+          <ShortcutRow label="Command Palette" shortcut={"\u2318K"} />
+          <ShortcutRow label="Toggle Info Panel" shortcut={"\u2318B"} />
+        </div>
+      </Section>
+
+      <Section title="General" icon={<Keyboard className="h-4 w-4" />}>
+        <div className="space-y-1">
+          <ShortcutRow label="Close Dialog / Cancel" shortcut="Esc" />
         </div>
       </Section>
     </div>

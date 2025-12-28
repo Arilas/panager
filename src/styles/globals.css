@@ -60,14 +60,17 @@
     @apply border-border;
   }
 
-  html, body, #root {
+  html,
+  body,
+  #root {
     height: 100%;
     overflow: hidden;
   }
 
   body {
     @apply text-foreground;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+      Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     /* Transparent for vibrancy effect */
@@ -75,20 +78,96 @@
   }
 }
 
-/* macOS traffic light spacing */
-.titlebar-drag-region {
+/* Titlebar styling */
+.titlebar {
   -webkit-app-region: drag;
+  -webkit-user-select: none;
+  user-select: none;
   height: 52px;
+  position: relative;
 }
 
-.no-drag {
-  -webkit-app-region: no-drag;
+/* Scope color gradient overlay for titlebar */
+.titlebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--scope-color, #6b7280) 8%, transparent),
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* Scope color tint for panels */
+.scope-tint {
+  position: relative;
+}
+
+.scope-tint::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--scope-color, #6b7280) 4%, transparent);
+  pointer-events: none;
+}
+
+/* Scope accent color for active elements */
+.scope-accent {
+  background-color: color-mix(in srgb, var(--scope-color, #6b7280) 15%, transparent);
+}
+
+.scope-accent:hover {
+  background-color: color-mix(in srgb, var(--scope-color, #6b7280) 20%, transparent);
+}
+
+.scope-accent-text {
+  color: var(--scope-color, #6b7280);
+}
+
+.scope-accent-border {
+  border-color: color-mix(in srgb, var(--scope-color, #6b7280) 30%, transparent);
+}
+
+/* Content area gradient */
+.content-gradient {
+  position: relative;
+}
+
+.content-gradient::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--scope-color, #6b7280) 5%, transparent),
+    transparent
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Tauri drag region */
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Prevent text selection on drag areas */
 .no-select {
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* Allow text selection (for inputs in drag regions) */
+.select-text {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Custom scrollbar - native macOS style */
@@ -189,8 +268,12 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Command palette animation */

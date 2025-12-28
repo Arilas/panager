@@ -7,6 +7,7 @@ import {
   Code,
   FolderOpen,
   Calendar,
+  Trash2,
 } from "lucide-react";
 import type { ScopeWithLinks, Editor } from "../../types";
 import { cn } from "../../lib/utils";
@@ -18,6 +19,7 @@ interface ScopeInfoPanelProps {
   defaultEditor?: Editor;
   onEditScope: () => void;
   onManageLinks: () => void;
+  onDeleteScope: () => void;
 }
 
 export function ScopeInfoPanel({
@@ -26,6 +28,7 @@ export function ScopeInfoPanel({
   defaultEditor,
   onEditScope,
   onManageLinks,
+  onDeleteScope,
 }: ScopeInfoPanelProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -37,9 +40,9 @@ export function ScopeInfoPanel({
   };
 
   return (
-    <div className="h-full flex flex-col border-l border-black/5 dark:border-white/5 bg-white/30 dark:bg-black/10">
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-black/5 dark:border-white/5">
+      <div className="p-4">
         <div className="flex items-center gap-3 mb-3">
           <div
             className="h-10 w-10 rounded-lg flex items-center justify-center"
@@ -78,7 +81,7 @@ export function ScopeInfoPanel({
 
       {/* Default Editor */}
       {defaultEditor && (
-        <div className="px-4 py-3 border-b border-black/5 dark:border-white/5">
+        <div className="px-4 py-3">
           <div className="flex items-center gap-2 text-[12px] text-muted-foreground mb-1">
             <Code className="h-3 w-3" />
             <span>Default Editor</span>
@@ -133,6 +136,21 @@ export function ScopeInfoPanel({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="p-4">
+        <button
+          onClick={onDeleteScope}
+          className={cn(
+            "w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-[12px] font-medium",
+            "text-red-500 hover:bg-red-500/10",
+            "transition-colors"
+          )}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete Scope
+        </button>
       </div>
     </div>
   );
