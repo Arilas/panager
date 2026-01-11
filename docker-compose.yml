@@ -1,0 +1,74 @@
+# Docker Compose for Panager Linux build and testing
+#
+# Usage:
+#   docker-compose run test      # Run all tests (cargo check, clippy, tests)
+#   docker-compose run build     # Build production binaries
+#   docker-compose run dev       # Interactive development shell
+#
+# To extract built artifacts:
+#   docker-compose run build
+#   docker cp $(docker-compose ps -q build):/app/src-tauri/target/release/bundle ./bundle
+
+services:
+  # Run cargo check, clippy, and tests
+  test:
+    build:
+      context: .
+      target: test
+    volumes:
+      # Cache cargo registry for faster rebuilds
+      - cargo-registry:/root/.cargo/registry
+      - cargo-git:/root/.cargo/git
+
+  # Build production binaries (deb, AppImage)
+  build:
+    build:
+      context: .
+      target: builder
+    volumes:
+      - cargo-registry:/root/.cargo/registry
+      - cargo-git:/root/.cargo/git
+      - ./build-output:/app/build-output
+    command: >
+      sh -c "
+        npm run tauri build &&
+        mkdir -p /app/build-output &&
+        cp -r src-tauri/target/release/bundle/* /app/build-output/ 2>/dev/null || true &&
+        echo 'Build artifacts copied to ./build-output/'
+      "
+
+  # Interactive development shell
+  dev:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/app
+      - cargo-registry:/root/.cargo/registry
+      - cargo-git:/root/.cargo/git
+      - node-modules:/app/node_modules
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+  # Quick cargo check only
+  check:
+    build:
+      context: .
+      target: base
+    volumes:
+      - .:/app
+      - cargo-registry:/root/.cargo/registry
+      - cargo-git:/root/.cargo/git
+    working_dir: /app
+    command: >
+      sh -c "
+        npm ci &&
+        cd src-tauri &&
+        cargo check
+      "
+
+volumes:
+  cargo-registry:
+  cargo-git:
+  node-modules:
