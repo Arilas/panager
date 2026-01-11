@@ -41,6 +41,12 @@ pub fn run() {
                 platform::macos::setup_global_shortcut(app)?;
             }
 
+            #[cfg(target_os = "linux")]
+            {
+                platform::linux::setup_tray(app)?;
+                platform::linux::setup_global_shortcut(app)?;
+            }
+
             Ok(())
         })
         .on_window_event(handle_window_event)

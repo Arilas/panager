@@ -77,6 +77,156 @@ pub fn detect_editors() -> Vec<EditorInfo> {
         }
     }
 
+    // Also check Linux-specific paths (Flatpak, Snap, native installations)
+    #[cfg(target_os = "linux")]
+    {
+        use std::path::Path;
+
+        // Check for Flatpak installations
+        // Flatpak apps are accessed via: flatpak run <app-id>
+        let flatpak_apps = [
+            ("com.visualstudio.code", "Visual Studio Code", "code"),
+            ("com.vscodium.codium", "VSCodium", "codium"),
+            ("dev.zed.Zed", "Zed", "zed"),
+            ("com.sublimetext.three", "Sublime Text", "subl"),
+            ("io.neovim.nvim", "Neovim", "nvim"),
+            ("com.jetbrains.IntelliJ-IDEA-Community", "IntelliJ IDEA CE", "idea"),
+            ("com.jetbrains.IntelliJ-IDEA-Ultimate", "IntelliJ IDEA", "idea"),
+            ("com.jetbrains.WebStorm", "WebStorm", "webstorm"),
+            ("com.jetbrains.PyCharm-Community", "PyCharm CE", "pycharm"),
+            ("com.jetbrains.PyCharm-Professional", "PyCharm", "pycharm"),
+            ("com.jetbrains.GoLand", "GoLand", "goland"),
+            ("com.jetbrains.CLion", "CLion", "clion"),
+            ("com.jetbrains.PhpStorm", "PhpStorm", "phpstorm"),
+            ("com.jetbrains.RubyMine", "RubyMine", "rubymine"),
+        ];
+
+        for (app_id, name, base_cmd) in flatpak_apps {
+            // Check if flatpak app is installed
+            let flatpak_check = Command::new("flatpak")
+                .args(["info", app_id])
+                .output();
+
+            if let Ok(output) = flatpak_check {
+                if output.status.success() && !detected.iter().any(|e| e.command == base_cmd) {
+                    // Use flatpak run command for launching
+                    detected.push(EditorInfo {
+                        name: format!("{} (Flatpak)", name),
+                        command: format!("flatpak run {}", app_id),
+                        icon: None,
+                    });
+                }
+            }
+        }
+
+        // Check for Snap installations
+        let snap_apps = [
+            ("/snap/bin/code", "Visual Studio Code", "code"),
+            ("/snap/bin/codium", "VSCodium", "codium"),
+            ("/snap/bin/sublime-text", "Sublime Text", "subl"),
+            ("/snap/bin/nvim", "Neovim", "nvim"),
+            ("/snap/bin/intellij-idea-community", "IntelliJ IDEA CE", "idea"),
+            ("/snap/bin/intellij-idea-ultimate", "IntelliJ IDEA", "idea"),
+            ("/snap/bin/pycharm-community", "PyCharm CE", "pycharm"),
+            ("/snap/bin/pycharm-professional", "PyCharm", "pycharm"),
+            ("/snap/bin/goland", "GoLand", "goland"),
+            ("/snap/bin/webstorm", "WebStorm", "webstorm"),
+            ("/snap/bin/clion", "CLion", "clion"),
+            ("/snap/bin/phpstorm", "PhpStorm", "phpstorm"),
+            ("/snap/bin/rubymine", "RubyMine", "rubymine"),
+            ("/snap/bin/rider", "Rider", "rider"),
+            ("/snap/bin/datagrip", "DataGrip", "datagrip"),
+        ];
+
+        for (path, name, base_cmd) in snap_apps {
+            if Path::new(path).exists() && !detected.iter().any(|e| e.command == base_cmd) {
+                detected.push(EditorInfo {
+                    name: format!("{} (Snap)", name),
+                    command: path.to_string(),
+                    icon: None,
+                });
+            }
+        }
+
+        // Check JetBrains Toolbox installations
+        // Toolbox installs scripts to ~/.local/share/JetBrains/Toolbox/scripts/
+        if let Some(home) = home::home_dir() {
+            let toolbox_dir = home.join(".local/share/JetBrains/Toolbox/scripts");
+            if toolbox_dir.exists() {
+                let jetbrains_editors = [
+                    ("idea", "IntelliJ IDEA"),
+                    ("webstorm", "WebStorm"),
+                    ("pycharm", "PyCharm"),
+                    ("goland", "GoLand"),
+                    ("clion", "CLion"),
+                    ("phpstorm", "PhpStorm"),
+                    ("rubymine", "RubyMine"),
+                    ("rider", "Rider"),
+                    ("datagrip", "DataGrip"),
+                    ("fleet", "Fleet"),
+                ];
+
+                for (cmd, name) in jetbrains_editors {
+                    let script_path = toolbox_dir.join(cmd);
+                    if script_path.exists() && !detected.iter().any(|e| e.command == cmd) {
+                        detected.push(EditorInfo {
+                            name: format!("{} (Toolbox)", name),
+                            command: script_path.to_string_lossy().to_string(),
+                            icon: None,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Check for AppImage installations in common locations
+        if let Some(home) = home::home_dir() {
+            let appimage_dirs = [
+                home.join("Applications"),
+                home.join(".local/bin"),
+                home.join("AppImages"),
+            ];
+
+            // Common AppImage patterns (lowercase for matching)
+            let appimage_patterns = [
+                ("cursor", "Cursor"),
+                ("zed", "Zed"),
+                ("code", "VS Code"),
+                ("neovim", "Neovim"),
+            ];
+
+            for dir in &appimage_dirs {
+                if dir.exists() {
+                    if let Ok(entries) = std::fs::read_dir(dir) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+                            let filename = path.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+
+                            // Check if it's an AppImage
+                            if !filename.ends_with(".appimage") {
+                                continue;
+                            }
+
+                            for (pattern, name) in &appimage_patterns {
+                                if filename.contains(pattern) {
+                                    let path_str = path.to_string_lossy().to_string();
+                                    if !detected.iter().any(|e| e.command == path_str) {
+                                        detected.push(EditorInfo {
+                                            name: format!("{} (AppImage)", name),
+                                            command: path_str,
+                                            icon: None,
+                                        });
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     detected
 }
 
@@ -185,6 +335,21 @@ pub fn delete_editor(db: State<Database>, id: String) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub fn open_in_editor(editor_command: String, project_path: String) -> Result<(), String> {
+    // Handle flatpak commands specially (they contain spaces)
+    if editor_command.starts_with("flatpak run ") {
+        let parts: Vec<&str> = editor_command.splitn(3, ' ').collect();
+        if parts.len() >= 3 {
+            let result = Command::new("flatpak")
+                .args(["run", parts[2], &project_path])
+                .spawn();
+
+            return match result {
+                Ok(_) => Ok(()),
+                Err(e) => Err(format!("Failed to open Flatpak editor '{}': {}", parts[2], e)),
+            };
+        }
+    }
+
     // Try to spawn the command directly first
     let result = Command::new(&editor_command)
         .arg(&project_path)
@@ -232,7 +397,20 @@ pub fn open_in_editor(editor_command: String, project_path: String) -> Result<()
                 Err(format!("Failed to open editor '{}': {}. Make sure the editor is installed and its CLI is in PATH.", editor_command, e))
             }
 
-            #[cfg(not(target_os = "macos"))]
+            // On Linux, try xdg-open as a last resort fallback
+            #[cfg(target_os = "linux")]
+            {
+                // Try using xdg-open to open in the default file manager as absolute last resort
+                // This is not ideal but provides some feedback to the user
+                Err(format!(
+                    "Failed to open editor '{}': {}. Make sure the editor is installed. \
+                    For Flatpak apps, ensure they're installed via 'flatpak install'. \
+                    For Snap apps, ensure they're installed via 'snap install'.",
+                    editor_command, e
+                ))
+            }
+
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
             {
                 Err(format!("Failed to open editor '{}': {}", editor_command, e))
             }
