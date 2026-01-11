@@ -24,17 +24,15 @@ impl Default for FolderScanServiceState {
 }
 
 /// Start the folder scan service that periodically scans scope folders
-pub fn start_folder_scan_service(app_handle: AppHandle) {
+pub async fn start_folder_scan_service(app_handle: AppHandle) {
     let state = match app_handle.try_state::<FolderScanServiceState>() {
         Some(s) => s,
         None => return,
     };
 
-    // Check if already running using a blocking lock
+    // Check if already running
     {
-        let running_arc = state.running.clone();
-        let rt = tokio::runtime::Handle::current();
-        let mut running = rt.block_on(running_arc.lock());
+        let mut running = state.running.lock().await;
         if *running {
             return;
         }
@@ -49,24 +47,21 @@ pub fn start_folder_scan_service(app_handle: AppHandle) {
         eprintln!("Error during initial folder scan: {}", e);
     }
 
-    std::thread::spawn(move || {
-        // Check every 5 minutes by default
-        loop {
-            std::thread::sleep(Duration::from_secs(60 * 5));
+    // Check every 5 minutes by default
+    loop {
+        tokio::time::sleep(Duration::from_secs(60 * 5)).await;
 
-            {
-                let rt = tokio::runtime::Handle::current();
-                let is_running = rt.block_on(running.lock());
-                if !*is_running {
-                    break;
-                }
-            }
-
-            if let Err(e) = scan_all_scope_folders(&app) {
-                eprintln!("Error during folder scan: {}", e);
+        {
+            let is_running = running.lock().await;
+            if !*is_running {
+                break;
             }
         }
-    });
+
+        if let Err(e) = scan_all_scope_folders(&app) {
+            eprintln!("Error during folder scan: {}", e);
+        }
+    }
 }
 
 /// Scan all scope folders that have a default_folder set

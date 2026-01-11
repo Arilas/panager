@@ -81,6 +81,9 @@ export function CommandPalette({
       open={open}
       onOpenChange={onOpenChange}
       label="Command Palette"
+      overlayClassName={
+        useLiquidGlass ? "!bg-transparent" : "bg-black/40 backdrop-blur-sm"
+      }
       className={cn(
         "fixed left-1/2 top-[15%] z-50 w-full max-w-[560px] -translate-x-1/2",
         "shadow-2xl overflow-hidden",
@@ -89,11 +92,18 @@ export function CommandPalette({
           : [
               "rounded-xl",
               "bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl",
-              "border border-black/10 dark:border-white/10"
+              "border border-black/10 dark:border-white/10",
             ]
       )}
     >
-      <div className="flex items-center px-4 border-b border-black/5 dark:border-white/5">
+      <div
+        className={cn(
+          "flex items-center px-4",
+          useLiquidGlass
+            ? "border-b border-white/10"
+            : "border-b border-black/5 dark:border-white/5"
+        )}
+      >
         <Search className="h-4 w-4 text-muted-foreground/50 shrink-0" />
         <Command.Input
           value={search}
@@ -110,7 +120,7 @@ export function CommandPalette({
       <Command.List
         className={cn(
           "max-h-[400px] overflow-y-auto",
-          "p-2",
+          useLiquidGlass ? "p-1" : "p-2",
           "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5",
           "[&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium",
           "[&_[cmdk-group-heading]]:text-muted-foreground/60 [&_[cmdk-group-heading]]:uppercase",
@@ -227,7 +237,14 @@ export function CommandPalette({
         )}
       </Command.List>
 
-      <div className="flex items-center justify-between px-4 py-2 border-t border-black/5 dark:border-white/5">
+      <div
+        className={cn(
+          "flex items-center justify-between px-4 py-2",
+          useLiquidGlass
+            ? "border-t border-white/10"
+            : "border-t border-black/5 dark:border-white/5"
+        )}
+      >
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground/50">
           <span>
             <kbd className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 font-mono">

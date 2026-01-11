@@ -33,6 +33,18 @@ pub fn enable_liquid_glass_for_window(window: &tauri::WebviewWindow) -> Result<(
         // Find the WKWebView in the view hierarchy
         let wk_webview = find_wkwebview(content_view)?;
 
+        // CRITICAL: Enable useSystemAppearance on WKWebView
+        // This is the key setting that enables -apple-visual-effect CSS property
+        // Without this, Liquid Glass CSS properties will not work
+        // Reference: https://www.mail-archive.com/webkit-changes@lists.webkit.org/msg224242.html
+        let sel = sel!(_setUseSystemAppearance:);
+        if responds_to_selector(wk_webview, sel) {
+            let _: () = msg_send![wk_webview, _setUseSystemAppearance: Bool::YES];
+            eprintln!("[Liquid Glass] Enabled _setUseSystemAppearance on WKWebView");
+        } else {
+            eprintln!("[Liquid Glass] WKWebView does not respond to _setUseSystemAppearance:");
+        }
+
         // Get the WKWebViewConfiguration
         let configuration: *mut AnyObject = msg_send![wk_webview, configuration];
         if configuration.is_null() {
@@ -45,29 +57,61 @@ pub fn enable_liquid_glass_for_window(window: &tauri::WebviewWindow) -> Result<(
             return Err("Failed to get WKPreferences".to_string());
         }
 
-        // Enable developer extras (required for some private APIs)
-        let _: () = msg_send![preferences, _setDeveloperExtrasEnabled: Bool::YES];
-
         // Enable WebKit experimental features for Liquid Glass
-        // These are private APIs that enable Apple's visual effect CSS properties
+        // All private API calls are guarded with respondsToSelector checks
+        // to avoid crashes on macOS versions that don't support them
+
+        // Also set useSystemAppearance on WKPreferences (belt and suspenders approach)
+        // Recent WebKit changes made this a unified preference that can be set on either
+        let sel = sel!(_setUseSystemAppearance:);
+        if responds_to_selector(preferences, sel) {
+            let _: () = msg_send![preferences, _setUseSystemAppearance: Bool::YES];
+            eprintln!("[Liquid Glass] Enabled _setUseSystemAppearance on WKPreferences");
+        } else {
+            eprintln!("[Liquid Glass] WKPreferences does not respond to _setUseSystemAppearance:");
+        }
+
+        // Enable developer extras (required for some private APIs)
+        let sel = sel!(_setDeveloperExtrasEnabled:);
+        if responds_to_selector(preferences, sel) {
+            let _: () = msg_send![preferences, _setDeveloperExtrasEnabled: Bool::YES];
+        }
 
         // Enable backdrop filter (for -webkit-backdrop-filter and -apple-backdrop-filter)
-        let _: () = msg_send![preferences, _setBackdropFilterEnabled: Bool::YES];
+        let sel = sel!(_setBackdropFilterEnabled:);
+        if responds_to_selector(preferences, sel) {
+            let _: () = msg_send![preferences, _setBackdropFilterEnabled: Bool::YES];
+        }
 
         // Enable color filter
-        let _: () = msg_send![preferences, _setColorFilterEnabled: Bool::YES];
+        let sel = sel!(_setColorFilterEnabled:);
+        if responds_to_selector(preferences, sel) {
+            let _: () = msg_send![preferences, _setColorFilterEnabled: Bool::YES];
+        }
 
         // Enable visual effects
-        let _: () = msg_send![preferences, _setVisualViewportEnabled: Bool::YES];
+        let sel = sel!(_setVisualViewportEnabled:);
+        if responds_to_selector(preferences, sel) {
+            let _: () = msg_send![preferences, _setVisualViewportEnabled: Bool::YES];
+        }
 
         // Enable GPU acceleration for effects
-        let _: () = msg_send![preferences, _setAcceleratedDrawingEnabled: Bool::YES];
+        let sel = sel!(_setAcceleratedDrawingEnabled:);
+        if responds_to_selector(preferences, sel) {
+            let _: () = msg_send![preferences, _setAcceleratedDrawingEnabled: Bool::YES];
+        }
 
         // Enable subpixel CSS animation
-        let _: () = msg_send![preferences, _setSubpixelCSSOMElementMetricsEnabled: Bool::YES];
+        let sel = sel!(_setSubpixelCSSOMElementMetricsEnabled:);
+        if responds_to_selector(preferences, sel) {
+            let _: () = msg_send![preferences, _setSubpixelCSSOMElementMetricsEnabled: Bool::YES];
+        }
 
         // Enable async frame scrolling (smooth scrolling with effects)
-        let _: () = msg_send![preferences, _setAsyncFrameScrollingEnabled: Bool::YES];
+        let sel = sel!(_setAsyncFrameScrollingEnabled:);
+        if responds_to_selector(preferences, sel) {
+            let _: () = msg_send![preferences, _setAsyncFrameScrollingEnabled: Bool::YES];
+        }
 
         // Try to enable Apple-specific visual effect APIs (macOS 26+ Liquid Glass)
         // These may not be available on all macOS versions

@@ -14,7 +14,6 @@ interface Settings {
   // Liquid Glass
   liquid_glass_enabled: boolean;
   liquid_glass_intensity: "subtle" | "medium" | "strong";
-  liquid_glass_scope_tint: boolean;
 }
 
 const defaultSettings: Settings = {
@@ -30,7 +29,6 @@ const defaultSettings: Settings = {
   // Liquid Glass - enabled by default
   liquid_glass_enabled: true,
   liquid_glass_intensity: "medium",
-  liquid_glass_scope_tint: true,
 };
 
 interface SettingsState {
@@ -87,9 +85,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         liquid_glass_intensity:
           (allSettings.liquid_glass_intensity as Settings["liquid_glass_intensity"]) ??
           defaultSettings.liquid_glass_intensity,
-        liquid_glass_scope_tint:
-          (allSettings.liquid_glass_scope_tint as boolean) ??
-          defaultSettings.liquid_glass_scope_tint,
       };
       set({ settings, loading: false });
 

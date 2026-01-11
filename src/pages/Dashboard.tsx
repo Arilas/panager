@@ -31,6 +31,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { cn } from "../lib/utils";
+import { Button } from "../components/ui/Button";
 import { useSettingsStore } from "../stores/settings";
 import type { ProjectWithStatus } from "../types";
 
@@ -58,7 +59,6 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const { rightPanelVisible, searchQuery } = useUIStore();
   const { settings } = useSettingsStore();
   const useLiquidGlass = settings.liquid_glass_enabled;
-  const useScopeTint = settings.liquid_glass_scope_tint;
   const [refreshing, setRefreshing] = useState(false);
   const [showTempProject, setShowTempProject] = useState(false);
   const [tagsProject, setTagsProject] = useState<ProjectWithStatus | null>(
@@ -74,7 +74,8 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const [showFolderWarnings, setShowFolderWarnings] = useState(false);
   const [showGitConfig, setShowGitConfig] = useState(false);
   const [showCloneRepo, setShowCloneRepo] = useState(false);
-  const [projectToDelete, setProjectToDelete] = useState<ProjectWithStatus | null>(null);
+  const [projectToDelete, setProjectToDelete] =
+    useState<ProjectWithStatus | null>(null);
   const [projectToMove, setProjectToMove] = useState<{
     project: ProjectWithStatus;
     targetScopeId: string;
@@ -390,18 +391,21 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
 
   if (!currentScopeId || !currentScope) {
     return (
-      <div className="flex-1 flex bg-vibrancy-sidebar overflow-hidden p-2 pt-0">
+      <div
+        className={cn(
+          "flex-1 flex overflow-hidden p-2 pt-0",
+          !useLiquidGlass && "bg-vibrancy-sidebar"
+        )}
+      >
         <div
           className={cn(
             "flex-1 flex items-center justify-center rounded-xl",
             useLiquidGlass
-              ? useScopeTint
-                ? "liquid-glass-scope"
-                : "liquid-glass"
+              ? "liquid-glass-scope"
               : [
                   "bg-white/60 dark:bg-neutral-900/60",
                   "backdrop-blur-xl",
-                  "border border-black/[0.08] dark:border-white/[0.08]"
+                  "border border-black/[0.08] dark:border-white/[0.08]",
                 ]
           )}
         >
@@ -424,17 +428,20 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
     : getDefaultEditor();
 
   return (
-    <div className="flex-1 flex bg-vibrancy-sidebar overflow-hidden p-2 pt-0">
+    <div
+      className={cn(
+        "flex-1 flex overflow-hidden p-2 pt-0",
+        !useLiquidGlass && "bg-vibrancy-sidebar"
+      )}
+    >
       {/* Main Content Island */}
       <div
         className={cn(
           "flex-1 flex flex-col min-w-0 relative overflow-hidden",
           useLiquidGlass
-            ? useScopeTint
-              ? "liquid-glass-scope rounded-xl"
-              : "liquid-glass rounded-xl"
+            ? "liquid-glass-scope rounded-xl"
             : [
-                "bg-white/60 dark:bg-neutral-900/60",
+                "bg-white/70 dark:bg-neutral-900/70",
                 "backdrop-blur-xl",
                 "rounded-xl",
                 "border border-black/[0.08] dark:border-white/[0.08]",
@@ -476,57 +483,40 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           </div>
 
           <div className="flex items-center gap-1.5 pr-1">
-            <button
+            <Button
+              variant="glass"
+              size="sm"
               onClick={handleRefreshAll}
               disabled={refreshing}
-              className={cn(
-                "px-2.5 py-1 rounded-md text-[12px] font-medium",
-                "bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15",
-                "text-foreground/70 transition-colors flex items-center gap-1.5",
-                refreshing && "opacity-50"
-              )}
             >
               <RefreshCw
-                className={cn("h-3 w-3", refreshing && "animate-spin")}
+                className={cn("h-3 w-3 mr-1.5", refreshing && "animate-spin")}
               />
               Refresh
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="glass-scope"
+              size="sm"
               onClick={() => setShowTempProject(true)}
-              className={cn(
-                "px-2.5 py-1 rounded-md text-[12px] font-medium",
-                "bg-amber-500 text-white hover:bg-amber-600",
-                "transition-colors flex items-center gap-1.5"
-              )}
             >
-              <Zap className="h-3 w-3" />
+              <Zap className="h-3 w-3 mr-1.5" />
               Temp
-            </button>
+            </Button>
             {currentScope?.scope.defaultFolder && (
-              <button
+              <Button
+                variant="glass"
+                size="sm"
                 onClick={() => setShowCloneRepo(true)}
-                className={cn(
-                  "px-2.5 py-1 rounded-md text-[12px] font-medium",
-                  "bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15",
-                  "text-foreground/70 transition-colors flex items-center gap-1.5"
-                )}
               >
-                <Download className="h-3 w-3" />
+                <Download className="h-3 w-3 mr-1.5" />
                 Clone
-              </button>
+              </Button>
             )}
             {!currentScope?.scope.defaultFolder && (
-              <button
-                onClick={handleAddProject}
-                className={cn(
-                  "px-2.5 py-1 rounded-md text-[12px] font-medium",
-                  "scope-accent scope-accent-text",
-                  "transition-colors flex items-center gap-1.5"
-                )}
-              >
-                <Plus className="h-3 w-3" />
+              <Button variant="scope" size="sm" onClick={handleAddProject}>
+                <Plus className="h-3 w-3 mr-1.5" />
                 Add
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -663,7 +653,9 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                     editors={editors}
                     scopes={scopes}
                     currentScopeId={currentScopeId}
-                    currentScopeHasDefaultFolder={!!currentScope?.scope.defaultFolder}
+                    currentScopeHasDefaultFolder={
+                      !!currentScope?.scope.defaultFolder
+                    }
                     onOpen={() =>
                       handleOpenProject(
                         project.project.id,
@@ -797,7 +789,8 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
         sourceScope={currentScope}
         targetScope={
           projectToMove
-            ? scopes.find((s) => s.scope.id === projectToMove.targetScopeId) ?? null
+            ? scopes.find((s) => s.scope.id === projectToMove.targetScopeId) ??
+              null
             : null
         }
         open={!!projectToMove}

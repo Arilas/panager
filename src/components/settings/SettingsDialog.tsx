@@ -1,11 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "../ui/Dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/Dialog";
+import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { cn } from "../../lib/utils";
 import { useSettingsStore } from "../../stores/settings";
@@ -43,6 +39,9 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+  const { settings } = useSettingsStore();
+  const useLiquidGlass = settings.liquid_glass_enabled;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] p-0">
@@ -54,7 +53,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           <Tabs.List
             className={cn(
               "flex flex-col w-[160px] shrink-0",
-              "border-r border-black/5 dark:border-white/5",
+              useLiquidGlass
+                ? "border-r border-white/10"
+                : "border-r border-black/5 dark:border-white/5",
               "p-2"
             )}
           >
@@ -114,12 +115,16 @@ function TabTrigger({
 function GeneralSettings() {
   const { settings, updateSetting } = useSettingsStore();
   const [tempPath, setTempPath] = useState(settings.temp_project_path);
-  const [cleanupCandidates, setCleanupCandidates] = useState<TempProjectInfo[]>([]);
+  const [cleanupCandidates, setCleanupCandidates] = useState<TempProjectInfo[]>(
+    []
+  );
   const [cleaningUp, setCleaningUp] = useState(false);
 
   const fetchCleanupCandidates = useCallback(async () => {
     try {
-      const candidates = await invoke<TempProjectInfo[]>("get_cleanup_candidates");
+      const candidates = await invoke<TempProjectInfo[]>(
+        "get_cleanup_candidates"
+      );
       setCleanupCandidates(candidates);
     } catch (error) {
       console.error("Failed to get cleanup candidates:", error);
@@ -208,10 +213,7 @@ function GeneralSettings() {
         </div>
       </Section>
 
-      <Section
-        title="Temp Projects"
-        icon={<FolderOpen className="h-4 w-4" />}
-      >
+      <Section title="Temp Projects" icon={<FolderOpen className="h-4 w-4" />}>
         <div className="space-y-3">
           <div>
             <label className="text-[12px] text-muted-foreground block mb-1.5">
@@ -231,7 +233,10 @@ function GeneralSettings() {
             <select
               value={settings.temp_project_cleanup_days}
               onChange={(e) =>
-                updateSetting("temp_project_cleanup_days", Number(e.target.value))
+                updateSetting(
+                  "temp_project_cleanup_days",
+                  Number(e.target.value)
+                )
               }
               className={cn(
                 "h-9 px-3 rounded-md text-[13px]",
@@ -256,30 +261,25 @@ function GeneralSettings() {
                   {cleanupCandidates.length > 0 ? (
                     <>
                       {cleanupCandidates.length} project
-                      {cleanupCandidates.length !== 1 ? "s" : ""} ready for cleanup
+                      {cleanupCandidates.length !== 1 ? "s" : ""} ready for
+                      cleanup
                     </>
                   ) : (
                     "No projects ready for cleanup"
                   )}
                 </p>
               </div>
-              <button
+              <Button
+                variant="destructive"
+                size="sm"
                 onClick={handleCleanupNow}
-                disabled={cleaningUp || cleanupCandidates.length === 0}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px]",
-                  "bg-red-500/10 text-red-600 dark:text-red-400",
-                  "hover:bg-red-500/20 transition-colors",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
-                )}
+                disabled={cleanupCandidates.length === 0}
+                loading={cleaningUp}
+                className="bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
               >
-                {cleaningUp ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5" />
-                )}
+                {!cleaningUp && <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
                 {cleaningUp ? "Cleaning..." : "Cleanup Now"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -300,7 +300,8 @@ function AppearanceSettings() {
           <span className="text-[13px] font-medium">Liquid Glass</span>
         </div>
         <p className="text-[12px] text-muted-foreground">
-          Apple's macOS-inspired translucent glass design with dynamic blur and light refraction effects.
+          Apple's macOS-inspired translucent glass design with dynamic blur and
+          light refraction effects.
         </p>
       </div>
 
@@ -344,16 +345,6 @@ function AppearanceSettings() {
         </div>
       </Section>
 
-      {/* Scope Tint Setting */}
-      <Section title="Scope Color Tint" icon={<Palette className="h-4 w-4" />}>
-        <ToggleRow
-          label="Tint with Scope Color"
-          description="Apply a subtle tint from your current scope's color to glass elements."
-          checked={settings.liquid_glass_scope_tint}
-          onChange={(checked) => updateSetting("liquid_glass_scope_tint", checked)}
-        />
-      </Section>
-
       {/* Live Demo */}
       <Section title="Preview" icon={<Eye className="h-4 w-4" />}>
         <div className="relative p-4 rounded-xl bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 overflow-hidden">
@@ -372,9 +363,7 @@ function AppearanceSettings() {
               className={cn(
                 "p-3 transition-all",
                 settings.liquid_glass_enabled
-                  ? settings.liquid_glass_scope_tint
-                    ? "liquid-glass-card-scope"
-                    : "liquid-glass-card"
+                  ? "liquid-glass-card-scope"
                   : "rounded-lg bg-white/60 dark:bg-neutral-900/60 border border-black/10 dark:border-white/10"
               )}
             >
@@ -383,7 +372,8 @@ function AppearanceSettings() {
                 <span className="text-[12px] font-medium">Glass Card</span>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                This card demonstrates the Liquid Glass effect with backdrop blur.
+                This card demonstrates the Liquid Glass effect with backdrop
+                blur.
               </p>
             </div>
 
@@ -404,7 +394,7 @@ function AppearanceSettings() {
                   "flex-1 px-3 py-2 text-[11px] font-medium transition-all rounded-lg",
                   settings.liquid_glass_enabled
                     ? "liquid-glass-button-scope"
-                    : "bg-primary text-primary-foreground"
+                    : "scope-solid text-primary-foreground"
                 )}
               >
                 Scope Tinted
@@ -444,7 +434,12 @@ function IntensityButton({
       )}
     >
       <span className="font-medium">{label}</span>
-      <span className={cn("text-[10px]", active ? "text-primary-foreground/70" : "text-muted-foreground")}>
+      <span
+        className={cn(
+          "text-[10px]",
+          active ? "text-primary-foreground/70" : "text-muted-foreground"
+        )}
+      >
         {description}
       </span>
     </button>
@@ -452,7 +447,8 @@ function IntensityButton({
 }
 
 function EditorsSettings() {
-  const { editors, syncEditors, deleteEditor, getDefaultEditor } = useEditorsStore();
+  const { editors, syncEditors, deleteEditor, getDefaultEditor } =
+    useEditorsStore();
   const { settings, updateSetting } = useSettingsStore();
   const [syncing, setSyncing] = useState(false);
 
@@ -560,18 +556,15 @@ function EditorsSettings() {
               </div>
             ))
           )}
-          <button
+          <Button
+            variant="secondary"
             onClick={handleSync}
-            disabled={syncing}
-            className={cn(
-              "w-full mt-2 py-2 rounded-md text-[13px]",
-              "bg-black/5 dark:bg-white/10",
-              "hover:bg-black/10 dark:hover:bg-white/15",
-              "disabled:opacity-50 transition-colors"
-            )}
+            loading={syncing}
+            className="w-full mt-2"
           >
+            {!syncing && <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
             {syncing ? "Scanning..." : "Rescan for Editors"}
-          </button>
+          </Button>
         </div>
       </Section>
     </div>
@@ -691,14 +684,12 @@ function MaxSettings() {
           <span className="text-[13px] font-medium">Max Features</span>
         </div>
         <p className="text-[12px] text-muted-foreground">
-          Enable advanced integrations for deeper git and SSH configuration management per scope.
+          Enable advanced integrations for deeper git and SSH configuration
+          management per scope.
         </p>
       </div>
 
-      <Section
-        title="Git Integration"
-        icon={<GitBranch className="h-4 w-4" />}
-      >
+      <Section title="Git Integration" icon={<GitBranch className="h-4 w-4" />}>
         <ToggleRow
           label="Deeper Git Integration"
           description="Read git config includeIf sections to detect identity per scope folder. Verify and fix repository configurations."

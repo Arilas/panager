@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { ProjectWithStatus, Editor, ScopeWithLinks } from "../../types";
 import { cn } from "../../lib/utils";
+import { Button } from "../ui/Button";
 import { useSettingsStore } from "../../stores/settings";
 import {
   DropdownMenu,
@@ -68,7 +69,6 @@ export function ProjectCard({
   const otherScopes = scopes.filter((s) => s.scope.id !== currentScopeId);
   const { settings } = useSettingsStore();
   const useLiquidGlass = settings.liquid_glass_enabled;
-  const useScopeTint = settings.liquid_glass_scope_tint;
 
   const hasChanges = gitStatus?.hasUncommitted || gitStatus?.hasUntracked;
   const needsPull = (gitStatus?.behind ?? 0) > 0;
@@ -79,9 +79,7 @@ export function ProjectCard({
       className={cn(
         "group p-3 transition-all cursor-pointer",
         useLiquidGlass
-          ? useScopeTint
-            ? "liquid-glass-card-scope"
-            : "liquid-glass-card"
+          ? "liquid-glass-card-scope"
           : [
               "rounded-lg",
               "bg-white/60 dark:bg-white/5",
@@ -280,64 +278,59 @@ export function ProjectCard({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onOpen}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-1 py-1 rounded text-[11px] font-medium",
-            "bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-          )}
+          className="flex-1 bg-primary/10 text-primary hover:bg-primary/20 text-[11px]"
         >
-          <ExternalLink className="h-3 w-3" />
+          <ExternalLink className="h-3 w-3 mr-1" />
           {editor ? editor.name : "Open"}
-        </button>
+        </Button>
 
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onRefreshGit}
-          className={cn(
-            "p-1 rounded transition-colors",
-            "hover:bg-black/5 dark:hover:bg-white/10"
-          )}
+          className="h-7 w-7"
           title="Refresh"
         >
           <RefreshCw className="h-3 w-3 text-muted-foreground" />
-        </button>
+        </Button>
 
         {needsPull && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onPull}
-            className={cn(
-              "p-1 rounded transition-colors",
-              "hover:bg-orange-500/10 text-orange-500"
-            )}
+            className="h-7 w-7 hover:bg-orange-500/10 text-orange-500"
             title="Pull"
           >
             <ArrowDown className="h-3 w-3" />
-          </button>
+          </Button>
         )}
 
         {needsPush && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onPush}
-            className={cn(
-              "p-1 rounded transition-colors",
-              "hover:bg-blue-500/10 text-blue-500"
-            )}
+            className="h-7 w-7 hover:bg-blue-500/10 text-blue-500"
             title="Push"
           >
             <ArrowUp className="h-3 w-3" />
-          </button>
+          </Button>
         )}
 
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onDelete}
-          className={cn(
-            "p-1 rounded transition-colors",
-            "hover:bg-red-500/10 text-red-500/70 hover:text-red-500"
-          )}
+          className="h-7 w-7 hover:bg-red-500/10 text-red-500/70 hover:text-red-500"
           title="Remove"
         >
           <Trash2 className="h-3 w-3" />
-        </button>
+        </Button>
       </div>
     </div>
   );
