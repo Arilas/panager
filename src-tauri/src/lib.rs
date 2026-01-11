@@ -49,11 +49,6 @@ pub fn run() {
                 if let Some(window) = app.get_webview_window("main") {
                     apply_vibrancy(&window, NSVisualEffectMaterial::Sidebar, None, None)
                         .expect("Failed to apply vibrancy");
-
-                    // Enable Liquid Glass CSS properties
-                    if let Err(e) = commands::liquid_glass::enable_liquid_glass_for_window(&window) {
-                        eprintln!("Warning: Failed to enable Liquid Glass: {}", e);
-                    }
                 }
             }
 
