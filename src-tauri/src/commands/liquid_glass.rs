@@ -4,15 +4,9 @@
 //! `-apple-*` CSS properties used for Liquid Glass design effects.
 
 #[cfg(target_os = "macos")]
-use objc2::rc::Retained;
-#[cfg(target_os = "macos")]
 use objc2::runtime::{AnyObject, Bool, Sel};
 #[cfg(target_os = "macos")]
 use objc2::{sel, msg_send, class};
-#[cfg(target_os = "macos")]
-use objc2_app_kit::NSWindow;
-#[cfg(target_os = "macos")]
-use objc2_foundation::NSString;
 
 /// Enables Liquid Glass CSS properties on the WebView
 ///
@@ -23,9 +17,8 @@ use objc2_foundation::NSString;
 /// - Other Apple-specific CSS properties for glass effects
 #[cfg(target_os = "macos")]
 pub fn enable_liquid_glass_for_window(window: &tauri::WebviewWindow) -> Result<(), String> {
-    use tauri::WebviewWindowExt;
-
     // Get the NSWindow from the Tauri window
+    // In Tauri 2.x, ns_window() is directly on WebviewWindow
     let ns_window = window.ns_window().map_err(|e| format!("Failed to get NSWindow: {:?}", e))?;
 
     unsafe {

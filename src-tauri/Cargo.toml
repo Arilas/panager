@@ -36,9 +36,6 @@ gix-config = "0.50"
 # macOS Liquid Glass support
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSObject", "NSString", "NSDictionary", "NSValue"] }
-objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSView", "NSResponder"] }
-objc2-web-kit = { version = "0.3", features = ["WKWebView", "WKWebViewConfiguration", "WKPreferences"] }
 ssh2-config = "0.6"
 home = "0.5"
 regex = "1"
