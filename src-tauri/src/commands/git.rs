@@ -1,6 +1,6 @@
 use crate::db::models::{GitStatusCache, ScopeGitConfig};
 use crate::db::Database;
-use crate::services::git_url::{build_ssh_url_with_alias, parse_git_url};
+use crate::git::url::{build_ssh_url_with_alias, parse_git_url};
 use chrono::Utc;
 use git2::{Repository, StatusOptions};
 use serde::{Deserialize, Serialize};
@@ -8,9 +8,10 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use tauri::{AppHandle, Emitter, State};
+use tracing::instrument;
 use uuid::Uuid;
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, specta::Type)]
 pub struct GitStatus {
     pub branch: Option<String>,
     pub ahead: i32,
@@ -21,6 +22,7 @@ pub struct GitStatus {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_git_status(project_path: String) -> Result<GitStatus, String> {
     let path = Path::new(&project_path);
     let repo = Repository::open(path).map_err(|e| e.to_string())?;
@@ -41,6 +43,7 @@ pub fn get_git_status(project_path: String) -> Result<GitStatus, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn refresh_git_status(db: State<Database>, project_id: String, project_path: String) -> Result<GitStatusCache, String> {
     let status = get_git_status(project_path)?;
     let now = Utc::now();
@@ -79,6 +82,8 @@ pub fn refresh_git_status(db: State<Database>, project_id: String, project_path:
 }
 
 #[tauri::command]
+#[specta::specta]
+#[instrument(level = "info")]
 pub fn git_pull(project_path: String) -> Result<String, String> {
     let output = Command::new("git")
         .args(["pull"])
@@ -94,6 +99,8 @@ pub fn git_pull(project_path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
+#[instrument(level = "info")]
 pub fn git_push(project_path: String) -> Result<String, String> {
     let output = Command::new("git")
         .args(["push"])
@@ -194,6 +201,7 @@ pub struct CloneResult {
 
 /// Check if a folder exists in a scope's default folder
 #[tauri::command]
+#[specta::specta]
 pub fn check_folder_exists(
     db: State<'_, Database>,
     scope_id: String,
@@ -217,6 +225,8 @@ pub fn check_folder_exists(
 
 /// Clone a git repository to a scope's default folder
 #[tauri::command]
+#[specta::specta]
+#[instrument(skip(app, db), level = "info")]
 pub async fn clone_repository(
     app: AppHandle,
     db: State<'_, Database>,
@@ -437,7 +447,7 @@ fn extract_percentage(line: &str) -> Option<u8> {
 /// Get known SSH aliases from config
 fn get_known_ssh_aliases() -> Vec<String> {
     // Read from ~/.ssh/config
-    match crate::services::ssh_config::read_ssh_aliases() {
+    match crate::ssh::config::read_ssh_aliases() {
         Ok(aliases) => aliases.into_iter().map(|a| a.host).collect(),
         Err(_) => vec![],
     }

@@ -54,8 +54,9 @@ export function NewScopeDialog({ open, onOpenChange }: NewScopeDialogProps) {
       await createScope({
         name: name.trim(),
         color,
-        defaultFolder: defaultFolder || undefined,
-        sshAlias: sshAlias || undefined,
+        icon: null,
+        defaultFolder: defaultFolder || null,
+        sshAlias: sshAlias || null,
       });
       setName("");
       setColor(SCOPE_COLORS[0].value);

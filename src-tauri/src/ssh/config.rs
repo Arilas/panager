@@ -1,3 +1,8 @@
+//! SSH configuration management
+//!
+//! This module handles reading and writing SSH configuration files,
+//! particularly the ~/.ssh/config file for managing SSH aliases.
+
 use crate::db::models::{CreateSshAliasRequest, SshAlias};
 use crate::db::Database;
 use ssh2_config::{ParseRule, SshConfig};
@@ -7,6 +12,7 @@ use tauri::State;
 
 /// Read all SSH host aliases from ~/.ssh/config
 #[tauri::command]
+#[specta::specta]
 pub fn read_ssh_aliases() -> Result<Vec<SshAlias>, String> {
     let home = home::home_dir().ok_or("Could not find home directory")?;
     let ssh_config_path = home.join(".ssh").join("config");
@@ -66,6 +72,7 @@ fn parse_ssh_hosts(content: &str) -> Vec<String> {
 
 /// Get details for a specific SSH alias
 #[tauri::command]
+#[specta::specta]
 pub fn get_ssh_alias_details(host: String) -> Result<Option<SshAlias>, String> {
     let aliases = read_ssh_aliases()?;
     Ok(aliases.into_iter().find(|a| a.host == host))
@@ -79,6 +86,7 @@ pub fn get_ssh_alias_details(host: String) -> Result<Option<SshAlias>, String> {
 ///    managers like 1Password that inject keys. We save the public key for reference but
 ///    don't add IdentityFile to SSH config.
 #[tauri::command]
+#[specta::specta]
 pub fn create_ssh_alias(request: CreateSshAliasRequest) -> Result<SshAlias, String> {
     let home = home::home_dir().ok_or("Could not find home directory")?;
     let ssh_dir = home.join(".ssh");
@@ -96,8 +104,8 @@ pub fn create_ssh_alias(request: CreateSshAliasRequest) -> Result<SshAlias, Stri
     }
 
     // Determine if we're using private key mode or public key only mode
-    let has_identity_file = request.identity_file.as_ref().map_or(false, |f| !f.is_empty());
-    let has_public_key = request.public_key.as_ref().map_or(false, |k| !k.is_empty());
+    let has_identity_file = request.identity_file.as_ref().is_some_and(|f: &String| !f.is_empty());
+    let has_public_key = request.public_key.as_ref().is_some_and(|k: &String| !k.is_empty());
 
     // Save public key for reference if provided (useful for copying to services)
     if has_public_key {
@@ -157,6 +165,7 @@ pub fn create_ssh_alias(request: CreateSshAliasRequest) -> Result<SshAlias, Stri
 
 /// Verify a project's remote URL uses the expected SSH alias
 #[tauri::command]
+#[specta::specta]
 pub fn verify_project_ssh_remote(
     db: State<Database>,
     project_id: String,
@@ -238,6 +247,7 @@ fn get_remote_url(project_path: &str) -> Result<Option<String>, String> {
 
 /// Fix a project's remote URL to use the scope's SSH alias
 #[tauri::command]
+#[specta::specta]
 pub fn fix_project_ssh_remote(
     db: State<Database>,
     project_id: String,
@@ -286,10 +296,10 @@ pub fn fix_project_ssh_remote(
 /// Replace the SSH host in a git URL
 fn replace_ssh_host_in_url(url: &str, new_host: &str) -> Result<String, String> {
     // Handle SSH URL format: git@host:user/repo.git
-    if url.starts_with("git@") {
-        // Parse: git@host:path
-        if let Some(colon_pos) = url[4..].find(':') {
-            let path = &url[4 + colon_pos..];
+    if let Some(stripped) = url.strip_prefix("git@") {
+        // Parse: host:path
+        if let Some(colon_pos) = stripped.find(':') {
+            let path = &stripped[colon_pos..];
             return Ok(format!("git@{}{}", new_host, path));
         }
     }

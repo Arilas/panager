@@ -1,6 +1,13 @@
 pub mod migrations;
 pub mod models;
+pub mod queries;
+pub mod repository;
 pub mod schema;
+
+// Re-export for convenience
+pub use models::*;
+pub use queries::*;
+pub use repository::*;
 
 use directories::ProjectDirs;
 use rusqlite::Connection;
@@ -64,4 +71,27 @@ fn get_database_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
 
     let data_dir = proj_dirs.data_dir();
     Ok(data_dir.join("panager.db"))
+}
+
+/// Create an in-memory database for testing
+///
+/// This creates a fully initialized database with schema and migrations
+/// applied, useful for unit tests.
+#[cfg(test)]
+pub fn create_test_database() -> Database {
+    let conn = Connection::open_in_memory().expect("Failed to create in-memory database");
+
+    // Enable foreign keys
+    conn.execute_batch("PRAGMA foreign_keys = ON;")
+        .expect("Failed to enable foreign keys");
+
+    // Initialize schema
+    schema::init_database(&conn).expect("Failed to initialize schema");
+
+    // Run migrations
+    migrations::run_migrations(&conn).expect("Failed to run migrations");
+
+    Database {
+        conn: Mutex::new(conn),
+    }
 }

@@ -8,7 +8,7 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ParsedGitUrl {
     /// The protocol used (ssh, http, https)
@@ -33,6 +33,7 @@ pub struct ParsedGitUrl {
 
 /// Parse a git URL into its components
 #[tauri::command]
+#[specta::specta]
 pub fn parse_git_url(url: &str, known_aliases: Vec<String>) -> Result<ParsedGitUrl, String> {
     let url = url.trim();
 
@@ -173,27 +174,6 @@ pub fn build_ssh_url_with_alias(parsed: &ParsedGitUrl, alias: &str) -> String {
     }
 }
 
-/// Check if an HTTP URL has embedded credentials
-pub fn has_http_credentials(url: &str) -> bool {
-    if !url.starts_with("http://") && !url.starts_with("https://") {
-        return false;
-    }
-
-    // Look for @ before the first /
-    let after_protocol = if url.starts_with("https://") {
-        &url[8..]
-    } else {
-        &url[7..]
-    };
-
-    if let Some(slash_pos) = after_protocol.find('/') {
-        let host_part = &after_protocol[..slash_pos];
-        host_part.contains('@')
-    } else {
-        false
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,13 +268,5 @@ mod tests {
 
         let result = build_ssh_url_with_alias(&parsed, "github-work");
         assert_eq!(result, "ssh://git@github-work:2222/anthropics/claude.git");
-    }
-
-    #[test]
-    fn test_has_http_credentials() {
-        assert!(has_http_credentials("https://user:pass@github.com/owner/repo"));
-        assert!(has_http_credentials("https://user@github.com/owner/repo"));
-        assert!(!has_http_credentials("https://github.com/owner/repo"));
-        assert!(!has_http_credentials("git@github.com:owner/repo"));
     }
 }

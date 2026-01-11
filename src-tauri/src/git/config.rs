@@ -1,3 +1,8 @@
+//! Git configuration management
+//!
+//! This module handles reading and writing git configuration files,
+//! including ~/.gitconfig includeIf sections and scope-specific configs.
+
 use crate::db::models::{GitIncludeIf, ScopeGitConfig};
 use crate::db::Database;
 use chrono::Utc;
@@ -9,6 +14,7 @@ use tauri::State;
 
 /// Read all includeIf sections from ~/.gitconfig
 #[tauri::command]
+#[specta::specta]
 pub fn read_git_include_ifs() -> Result<Vec<GitIncludeIf>, String> {
     let home = home::home_dir().ok_or("Could not find home directory")?;
     let gitconfig_path = home.join(".gitconfig");
@@ -75,6 +81,7 @@ fn parse_include_ifs(content: &str) -> Result<Vec<GitIncludeIf>, String> {
 
 /// Get git identity for a scope based on its default folder
 #[tauri::command]
+#[specta::specta]
 pub fn get_scope_git_identity(
     db: State<Database>,
     scope_id: String,
@@ -217,9 +224,12 @@ pub fn get_scope_git_identity(
     Ok(None)
 }
 
+/// Git identity information read from a config file
+pub type GitIdentityInfo = (Option<String>, Option<String>, bool, Option<String>);
+
 /// Read git identity from a config file
 /// Returns (name, email, gpg_sign, signing_key)
-fn read_git_identity_from_file(path: &str) -> Result<(Option<String>, Option<String>, bool, Option<String>), String> {
+pub fn read_git_identity_from_file(path: &str) -> Result<GitIdentityInfo, String> {
     let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
 
     let mut name = None;
@@ -265,10 +275,10 @@ fn read_git_identity_from_file(path: &str) -> Result<(Option<String>, Option<Str
 }
 
 /// Expand ~ in paths
-fn expand_path(path: &str) -> String {
-    if path.starts_with("~/") {
+pub fn expand_path(path: &str) -> String {
+    if let Some(stripped) = path.strip_prefix("~/") {
         if let Some(home) = home::home_dir() {
-            return home.join(&path[2..]).to_string_lossy().to_string();
+            return home.join(stripped).to_string_lossy().to_string();
         }
     }
     path.to_string()
@@ -276,6 +286,7 @@ fn expand_path(path: &str) -> String {
 
 /// Verify a project's git config matches the scope's expected config
 #[tauri::command]
+#[specta::specta]
 pub fn verify_project_git_config(
     db: State<Database>,
     project_id: String,
@@ -379,6 +390,7 @@ pub struct ConfigMismatch {
 
 /// Fix a project's git config to match the scope's expected config
 #[tauri::command]
+#[specta::specta]
 pub fn fix_project_git_config(
     db: State<Database>,
     project_id: String,
@@ -411,6 +423,7 @@ pub fn fix_project_git_config(
 
 /// Create a new includeIf section in ~/.gitconfig for a scope
 #[tauri::command]
+#[specta::specta]
 pub fn create_git_include_if(scope_folder: String, config_path: String) -> Result<(), String> {
     let home = home::home_dir().ok_or("Could not find home directory")?;
     let gitconfig_path = home.join(".gitconfig");
@@ -448,6 +461,7 @@ pub fn create_git_include_if(scope_folder: String, config_path: String) -> Resul
 /// 2. "manual" - User provides a signing key ID (for GPG keys stored on disk)
 /// 3. "password_manager" - User provides raw gitconfig content (for password managers like 1Password)
 #[tauri::command]
+#[specta::specta]
 pub fn create_scope_git_config_file(
     db: State<Database>,
     scope_id: String,
@@ -494,9 +508,9 @@ pub fn create_scope_git_config_file(
             // Append raw config from password manager (1Password, etc.)
             if let Some(ref raw) = raw_gpg_config {
                 if !raw.is_empty() {
-                    content.push_str("\n");
+                    content.push('\n');
                     content.push_str(raw);
-                    content.push_str("\n");
+                    content.push('\n');
                 }
             }
             true
@@ -553,6 +567,7 @@ pub fn create_scope_git_config_file(
 
 /// Refresh/update the git identity cache for a scope
 #[tauri::command]
+#[specta::specta]
 pub fn refresh_scope_git_identity(db: State<Database>, scope_id: String) -> Result<(), String> {
     // Clear the cache
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
@@ -573,6 +588,7 @@ pub fn refresh_scope_git_identity(db: State<Database>, scope_id: String) -> Resu
 /// Discover git config for a scope when its defaultFolder is set/changed
 /// This should be called after updating a scope's defaultFolder
 #[tauri::command]
+#[specta::specta]
 pub fn discover_scope_git_config(db: State<Database>, scope_id: String) -> Result<Option<ScopeGitConfig>, String> {
     // Clear any existing cache for this scope first
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
@@ -605,6 +621,7 @@ pub fn validate_git_config_caches(db: &Database) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
 
+    #[allow(clippy::type_complexity)]
     let configs: Vec<(String, Option<String>, Option<String>, bool, String)> = stmt
         .query_map([], |row| {
             Ok((

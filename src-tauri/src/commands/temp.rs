@@ -9,6 +9,7 @@ use uuid::Uuid;
 use chrono::Utc;
 
 use crate::db::Database;
+use crate::git::identity::get_scope_git_identity_tuple;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -72,15 +73,6 @@ fn get_scope_temp_settings(db: &Database, scope_id: &str) -> Option<serde_json::
     settings.and_then(|s| serde_json::from_str(&s).ok())
 }
 
-fn get_scope_git_identity(db: &Database, scope_id: &str) -> Option<(String, String)> {
-    let conn = db.conn.lock().ok()?;
-    let result: Result<(String, String), _> = conn.query_row(
-        "SELECT user_name, user_email FROM scope_git_config WHERE scope_id = ?1",
-        [scope_id],
-        |row| Ok((row.get(0)?, row.get(1)?)),
-    );
-    result.ok()
-}
 
 #[tauri::command]
 pub async fn create_temp_project(
@@ -232,7 +224,7 @@ pub async fn create_temp_project(
         }
 
         // Apply scope's git identity using git config commands
-        if let Some((user_name, user_email)) = get_scope_git_identity(&db, &request.scope_id) {
+        if let Some((user_name, user_email)) = get_scope_git_identity_tuple(&db, &request.scope_id) {
             // Set user.name
             let name_result = Command::new("git")
                 .args(["config", "user.name", &user_name])

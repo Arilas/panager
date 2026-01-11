@@ -21,6 +21,7 @@ import type {
   TempProjectRequest,
   TempProjectProgress,
   TempProjectOptions,
+  JsonValue,
 } from "../../types";
 import { Package, Check, X, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
 
@@ -70,7 +71,7 @@ export function TempProjectDialog({
 
   const [name, setName] = useState("");
   const [packageManager, setPackageManager] = useState<PackageManager>(
-    tempSettings?.preferredPackageManager ?? "npm"
+    (tempSettings?.preferredPackageManager as PackageManager) ?? "npm"
   );
   const [template, setTemplate] = useState("vite-react-ts");
   const [status, setStatus] = useState<CreationStatus>("idle");
@@ -90,7 +91,7 @@ export function TempProjectDialog({
   useEffect(() => {
     if (open) {
       setName("");
-      setPackageManager(tempSettings?.preferredPackageManager ?? "npm");
+      setPackageManager((tempSettings?.preferredPackageManager as PackageManager) ?? "npm");
       setTemplate("vite-react-ts");
       setStatus("idle");
       setError(null);
@@ -156,7 +157,7 @@ export function TempProjectDialog({
         name: name.trim(),
         packageManager,
         template,
-        options: Object.keys(options).length > 0 ? options : undefined,
+        options: Object.keys(options).length > 0 ? (options as unknown as JsonValue) : null,
       };
 
       const result = await createTempProject(request);

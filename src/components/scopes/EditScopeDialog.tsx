@@ -82,7 +82,7 @@ export function EditScopeDialog({
       const tempSettings = scope.scope.tempProjectSettings;
       setTempCleanupDays(tempSettings?.cleanupDays ?? 7);
       setTempSetupGitIdentity(tempSettings?.setupGitIdentity ?? false);
-      setTempPackageManager(tempSettings?.preferredPackageManager ?? "npm");
+      setTempPackageManager((tempSettings?.preferredPackageManager as PackageManager) ?? "npm");
     }
   }, [scope]);
 

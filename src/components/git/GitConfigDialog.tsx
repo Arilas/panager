@@ -42,7 +42,7 @@ export function GitConfigDialog({
     if (open && existingConfig) {
       setUserName(existingConfig.userName || "");
       setUserEmail(existingConfig.userEmail || "");
-      setSigningMethod(existingConfig.gpgSigningMethod || (existingConfig.gpgSign ? "manual" : "none"));
+      setSigningMethod((existingConfig.gpgSigningMethod as GpgSigningMethod) || (existingConfig.gpgSign ? "manual" : "none"));
       setSigningKey(existingConfig.signingKey || "");
       setRawGpgConfig(existingConfig.rawGpgConfig || "");
     }

@@ -99,6 +99,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
             scopeId: currentScopeId,
             name,
             path,
+            isTemp: null,
           });
         } catch (e) {
           console.log("Skipping (may already exist):", path, e);
@@ -295,6 +296,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
               scopeId: currentScopeId,
               name,
               path: repoPath,
+              isTemp: null,
             });
             addedCount++;
           } catch (e) {

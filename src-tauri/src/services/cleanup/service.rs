@@ -1,23 +1,12 @@
+//! Background cleanup service implementation
+
 use crate::db::Database;
 use std::fs;
-use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
-use tokio::sync::Mutex;
 use tokio::time::interval;
 
-/// State to track if cleanup service is running
-pub struct CleanupServiceState {
-    pub running: Arc<Mutex<bool>>,
-}
-
-impl Default for CleanupServiceState {
-    fn default() -> Self {
-        Self {
-            running: Arc::new(Mutex::new(false)),
-        }
-    }
-}
+use super::CleanupServiceState;
 
 /// Start the cleanup service that periodically removes old temp projects
 pub async fn start_cleanup_service(app_handle: AppHandle) {
@@ -53,17 +42,10 @@ pub async fn start_cleanup_service(app_handle: AppHandle) {
 
             // Run cleanup
             if let Err(e) = cleanup_temp_projects(&app).await {
-                eprintln!("Error during temp project cleanup: {}", e);
+                tracing::error!("Error during temp project cleanup: {}", e);
             }
         }
     });
-}
-
-/// Stop the cleanup service
-pub async fn stop_cleanup_service(app_handle: &AppHandle) {
-    let state = app_handle.state::<CleanupServiceState>();
-    let mut running = state.running.lock().await;
-    *running = false;
 }
 
 /// Clean up temp projects that haven't been accessed in the configured period
@@ -123,7 +105,7 @@ async fn cleanup_temp_projects(app: &AppHandle) -> Result<(), String> {
     for (id, path) in projects {
         // Delete from filesystem
         if let Err(e) = fs::remove_dir_all(&path) {
-            eprintln!("Failed to remove temp project directory {}: {}", path, e);
+            tracing::warn!("Failed to remove temp project directory {}: {}", path, e);
             // Continue anyway to remove from database
         }
 
@@ -142,7 +124,7 @@ async fn cleanup_temp_projects(app: &AppHandle) -> Result<(), String> {
         conn.execute("DELETE FROM projects WHERE id = ?1", [&id])
             .map_err(|e| e.to_string())?;
 
-        println!("Cleaned up temp project: {}", path);
+        tracing::info!("Cleaned up temp project: {}", path);
     }
 
     Ok(())
@@ -150,6 +132,7 @@ async fn cleanup_temp_projects(app: &AppHandle) -> Result<(), String> {
 
 /// Manually trigger cleanup (exposed as a command)
 #[tauri::command]
+#[specta::specta]
 pub async fn cleanup_temp_projects_now(app_handle: AppHandle) -> Result<u32, String> {
     let db = app_handle.state::<Database>();
 
@@ -179,9 +162,7 @@ pub async fn cleanup_temp_projects_now(app_handle: AppHandle) -> Result<u32, Str
         .map_err(|e| e.to_string())?;
 
     let projects: Vec<(String, String)> = stmt
-        .query_map([&cutoff_str], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        })
+        .query_map([&cutoff_str], |row| Ok((row.get(0)?, row.get(1)?)))
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
@@ -195,7 +176,7 @@ pub async fn cleanup_temp_projects_now(app_handle: AppHandle) -> Result<u32, Str
     for (id, path) in projects {
         // Delete from filesystem
         if let Err(e) = fs::remove_dir_all(&path) {
-            eprintln!("Failed to remove temp project directory {}: {}", path, e);
+            tracing::warn!("Failed to remove temp project directory {}: {}", path, e);
         }
 
         // Delete from database
@@ -213,6 +194,7 @@ pub async fn cleanup_temp_projects_now(app_handle: AppHandle) -> Result<u32, Str
 
 /// Get list of temp projects that would be cleaned up
 #[tauri::command]
+#[specta::specta]
 pub fn get_cleanup_candidates(app_handle: AppHandle) -> Result<Vec<TempProjectInfo>, String> {
     let db = app_handle.state::<Database>();
 
@@ -256,7 +238,7 @@ pub fn get_cleanup_candidates(app_handle: AppHandle) -> Result<Vec<TempProjectIn
     Ok(projects)
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, specta::Type)]
 pub struct TempProjectInfo {
     pub id: String,
     pub name: String,

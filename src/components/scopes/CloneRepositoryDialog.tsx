@@ -198,8 +198,8 @@ export function CloneRepositoryDialog({
 
     try {
       const options: CloneOptions = {
-        useSshAlias: useSshAlias && scope.scope.sshAlias ? scope.scope.sshAlias : undefined,
-        branch: branch.trim() || undefined,
+        useSshAlias: useSshAlias && scope.scope.sshAlias ? scope.scope.sshAlias : null,
+        branch: branch.trim() || null,
         shallow,
       };
 

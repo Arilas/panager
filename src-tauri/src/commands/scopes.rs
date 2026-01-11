@@ -2,9 +2,12 @@ use crate::db::models::{CreateScopeRequest, Scope, ScopeLink, ScopeWithLinks, Cr
 use crate::db::Database;
 use chrono::Utc;
 use tauri::State;
+use tracing::instrument;
 use uuid::Uuid;
 
 #[tauri::command]
+#[specta::specta]
+#[instrument(skip(db), level = "debug")]
 pub fn get_scopes(db: State<Database>) -> Result<Vec<ScopeWithLinks>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -62,6 +65,8 @@ pub fn get_scopes(db: State<Database>) -> Result<Vec<ScopeWithLinks>, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
+#[instrument(skip(db), level = "info")]
 pub fn create_scope(db: State<Database>, request: CreateScopeRequest) -> Result<Scope, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -112,6 +117,8 @@ pub fn create_scope(db: State<Database>, request: CreateScopeRequest) -> Result<
 }
 
 #[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub fn update_scope(
     db: State<Database>,
     id: String,
@@ -188,16 +195,17 @@ pub fn update_scope(
 }
 
 #[tauri::command]
+#[specta::specta]
+#[instrument(skip(db), level = "info")]
 pub fn delete_scope(db: State<Database>, id: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
-    conn.execute("DELETE FROM scopes WHERE id = ?1", [&id])
-        .map_err(|e| e.to_string())?;
-
-    Ok(())
+    crate::db::repository::scope_repo::delete_scope_cascade(&conn, &id)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn reorder_scopes(db: State<Database>, scope_ids: Vec<String>) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -214,6 +222,7 @@ pub fn reorder_scopes(db: State<Database>, scope_ids: Vec<String>) -> Result<(),
 
 // Scope Links
 #[tauri::command]
+#[specta::specta]
 pub fn create_scope_link(
     db: State<Database>,
     request: CreateScopeLinkRequest,
@@ -260,6 +269,7 @@ pub fn create_scope_link(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_scope_link(db: State<Database>, id: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 

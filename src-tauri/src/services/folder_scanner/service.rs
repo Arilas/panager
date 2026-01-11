@@ -1,27 +1,16 @@
+//! Background folder scanner service implementation
+
 use crate::db::models::IgnoredFolderWarning;
 use crate::db::Database;
 use chrono::Utc;
 use std::collections::HashSet;
 use std::path::Path;
-use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State};
-use tokio::sync::Mutex;
 use uuid::Uuid;
 use walkdir::WalkDir;
 
-/// State to track if folder scan service is running
-pub struct FolderScanServiceState {
-    pub running: Arc<Mutex<bool>>,
-}
-
-impl Default for FolderScanServiceState {
-    fn default() -> Self {
-        Self {
-            running: Arc::new(Mutex::new(false)),
-        }
-    }
-}
+use super::FolderScanServiceState;
 
 /// Start the folder scan service that periodically scans scope folders
 pub async fn start_folder_scan_service(app_handle: AppHandle) {
@@ -44,7 +33,7 @@ pub async fn start_folder_scan_service(app_handle: AppHandle) {
 
     // Run initial scan on startup
     if let Err(e) = scan_all_scope_folders(&app) {
-        eprintln!("Error during initial folder scan: {}", e);
+        tracing::error!("Error during initial folder scan: {}", e);
     }
 
     // Check every 5 minutes by default
@@ -59,7 +48,7 @@ pub async fn start_folder_scan_service(app_handle: AppHandle) {
         }
 
         if let Err(e) = scan_all_scope_folders(&app) {
-            eprintln!("Error during folder scan: {}", e);
+            tracing::error!("Error during folder scan: {}", e);
         }
     }
 }
@@ -91,7 +80,7 @@ fn scan_all_scope_folders(app: &AppHandle) -> Result<(), String> {
 
     for (scope_id, folder) in scopes {
         if let Err(e) = scan_and_add_repos(app, &scope_id, &folder) {
-            eprintln!("Error scanning folder {}: {}", folder, e);
+            tracing::warn!("Error scanning folder {}: {}", folder, e);
         }
     }
 
@@ -99,11 +88,7 @@ fn scan_all_scope_folders(app: &AppHandle) -> Result<(), String> {
 }
 
 /// Scan a folder for git repos and auto-add them to the scope
-fn scan_and_add_repos(
-    app: &AppHandle,
-    scope_id: &str,
-    folder: &str,
-) -> Result<Vec<String>, String> {
+fn scan_and_add_repos(app: &AppHandle, scope_id: &str, folder: &str) -> Result<Vec<String>, String> {
     let db = app.state::<Database>();
 
     // Get existing project paths in this scope
@@ -186,6 +171,7 @@ fn scan_folder_for_git_repos(folder: &str) -> Result<Vec<String>, String> {
 
 /// Check which projects are outside their scope's default folder
 #[tauri::command]
+#[specta::specta]
 pub fn get_projects_outside_folder(
     db: State<Database>,
     scope_id: String,
@@ -264,6 +250,7 @@ pub struct ProjectFolderWarning {
 
 /// Ignore a folder warning for a project
 #[tauri::command]
+#[specta::specta]
 pub fn ignore_folder_warning(
     db: State<Database>,
     scope_id: String,
@@ -287,6 +274,7 @@ pub fn ignore_folder_warning(
 
 /// Remove an ignored folder warning
 #[tauri::command]
+#[specta::specta]
 pub fn remove_ignored_warning(db: State<Database>, id: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -298,6 +286,7 @@ pub fn remove_ignored_warning(db: State<Database>, id: String) -> Result<(), Str
 
 /// Get all ignored folder warnings for a scope
 #[tauri::command]
+#[specta::specta]
 pub fn get_ignored_warnings(
     db: State<Database>,
     scope_id: String,
@@ -335,10 +324,8 @@ pub fn get_ignored_warnings(
 
 /// Manually trigger a folder scan for a scope
 #[tauri::command]
-pub fn scan_scope_folder(
-    app_handle: AppHandle,
-    scope_id: String,
-) -> Result<Vec<String>, String> {
+#[specta::specta]
+pub fn scan_scope_folder(app_handle: AppHandle, scope_id: String) -> Result<Vec<String>, String> {
     let db = app_handle.state::<Database>();
 
     // Get the scope's default folder
@@ -361,10 +348,8 @@ pub fn scan_scope_folder(
 
 /// Move a project folder to the scope's default folder
 #[tauri::command]
-pub fn move_project_to_scope_folder(
-    db: State<Database>,
-    project_id: String,
-) -> Result<String, String> {
+#[specta::specta]
+pub fn move_project_to_scope_folder(db: State<Database>, project_id: String) -> Result<String, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     // Get project and scope info

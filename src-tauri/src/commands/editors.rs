@@ -6,7 +6,7 @@ use tauri::State;
 use uuid::Uuid;
 use which::which;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct EditorInfo {
     pub name: String,
     pub command: String,
@@ -37,6 +37,7 @@ const KNOWN_EDITORS: &[KnownEditor] = &[
 ];
 
 #[tauri::command]
+#[specta::specta]
 pub fn detect_editors() -> Vec<EditorInfo> {
     let mut detected = Vec::new();
 
@@ -80,6 +81,7 @@ pub fn detect_editors() -> Vec<EditorInfo> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn sync_editors(db: State<Database>) -> Result<Vec<Editor>, String> {
     let detected = detect_editors();
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
@@ -125,12 +127,14 @@ pub fn sync_editors(db: State<Database>) -> Result<Vec<Editor>, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_editors(db: State<Database>) -> Result<Vec<Editor>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     get_editors_internal(&conn)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn add_editor(
     db: State<Database>,
     name: String,
@@ -165,6 +169,7 @@ pub fn add_editor(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_editor(db: State<Database>, id: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -178,6 +183,7 @@ pub fn delete_editor(db: State<Database>, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn open_in_editor(editor_command: String, project_path: String) -> Result<(), String> {
     // Try to spawn the command directly first
     let result = Command::new(&editor_command)

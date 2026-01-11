@@ -2,11 +2,74 @@
 //!
 //! This module provides access to private WebKit APIs that enable the
 //! `-apple-*` CSS properties used for Liquid Glass design effects.
+//!
+//! ## Version Requirements
+//! - **Backdrop filter**: macOS 10.14+ (Mojave)
+//! - **Full Liquid Glass**: macOS 26+ (when available)
+//!
+//! All private API calls are guarded with `respondsToSelector:` checks
+//! to gracefully degrade on unsupported macOS versions.
 
 #[cfg(target_os = "macos")]
 use objc2::runtime::{AnyObject, Bool, Sel};
 #[cfg(target_os = "macos")]
 use objc2::{sel, msg_send, class};
+#[cfg(target_os = "macos")]
+use once_cell::sync::Lazy;
+
+/// Minimum macOS version for backdrop filter support (10.14 Mojave)
+#[cfg(target_os = "macos")]
+const MIN_MACOS_BACKDROP: (u32, u32) = (10, 14);
+
+/// Minimum macOS version for full Liquid Glass support (26.0)
+#[cfg(target_os = "macos")]
+const MIN_MACOS_LIQUID_GLASS: (u32, u32) = (26, 0);
+
+/// Cached macOS version to avoid repeated system calls
+#[cfg(target_os = "macos")]
+static MACOS_VERSION: Lazy<Option<(u32, u32)>> = Lazy::new(parse_macos_version);
+
+/// Parse macOS version from sw_vers command
+#[cfg(target_os = "macos")]
+fn parse_macos_version() -> Option<(u32, u32)> {
+    use std::process::Command;
+
+    let output = Command::new("sw_vers")
+        .arg("-productVersion")
+        .output()
+        .ok()?;
+
+    let version_str = String::from_utf8(output.stdout).ok()?;
+    let parts: Vec<&str> = version_str.trim().split('.').collect();
+
+    let major: u32 = parts.first()?.parse().ok()?;
+    let minor: u32 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+
+    Some((major, minor))
+}
+
+/// Check if the current macOS version meets the minimum requirement
+#[cfg(target_os = "macos")]
+fn check_macos_version(min_version: (u32, u32)) -> bool {
+    match *MACOS_VERSION {
+        Some((major, minor)) => {
+            (major, minor) >= min_version
+        }
+        None => false, // Unable to determine version, be conservative
+    }
+}
+
+/// Check if backdrop filter is supported on this macOS version
+#[cfg(target_os = "macos")]
+pub fn is_backdrop_filter_supported() -> bool {
+    check_macos_version(MIN_MACOS_BACKDROP)
+}
+
+/// Check if full Liquid Glass effects are supported on this macOS version
+#[cfg(target_os = "macos")]
+pub fn is_liquid_glass_supported() -> bool {
+    check_macos_version(MIN_MACOS_LIQUID_GLASS)
+}
 
 /// Enables Liquid Glass CSS properties on the WebView
 ///
@@ -15,8 +78,29 @@ use objc2::{sel, msg_send, class};
 /// - `-apple-visual-effect`
 /// - `-apple-backdrop-filter`
 /// - Other Apple-specific CSS properties for glass effects
+///
+/// ## Safety
+/// This function uses private WebKit APIs. All calls are guarded with:
+/// 1. macOS version checks (10.14+ for backdrop, 26+ for full Liquid Glass)
+/// 2. `respondsToSelector:` checks to avoid crashes on unsupported versions
 #[cfg(target_os = "macos")]
 pub fn enable_liquid_glass_for_window(window: &tauri::WebviewWindow) -> Result<(), String> {
+    // Check minimum macOS version for any backdrop filter support
+    if !is_backdrop_filter_supported() {
+        tracing::warn!(
+            "macOS version {:?} does not support backdrop filter (requires 10.14+)",
+            *MACOS_VERSION
+        );
+        return Ok(()); // Gracefully skip on older versions
+    }
+
+    // Log if full Liquid Glass is available
+    if is_liquid_glass_supported() {
+        tracing::info!("Full Liquid Glass support detected (macOS 26+)");
+    } else {
+        tracing::info!("Backdrop filter available; full Liquid Glass requires macOS 26+");
+    }
+
     // Get the NSWindow from the Tauri window
     // In Tauri 2.x, ns_window() is directly on WebviewWindow
     let ns_window = window.ns_window().map_err(|e| format!("Failed to get NSWindow: {:?}", e))?;
@@ -201,13 +285,29 @@ pub fn enable_liquid_glass_for_window(_window: &tauri::WebviewWindow) -> Result<
 }
 
 /// Tauri command to check if Liquid Glass is available
+///
+/// Returns true if the system supports at least backdrop filter (macOS 10.14+).
+/// For full Liquid Glass effects, use `is_full_liquid_glass_available()`.
 #[tauri::command]
+#[specta::specta]
 pub fn is_liquid_glass_available() -> bool {
     #[cfg(target_os = "macos")]
     {
-        // Check macOS version - Liquid Glass is best on macOS 26+
-        // but backdrop-filter works on macOS 10.14+
-        true
+        is_backdrop_filter_supported()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
+/// Tauri command to check if full Liquid Glass is available (macOS 26+)
+#[tauri::command]
+#[specta::specta]
+pub fn is_full_liquid_glass_available() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        is_liquid_glass_supported()
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -217,6 +317,7 @@ pub fn is_liquid_glass_available() -> bool {
 
 /// Tauri command to get the macOS version
 #[tauri::command]
+#[specta::specta]
 pub fn get_macos_version() -> Option<String> {
     #[cfg(target_os = "macos")]
     {

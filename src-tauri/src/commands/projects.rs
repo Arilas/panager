@@ -1,78 +1,60 @@
 use crate::db::models::{CreateProjectRequest, GitStatusCache, Project, ProjectWithStatus};
 use crate::db::Database;
 use chrono::Utc;
+use rusqlite::Connection;
 use std::path::Path;
 use tauri::State;
+use tracing::instrument;
 use uuid::Uuid;
 use walkdir::WalkDir;
 
-#[tauri::command]
-pub fn get_projects(db: State<Database>, scope_id: String) -> Result<Vec<ProjectWithStatus>, String> {
-    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+/// Internal helper to fetch projects with git status
+///
+/// Deduplicates the logic between get_projects and get_all_projects
+fn fetch_projects_internal(
+    conn: &Connection,
+    scope_id: Option<&str>,
+) -> Result<Vec<ProjectWithStatus>, String> {
+    // Build query with optional scope filter
+    let sql = if scope_id.is_some() {
+        r#"
+        SELECT p.id, p.scope_id, p.name, p.path, p.preferred_editor_id,
+               p.is_temp, p.last_opened_at, p.created_at, p.updated_at,
+               g.branch, g.ahead, g.behind, g.has_uncommitted, g.has_untracked,
+               g.last_checked_at, g.remote_url
+        FROM projects p
+        LEFT JOIN git_status_cache g ON p.id = g.project_id
+        WHERE p.scope_id = ?1
+        ORDER BY p.is_temp DESC, p.last_opened_at DESC NULLS LAST, p.name ASC
+        "#
+    } else {
+        r#"
+        SELECT p.id, p.scope_id, p.name, p.path, p.preferred_editor_id,
+               p.is_temp, p.last_opened_at, p.created_at, p.updated_at,
+               g.branch, g.ahead, g.behind, g.has_uncommitted, g.has_untracked,
+               g.last_checked_at, g.remote_url
+        FROM projects p
+        LEFT JOIN git_status_cache g ON p.id = g.project_id
+        ORDER BY p.is_temp DESC, p.last_opened_at DESC NULLS LAST, p.name ASC
+        "#
+    };
 
-    let mut stmt = conn
-        .prepare(
-            r#"
-            SELECT p.id, p.scope_id, p.name, p.path, p.preferred_editor_id,
-                   p.is_temp, p.last_opened_at, p.created_at, p.updated_at,
-                   g.branch, g.ahead, g.behind, g.has_uncommitted, g.has_untracked,
-                   g.last_checked_at, g.remote_url
-            FROM projects p
-            LEFT JOIN git_status_cache g ON p.id = g.project_id
-            WHERE p.scope_id = ?1
-            ORDER BY p.last_opened_at DESC NULLS LAST, p.name ASC
-            "#,
-        )
-        .map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
 
-    let projects: Vec<(Project, Option<GitStatusCache>)> = stmt
-        .query_map([&scope_id], |row| {
-            let project = Project {
-                id: row.get(0)?,
-                scope_id: row.get(1)?,
-                name: row.get(2)?,
-                path: row.get(3)?,
-                preferred_editor_id: row.get(4)?,
-                is_temp: row.get::<_, i32>(5)? != 0,
-                last_opened_at: row
-                    .get::<_, Option<String>>(6)?
-                    .and_then(|s| s.parse().ok()),
-                created_at: row
-                    .get::<_, String>(7)?
-                    .parse()
-                    .unwrap_or_else(|_| Utc::now()),
-                updated_at: row
-                    .get::<_, String>(8)?
-                    .parse()
-                    .unwrap_or_else(|_| Utc::now()),
-            };
-
-            let branch: Option<String> = row.get(9)?;
-            let git_status = branch.map(|b| GitStatusCache {
-                project_id: project.id.clone(),
-                branch: Some(b),
-                ahead: row.get(10).unwrap_or(0),
-                behind: row.get(11).unwrap_or(0),
-                has_uncommitted: row.get::<_, i32>(12).unwrap_or(0) != 0,
-                has_untracked: row.get::<_, i32>(13).unwrap_or(0) != 0,
-                last_checked_at: row
-                    .get::<_, Option<String>>(14)
-                    .ok()
-                    .flatten()
-                    .and_then(|s| s.parse().ok()),
-                remote_url: row.get(15).ok().flatten(),
-            });
-
-            Ok((project, git_status))
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+    // Use different query methods based on whether we have a scope filter
+    let projects: Vec<(Project, Option<GitStatusCache>)> = if let Some(sid) = scope_id {
+        stmt.query_map([sid], parse_project_row)
+    } else {
+        stmt.query_map([], parse_project_row)
+    }
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())?;
 
     // Get tags for each project
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(projects.len());
     for (project, git_status) in projects {
-        let tags = get_project_tags_internal(&conn, &project.id)?;
+        let tags = get_project_tags_internal(conn, &project.id)?;
         result.push(ProjectWithStatus {
             project,
             tags,
@@ -83,82 +65,65 @@ pub fn get_projects(db: State<Database>, scope_id: String) -> Result<Vec<Project
     Ok(result)
 }
 
+/// Parse a row from the projects query into (Project, Option<GitStatusCache>)
+fn parse_project_row(row: &rusqlite::Row) -> rusqlite::Result<(Project, Option<GitStatusCache>)> {
+    let project = Project {
+        id: row.get(0)?,
+        scope_id: row.get(1)?,
+        name: row.get(2)?,
+        path: row.get(3)?,
+        preferred_editor_id: row.get(4)?,
+        is_temp: row.get::<_, i32>(5)? != 0,
+        last_opened_at: row
+            .get::<_, Option<String>>(6)?
+            .and_then(|s| s.parse().ok()),
+        created_at: row
+            .get::<_, String>(7)?
+            .parse()
+            .unwrap_or_else(|_| Utc::now()),
+        updated_at: row
+            .get::<_, String>(8)?
+            .parse()
+            .unwrap_or_else(|_| Utc::now()),
+    };
+
+    let branch: Option<String> = row.get(9)?;
+    let git_status = branch.map(|b| GitStatusCache {
+        project_id: project.id.clone(),
+        branch: Some(b),
+        ahead: row.get(10).unwrap_or(0),
+        behind: row.get(11).unwrap_or(0),
+        has_uncommitted: row.get::<_, i32>(12).unwrap_or(0) != 0,
+        has_untracked: row.get::<_, i32>(13).unwrap_or(0) != 0,
+        last_checked_at: row
+            .get::<_, Option<String>>(14)
+            .ok()
+            .flatten()
+            .and_then(|s| s.parse().ok()),
+        remote_url: row.get(15).ok().flatten(),
+    });
+
+    Ok((project, git_status))
+}
+
 #[tauri::command]
+#[specta::specta]
+#[instrument(skip(db), level = "debug")]
+pub fn get_projects(db: State<Database>, scope_id: String) -> Result<Vec<ProjectWithStatus>, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    fetch_projects_internal(&conn, Some(&scope_id))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn get_all_projects(db: State<Database>) -> Result<Vec<ProjectWithStatus>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-
-    let mut stmt = conn
-        .prepare(
-            r#"
-            SELECT p.id, p.scope_id, p.name, p.path, p.preferred_editor_id,
-                   p.is_temp, p.last_opened_at, p.created_at, p.updated_at,
-                   g.branch, g.ahead, g.behind, g.has_uncommitted, g.has_untracked,
-                   g.last_checked_at, g.remote_url
-            FROM projects p
-            LEFT JOIN git_status_cache g ON p.id = g.project_id
-            ORDER BY p.last_opened_at DESC NULLS LAST, p.name ASC
-            "#,
-        )
-        .map_err(|e| e.to_string())?;
-
-    let projects: Vec<(Project, Option<GitStatusCache>)> = stmt
-        .query_map([], |row| {
-            let project = Project {
-                id: row.get(0)?,
-                scope_id: row.get(1)?,
-                name: row.get(2)?,
-                path: row.get(3)?,
-                preferred_editor_id: row.get(4)?,
-                is_temp: row.get::<_, i32>(5)? != 0,
-                last_opened_at: row
-                    .get::<_, Option<String>>(6)?
-                    .and_then(|s| s.parse().ok()),
-                created_at: row
-                    .get::<_, String>(7)?
-                    .parse()
-                    .unwrap_or_else(|_| Utc::now()),
-                updated_at: row
-                    .get::<_, String>(8)?
-                    .parse()
-                    .unwrap_or_else(|_| Utc::now()),
-            };
-
-            let branch: Option<String> = row.get(9)?;
-            let git_status = branch.map(|b| GitStatusCache {
-                project_id: project.id.clone(),
-                branch: Some(b),
-                ahead: row.get(10).unwrap_or(0),
-                behind: row.get(11).unwrap_or(0),
-                has_uncommitted: row.get::<_, i32>(12).unwrap_or(0) != 0,
-                has_untracked: row.get::<_, i32>(13).unwrap_or(0) != 0,
-                last_checked_at: row
-                    .get::<_, Option<String>>(14)
-                    .ok()
-                    .flatten()
-                    .and_then(|s| s.parse().ok()),
-                remote_url: row.get(15).ok().flatten(),
-            });
-
-            Ok((project, git_status))
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-
-    let mut result = Vec::new();
-    for (project, git_status) in projects {
-        let tags = get_project_tags_internal(&conn, &project.id)?;
-        result.push(ProjectWithStatus {
-            project,
-            tags,
-            git_status,
-        });
-    }
-
-    Ok(result)
+    fetch_projects_internal(&conn, None)
 }
 
 #[tauri::command]
+#[specta::specta]
+#[instrument(skip(db), level = "info")]
 pub fn create_project(db: State<Database>, request: CreateProjectRequest) -> Result<Project, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -196,6 +161,7 @@ pub fn create_project(db: State<Database>, request: CreateProjectRequest) -> Res
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn update_project(
     db: State<Database>,
     id: String,
@@ -235,6 +201,8 @@ pub fn update_project(
 }
 
 #[tauri::command]
+#[specta::specta]
+#[instrument(skip(db), level = "info")]
 pub fn delete_project(db: State<Database>, id: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -245,6 +213,7 @@ pub fn delete_project(db: State<Database>, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_project_with_folder(db: State<Database>, id: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -272,6 +241,7 @@ pub fn delete_project_with_folder(db: State<Database>, id: String) -> Result<(),
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn update_project_last_opened(db: State<Database>, id: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = Utc::now();
@@ -286,6 +256,7 @@ pub fn update_project_last_opened(db: State<Database>, id: String) -> Result<(),
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn move_project_to_scope(
     db: State<Database>,
     project_id: String,
@@ -305,6 +276,7 @@ pub fn move_project_to_scope(
 
 /// Move a project to a new scope, optionally moving the folder physically
 #[tauri::command]
+#[specta::specta]
 pub fn move_project_to_scope_with_folder(
     db: State<Database>,
     project_id: String,
@@ -378,6 +350,7 @@ pub fn move_project_to_scope_with_folder(
 
 // Project Tags
 #[tauri::command]
+#[specta::specta]
 pub fn add_project_tag(db: State<Database>, project_id: String, tag: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let id = Uuid::new_v4().to_string();
@@ -392,6 +365,7 @@ pub fn add_project_tag(db: State<Database>, project_id: String, tag: String) -> 
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn remove_project_tag(db: State<Database>, project_id: String, tag: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -406,6 +380,7 @@ pub fn remove_project_tag(db: State<Database>, project_id: String, tag: String) 
 
 // Folder scanning
 #[tauri::command]
+#[specta::specta]
 pub fn scan_folder_for_projects(folder_path: String) -> Result<Vec<String>, String> {
     let path = Path::new(&folder_path);
     if !path.exists() || !path.is_dir() {
@@ -424,14 +399,13 @@ pub fn scan_folder_for_projects(folder_path: String) -> Result<Vec<String>, Stri
             let name = e.file_name().to_string_lossy();
             !name.starts_with('.')
         })
+        .flatten()
     {
-        if let Ok(entry) = entry {
-            if entry.file_type().is_dir() {
-                let git_dir = entry.path().join(".git");
-                if git_dir.exists() && git_dir.is_dir() {
-                    if let Some(path_str) = entry.path().to_str() {
-                        git_repos.push(path_str.to_string());
-                    }
+        if entry.file_type().is_dir() {
+            let git_dir = entry.path().join(".git");
+            if git_dir.exists() && git_dir.is_dir() {
+                if let Some(path_str) = entry.path().to_str() {
+                    git_repos.push(path_str.to_string());
                 }
             }
         }

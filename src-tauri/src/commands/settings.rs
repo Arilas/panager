@@ -3,6 +3,7 @@ use chrono::Utc;
 use tauri::State;
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_setting(db: State<Database>, key: String) -> Result<Option<serde_json::Value>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -21,6 +22,7 @@ pub fn get_setting(db: State<Database>, key: String) -> Result<Option<serde_json
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn set_setting(
     db: State<Database>,
     key: String,
@@ -44,6 +46,7 @@ pub fn set_setting(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_all_settings(db: State<Database>) -> Result<std::collections::HashMap<String, serde_json::Value>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
