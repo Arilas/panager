@@ -6,6 +6,7 @@ import type {
   ProjectFolderWarning,
   ScopeGitConfig,
   ScopeWithLinks,
+  TempProjectSettings,
 } from "../types";
 import * as api from "../lib/tauri";
 
@@ -31,7 +32,8 @@ interface ScopesState {
     defaultEditorId?: string,
     defaultFolder?: string,
     folderScanInterval?: number,
-    sshAlias?: string
+    sshAlias?: string,
+    tempProjectSettings?: TempProjectSettings
   ) => Promise<void>;
   deleteScope: (id: string) => Promise<void>;
   reorderScopes: (scopeIds: string[]) => Promise<void>;
@@ -103,9 +105,9 @@ export const useScopesStore = create<ScopesState>((set, get) => ({
     }
   },
 
-  updateScope: async (id, name, color, icon, defaultEditorId, defaultFolder, folderScanInterval, sshAlias) => {
+  updateScope: async (id, name, color, icon, defaultEditorId, defaultFolder, folderScanInterval, sshAlias, tempProjectSettings) => {
     try {
-      await api.updateScope(id, name, color, icon, defaultEditorId, defaultFolder, folderScanInterval, sshAlias);
+      await api.updateScope(id, name, color, icon, defaultEditorId, defaultFolder, folderScanInterval, sshAlias, tempProjectSettings);
       set((state) => ({
         scopes: state.scopes.map((s) =>
           s.scope.id === id
@@ -122,6 +124,7 @@ export const useScopesStore = create<ScopesState>((set, get) => ({
                   ...(defaultFolder !== undefined && { defaultFolder }),
                   ...(folderScanInterval !== undefined && { folderScanInterval }),
                   ...(sshAlias !== undefined && { sshAlias }),
+                  ...(tempProjectSettings !== undefined && { tempProjectSettings }),
                 },
               }
             : s

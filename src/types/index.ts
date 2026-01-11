@@ -1,3 +1,11 @@
+export type PackageManager = "npm" | "yarn" | "pnpm" | "bun";
+
+export interface TempProjectSettings {
+  cleanupDays: number;
+  setupGitIdentity: boolean;
+  preferredPackageManager: PackageManager;
+}
+
 export interface Scope {
   id: string;
   name: string;
@@ -12,6 +20,8 @@ export interface Scope {
   defaultFolder: string | null;
   folderScanInterval: number | null;
   sshAlias: string | null;
+  // Temp project settings
+  tempProjectSettings: TempProjectSettings | null;
 }
 
 export interface ScopeLink {
@@ -248,6 +258,65 @@ export interface CloneProgress {
 }
 
 export interface CloneResult {
+  success: boolean;
+  projectId?: string;
+  projectPath?: string;
+  error?: string;
+}
+
+// Temp Project Types
+
+export interface TempProjectRequest {
+  scopeId: string;
+  name: string;
+  packageManager: PackageManager;
+  template: string;
+  options?: TempProjectOptions;
+}
+
+export interface TempProjectOptions {
+  // Next.js options
+  nextjs?: {
+    router: "app" | "pages";
+    typescript: boolean;
+    tailwind: boolean;
+    eslint: boolean;
+    srcDir: boolean;
+  };
+  // Astro options
+  astro?: {
+    template: "basics" | "blog" | "minimal";
+    typescript: "strict" | "strictest" | "relaxed";
+  };
+  // SvelteKit options
+  sveltekit?: {
+    typescript: boolean;
+    eslint: boolean;
+    prettier: boolean;
+    playwright: boolean;
+    vitest: boolean;
+  };
+  // Solid options
+  solid?: {
+    ssr: boolean;
+  };
+  // Nest options
+  nest?: {
+    strict: boolean;
+  };
+  // Remix options
+  remix?: {
+    typescript: boolean;
+  };
+}
+
+export interface TempProjectProgress {
+  line: string;
+  isError: boolean;
+  status?: string;
+}
+
+export interface TempProjectResult {
   success: boolean;
   projectId?: string;
   projectPath?: string;

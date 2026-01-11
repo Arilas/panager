@@ -1,4 +1,4 @@
-use crate::db::models::{CreateScopeRequest, Scope, ScopeLink, ScopeWithLinks, CreateScopeLinkRequest};
+use crate::db::models::{CreateScopeRequest, Scope, ScopeLink, ScopeWithLinks, CreateScopeLinkRequest, TempProjectSettings};
 use crate::db::Database;
 use chrono::Utc;
 use tauri::State;
@@ -12,7 +12,8 @@ pub fn get_scopes(db: State<Database>) -> Result<Vec<ScopeWithLinks>, String> {
         .prepare(
             r#"
             SELECT id, name, color, icon, default_editor_id, settings, sort_order,
-                   created_at, updated_at, default_folder, folder_scan_interval, ssh_alias
+                   created_at, updated_at, default_folder, folder_scan_interval, ssh_alias,
+                   temp_project_settings
             FROM scopes ORDER BY sort_order ASC
             "#,
         )
@@ -41,6 +42,9 @@ pub fn get_scopes(db: State<Database>) -> Result<Vec<ScopeWithLinks>, String> {
                 default_folder: row.get(9)?,
                 folder_scan_interval: row.get(10)?,
                 ssh_alias: row.get(11)?,
+                temp_project_settings: row
+                    .get::<_, Option<String>>(12)?
+                    .and_then(|s| serde_json::from_str(&s).ok()),
             })
         })
         .map_err(|e| e.to_string())?
@@ -103,6 +107,7 @@ pub fn create_scope(db: State<Database>, request: CreateScopeRequest) -> Result<
         default_folder: request.default_folder,
         folder_scan_interval: Some(300000), // Default 5 minutes
         ssh_alias: request.ssh_alias,
+        temp_project_settings: None,
     })
 }
 
@@ -117,6 +122,7 @@ pub fn update_scope(
     default_folder: Option<String>,
     folder_scan_interval: Option<i64>,
     ssh_alias: Option<String>,
+    temp_project_settings: Option<TempProjectSettings>,
 ) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = Utc::now();
@@ -158,6 +164,12 @@ pub fn update_scope(
     if let Some(ref alias) = ssh_alias {
         updates.push(format!("ssh_alias = ?{}", param_idx));
         params.push(Box::new(alias.clone()));
+        param_idx += 1;
+    }
+    if let Some(ref settings) = temp_project_settings {
+        updates.push(format!("temp_project_settings = ?{}", param_idx));
+        let json = serde_json::to_string(settings).map_err(|e| e.to_string())?;
+        params.push(Box::new(json));
         param_idx += 1;
     }
 

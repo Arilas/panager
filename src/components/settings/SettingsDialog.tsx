@@ -1,18 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/Dialog";
 import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
 import { cn } from "../../lib/utils";
 import { useSettingsStore } from "../../stores/settings";
 import { useEditorsStore } from "../../stores/editors";
-import { invoke } from "@tauri-apps/api/core";
 import {
   Sun,
   Moon,
   Monitor,
   Keyboard,
-  FolderOpen,
   GitBranch,
   Code,
   Trash2,
@@ -21,17 +18,9 @@ import {
   Sparkles,
   Key,
   Droplet,
-  Palette,
   Layers,
   Eye,
 } from "lucide-react";
-
-interface TempProjectInfo {
-  id: string;
-  name: string;
-  path: string;
-  last_activity: string;
-}
 
 interface SettingsDialogProps {
   open: boolean;
@@ -114,50 +103,6 @@ function TabTrigger({
 
 function GeneralSettings() {
   const { settings, updateSetting } = useSettingsStore();
-  const [tempPath, setTempPath] = useState(settings.temp_project_path);
-  const [cleanupCandidates, setCleanupCandidates] = useState<TempProjectInfo[]>(
-    []
-  );
-  const [cleaningUp, setCleaningUp] = useState(false);
-
-  const fetchCleanupCandidates = useCallback(async () => {
-    try {
-      const candidates = await invoke<TempProjectInfo[]>(
-        "get_cleanup_candidates"
-      );
-      setCleanupCandidates(candidates);
-    } catch (error) {
-      console.error("Failed to get cleanup candidates:", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    setTempPath(settings.temp_project_path);
-  }, [settings.temp_project_path]);
-
-  useEffect(() => {
-    fetchCleanupCandidates();
-  }, [fetchCleanupCandidates, settings.temp_project_cleanup_days]);
-
-  const handleTempPathBlur = async () => {
-    if (tempPath !== settings.temp_project_path) {
-      await updateSetting("temp_project_path", tempPath);
-    }
-  };
-
-  const handleCleanupNow = async () => {
-    setCleaningUp(true);
-    try {
-      const count = await invoke<number>("cleanup_temp_projects_now");
-      if (count > 0) {
-        await fetchCleanupCandidates();
-      }
-    } catch (error) {
-      console.error("Failed to cleanup:", error);
-    } finally {
-      setCleaningUp(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -210,78 +155,6 @@ function GeneralSettings() {
           <span className="text-[12px] text-muted-foreground">
             Auto-refresh git status
           </span>
-        </div>
-      </Section>
-
-      <Section title="Temp Projects" icon={<FolderOpen className="h-4 w-4" />}>
-        <div className="space-y-3">
-          <div>
-            <label className="text-[12px] text-muted-foreground block mb-1.5">
-              Temp project folder
-            </label>
-            <Input
-              value={tempPath}
-              onChange={(e) => setTempPath(e.target.value)}
-              onBlur={handleTempPathBlur}
-              placeholder="Leave empty for system default"
-            />
-          </div>
-          <div>
-            <label className="text-[12px] text-muted-foreground block mb-1.5">
-              Auto-delete after
-            </label>
-            <select
-              value={settings.temp_project_cleanup_days}
-              onChange={(e) =>
-                updateSetting(
-                  "temp_project_cleanup_days",
-                  Number(e.target.value)
-                )
-              }
-              className={cn(
-                "h-9 px-3 rounded-md text-[13px]",
-                "bg-white/60 dark:bg-white/5",
-                "border border-black/10 dark:border-white/10",
-                "focus:outline-none focus:ring-2 focus:ring-primary/30"
-              )}
-            >
-              <option value={3}>3 days of inactivity</option>
-              <option value={7}>7 days of inactivity</option>
-              <option value={14}>14 days of inactivity</option>
-              <option value={30}>30 days of inactivity</option>
-              <option value={0}>Never auto-delete</option>
-            </select>
-          </div>
-
-          {/* Cleanup Button */}
-          <div className="pt-2 border-t border-black/5 dark:border-white/5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[12px] text-muted-foreground">
-                  {cleanupCandidates.length > 0 ? (
-                    <>
-                      {cleanupCandidates.length} project
-                      {cleanupCandidates.length !== 1 ? "s" : ""} ready for
-                      cleanup
-                    </>
-                  ) : (
-                    "No projects ready for cleanup"
-                  )}
-                </p>
-              </div>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleCleanupNow}
-                disabled={cleanupCandidates.length === 0}
-                loading={cleaningUp}
-                className="bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
-              >
-                {!cleaningUp && <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
-                {cleaningUp ? "Cleaning..." : "Cleanup Now"}
-              </Button>
-            </div>
-          </div>
         </div>
       </Section>
     </div>

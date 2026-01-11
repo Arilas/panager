@@ -498,6 +498,12 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
               variant="glass-scope"
               size="sm"
               onClick={() => setShowTempProject(true)}
+              disabled={!currentScope?.scope.defaultFolder}
+              title={
+                !currentScope?.scope.defaultFolder
+                  ? "Set a default folder in scope settings to create temp projects"
+                  : undefined
+              }
             >
               <Zap className="h-3 w-3 mr-1.5" />
               Temp
@@ -716,10 +722,19 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
       </div>
 
       {/* Dialogs */}
-      <TempProjectDialog
-        open={showTempProject}
-        onOpenChange={setShowTempProject}
-      />
+      {currentScope && currentScope.scope.defaultFolder && (
+        <TempProjectDialog
+          scope={currentScope}
+          open={showTempProject}
+          onOpenChange={setShowTempProject}
+          onCreated={async () => {
+            // Refresh projects after creation
+            if (currentScopeId) {
+              await fetchProjects(currentScopeId);
+            }
+          }}
+        />
+      )}
       <ProjectTagsDialog
         project={tagsProject}
         open={!!tagsProject}

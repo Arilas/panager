@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Result};
 
 /// Current schema version - increment this when adding new migrations
-const CURRENT_VERSION: i32 = 2;
+const CURRENT_VERSION: i32 = 3;
 
 /// Run all pending migrations
 pub fn run_migrations(conn: &Connection) -> Result<()> {
@@ -26,6 +26,11 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     if current_version < 2 {
         migrate_v2(conn)?;
         set_version(conn, 2)?;
+    }
+
+    if current_version < 3 {
+        migrate_v3(conn)?;
+        set_version(conn, 3)?;
     }
 
     Ok(())
@@ -150,6 +155,23 @@ fn migrate_v2(conn: &Connection) -> Result<()> {
 
     if !columns.contains(&"raw_gpg_config".to_string()) {
         conn.execute_batch("ALTER TABLE scope_git_config ADD COLUMN raw_gpg_config TEXT;")?;
+    }
+
+    Ok(())
+}
+
+/// Migration v3: Add temp project settings column to scopes (stored as JSON)
+fn migrate_v3(conn: &Connection) -> Result<()> {
+    // Check if column already exists in scopes
+    let columns: Vec<String> = conn
+        .prepare("PRAGMA table_info(scopes)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if !columns.contains(&"temp_project_settings".to_string()) {
+        conn.execute_batch(
+            "ALTER TABLE scopes ADD COLUMN temp_project_settings TEXT;",
+        )?;
     }
 
     Ok(())

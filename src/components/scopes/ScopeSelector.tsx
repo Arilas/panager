@@ -1,5 +1,4 @@
 import { ChevronDown, Plus, Check } from "lucide-react";
-import { cn } from "../../lib/utils";
 import { useScopesStore } from "../../stores/scopes";
 import {
   DropdownMenu,

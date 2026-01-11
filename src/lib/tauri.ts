@@ -25,6 +25,10 @@ import type {
   ScopeWithLinks,
   SshAlias,
   SshRemoteMismatch,
+  TempProjectSettings,
+  TempProjectRequest,
+  TempProjectProgress,
+  TempProjectResult,
 } from "../types";
 
 // Scopes
@@ -44,7 +48,8 @@ export async function updateScope(
   defaultEditorId?: string,
   defaultFolder?: string,
   folderScanInterval?: number,
-  sshAlias?: string
+  sshAlias?: string,
+  tempProjectSettings?: TempProjectSettings
 ): Promise<void> {
   return invoke("update_scope", {
     id,
@@ -55,6 +60,7 @@ export async function updateScope(
     defaultFolder,
     folderScanInterval,
     sshAlias,
+    tempProjectSettings,
   });
 }
 
@@ -243,27 +249,25 @@ export async function getAllSettings(): Promise<Record<string, unknown>> {
 }
 
 // Temp Projects
-export interface TempProjectRequest {
-  name: string;
-  packageManager: string;
-  template: string;
-  basePath?: string;
-}
-
-export interface TempProjectResult {
-  path: string;
-  success: boolean;
-  message: string;
-}
-
 export async function createTempProject(
   request: TempProjectRequest
 ): Promise<TempProjectResult> {
   return invoke("create_temp_project", { request });
 }
 
-export async function getTempProjectsPath(): Promise<string> {
-  return invoke("get_temp_projects_path");
+export async function onTempProjectProgress(
+  callback: (progress: TempProjectProgress) => void
+): Promise<UnlistenFn> {
+  return listen("temp-project-progress", (event) => {
+    callback(event.payload as TempProjectProgress);
+  });
+}
+
+export async function checkTempFolderExists(
+  scopeId: string,
+  folderName: string
+): Promise<boolean> {
+  return invoke("check_folder_exists", { scopeId, folderName });
 }
 
 // Folder Scanner

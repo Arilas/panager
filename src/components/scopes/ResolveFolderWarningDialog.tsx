@@ -18,7 +18,6 @@ import {
   Trash2,
   EyeOff,
   ArrowRightLeft,
-  Loader2,
   AlertTriangle,
 } from "lucide-react";
 

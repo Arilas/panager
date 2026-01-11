@@ -290,7 +290,6 @@ pub fn run() {
             commands::settings::get_all_settings,
             // Temp Projects
             commands::temp::create_temp_project,
-            commands::temp::get_temp_projects_path,
             // Cleanup Service
             services::cleanup::cleanup_temp_projects_now,
             services::cleanup::get_cleanup_candidates,

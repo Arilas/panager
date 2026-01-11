@@ -14,7 +14,7 @@ import { useEditorsStore } from "../../stores/editors";
 import { useSettingsStore } from "../../stores/settings";
 import { useSshStore } from "../../stores/ssh";
 import { SCOPE_COLORS } from "../../types";
-import type { ScopeWithLinks } from "../../types";
+import type { ScopeWithLinks, TempProjectSettings, PackageManager } from "../../types";
 import {
   Code,
   FolderOpen,
@@ -26,6 +26,7 @@ import {
   Link as LinkIcon,
   AlertTriangle,
   Trash2,
+  Package,
 } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { SshAliasDialog } from "../ssh/SshAliasDialog";
@@ -59,6 +60,11 @@ export function EditScopeDialog({
   const [showSshAliasDialog, setShowSshAliasDialog] = useState(false);
   const [showGitConfigDialog, setShowGitConfigDialog] = useState(false);
 
+  // Temp project settings
+  const [tempCleanupDays, setTempCleanupDays] = useState<number>(7);
+  const [tempSetupGitIdentity, setTempSetupGitIdentity] = useState(false);
+  const [tempPackageManager, setTempPackageManager] = useState<PackageManager>("npm");
+
   const { updateScope, scanScopeFolder } = useScopesStore();
   const { editors } = useEditorsStore();
   const { settings } = useSettingsStore();
@@ -72,6 +78,11 @@ export function EditScopeDialog({
       setDefaultFolder(scope.scope.defaultFolder || "");
       setFolderScanInterval(scope.scope.folderScanInterval || 300000);
       setSshAlias(scope.scope.sshAlias || "");
+      // Temp project settings
+      const tempSettings = scope.scope.tempProjectSettings;
+      setTempCleanupDays(tempSettings?.cleanupDays ?? 7);
+      setTempSetupGitIdentity(tempSettings?.setupGitIdentity ?? false);
+      setTempPackageManager(tempSettings?.preferredPackageManager ?? "npm");
     }
   }, [scope]);
 
@@ -88,6 +99,15 @@ export function EditScopeDialog({
 
     setLoading(true);
     try {
+      // Only include temp project settings if there's a default folder
+      const tempSettings: TempProjectSettings | undefined = defaultFolder
+        ? {
+            cleanupDays: tempCleanupDays,
+            setupGitIdentity: tempSetupGitIdentity,
+            preferredPackageManager: tempPackageManager,
+          }
+        : undefined;
+
       await updateScope(
         scope.scope.id,
         name.trim(),
@@ -96,7 +116,8 @@ export function EditScopeDialog({
         defaultEditorId || undefined,
         defaultFolder || undefined,
         folderScanInterval,
-        sshAlias || undefined
+        sshAlias || undefined,
+        tempSettings
       );
       onOpenChange(false);
     } catch (error) {
@@ -158,6 +179,7 @@ export function EditScopeDialog({
               <TabTrigger value="general">General</TabTrigger>
               <TabTrigger value="folder">Folder</TabTrigger>
               <TabTrigger value="links">Links</TabTrigger>
+              {defaultFolder && <TabTrigger value="temp">Temp Projects</TabTrigger>}
               {showMaxFeatures && (
                 <TabTrigger value="identity">Identity</TabTrigger>
               )}
@@ -201,6 +223,20 @@ export function EditScopeDialog({
                   {scope && <ScopeLinksContent scope={scope} compact />}
                 </Section>
               </Tabs.Content>
+
+              {defaultFolder && (
+                <Tabs.Content value="temp" className="px-6 pt-2 pb-6">
+                  <TempProjectsTab
+                    cleanupDays={tempCleanupDays}
+                    setCleanupDays={setTempCleanupDays}
+                    setupGitIdentity={tempSetupGitIdentity}
+                    setSetupGitIdentity={setTempSetupGitIdentity}
+                    packageManager={tempPackageManager}
+                    setPackageManager={setTempPackageManager}
+                    showGitIdentityOption={settings.max_git_integration}
+                  />
+                </Tabs.Content>
+              )}
 
               {showMaxFeatures && (
                 <Tabs.Content value="identity" className="px-6 pt-2 pb-6">
@@ -561,6 +597,123 @@ function DangerTab({ scopeName, onDelete }: DangerTabProps) {
             <Trash2 className="h-4 w-4" />
             Delete Scope
           </button>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+// Temp Projects Tab Content
+interface TempProjectsTabProps {
+  cleanupDays: number;
+  setCleanupDays: (value: number) => void;
+  setupGitIdentity: boolean;
+  setSetupGitIdentity: (value: boolean) => void;
+  packageManager: PackageManager;
+  setPackageManager: (value: PackageManager) => void;
+  showGitIdentityOption: boolean;
+}
+
+function TempProjectsTab({
+  cleanupDays,
+  setCleanupDays,
+  setupGitIdentity,
+  setSetupGitIdentity,
+  packageManager,
+  setPackageManager,
+  showGitIdentityOption,
+}: TempProjectsTabProps) {
+  return (
+    <div className="space-y-6">
+      <Section title="Temp Project Settings" icon={<Package className="h-4 w-4" />}>
+        <div className="space-y-4">
+          {/* Preferred Package Manager */}
+          <div className="space-y-2">
+            <label className="text-[12px] text-muted-foreground block">
+              Preferred Package Manager
+            </label>
+            <select
+              value={packageManager}
+              onChange={(e) => setPackageManager(e.target.value as PackageManager)}
+              className={cn(
+                "w-full px-3 py-2 rounded-md text-[13px]",
+                "bg-white dark:bg-white/5",
+                "border border-black/10 dark:border-white/10",
+                "focus:outline-none focus:ring-2 focus:ring-primary/50"
+              )}
+            >
+              <option value="npm">npm</option>
+              <option value="yarn">yarn</option>
+              <option value="pnpm">pnpm</option>
+              <option value="bun">bun</option>
+            </select>
+            <FieldHint>
+              Pre-selected when creating new temp projects in this scope
+            </FieldHint>
+          </div>
+
+          {/* Auto-delete setting */}
+          <div className="space-y-2">
+            <label className="text-[12px] text-muted-foreground block">
+              Auto-delete after
+            </label>
+            <select
+              value={cleanupDays}
+              onChange={(e) => setCleanupDays(Number(e.target.value))}
+              className={cn(
+                "w-full px-3 py-2 rounded-md text-[13px]",
+                "bg-white dark:bg-white/5",
+                "border border-black/10 dark:border-white/10",
+                "focus:outline-none focus:ring-2 focus:ring-primary/50"
+              )}
+            >
+              <option value={3}>3 days of inactivity</option>
+              <option value={7}>7 days of inactivity</option>
+              <option value={14}>14 days of inactivity</option>
+              <option value={30}>30 days of inactivity</option>
+              <option value={0}>Never auto-delete</option>
+            </select>
+            <FieldHint>
+              Temp projects not opened within this period will be automatically deleted
+            </FieldHint>
+          </div>
+
+          {/* Setup Git Identity option - only show if max_git_integration is enabled */}
+          {showGitIdentityOption && (
+            <div className="pt-2 border-t border-black/5 dark:border-white/5">
+              <button
+                type="button"
+                onClick={() => setSetupGitIdentity(!setupGitIdentity)}
+                className={cn(
+                  "w-full flex items-start gap-3 p-3 rounded-lg text-left",
+                  "transition-colors",
+                  setupGitIdentity
+                    ? "bg-primary/10 border border-primary/20"
+                    : "bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+                )}
+              >
+                <div
+                  className={cn(
+                    "w-10 h-6 rounded-full p-0.5 transition-colors shrink-0 mt-0.5",
+                    setupGitIdentity ? "bg-primary" : "bg-black/20 dark:bg-white/20"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-5 h-5 rounded-full bg-white shadow transition-transform",
+                      setupGitIdentity ? "translate-x-4" : "translate-x-0"
+                    )}
+                  />
+                </div>
+                <div>
+                  <div className="text-[13px] font-medium">Setup Git Identity</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    Initialize git and apply scope's identity (user.name, user.email) to new temp projects
+                  </div>
+                </div>
+              </button>
+            </div>
+          )}
         </div>
       </Section>
     </div>

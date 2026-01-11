@@ -3,6 +3,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TempProjectSettings {
+    pub cleanup_days: i32,
+    pub setup_git_identity: bool,
+    pub preferred_package_manager: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Scope {
     pub id: String,
     pub name: String,
@@ -17,6 +25,8 @@ pub struct Scope {
     pub default_folder: Option<String>,
     pub folder_scan_interval: Option<i64>,
     pub ssh_alias: Option<String>,
+    // Temp project settings
+    pub temp_project_settings: Option<TempProjectSettings>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,6 +119,7 @@ pub struct UpdateScopeRequest {
     pub default_folder: Option<String>,
     pub folder_scan_interval: Option<i64>,
     pub ssh_alias: Option<String>,
+    pub temp_project_settings: Option<TempProjectSettings>,
 }
 
 // Request DTOs for new features
