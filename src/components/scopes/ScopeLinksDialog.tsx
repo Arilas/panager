@@ -6,6 +6,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../ui/Dialog";
+import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { cn } from "../../lib/utils";
 import { useScopesStore } from "../../stores/scopes";
@@ -224,35 +225,26 @@ export function ScopeLinksContent({ scope, compact }: ScopeLinksContentProps) {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 setAdding(false);
                 setNewLink({ label: "", url: "" });
                 setTypeOverride(null);
                 setShowTypeSelector(false);
               }}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[12px] font-medium",
-                "bg-black/5 dark:bg-white/10",
-                "hover:bg-black/10 dark:hover:bg-white/15",
-                "transition-colors"
-              )}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              disabled={!newLink.label.trim() || !newLink.url.trim() || loading}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[12px] font-medium",
-                "bg-primary text-primary-foreground",
-                "hover:bg-primary/90 transition-colors",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
+              size="sm"
+              disabled={!newLink.label.trim() || !newLink.url.trim()}
+              loading={loading}
             >
               {loading ? "Adding..." : "Add Link"}
-            </button>
+            </Button>
           </div>
         </form>
       ) : (

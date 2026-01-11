@@ -11,6 +11,9 @@ interface Settings {
   // Max features
   max_git_integration: boolean;
   max_ssh_integration: boolean;
+  // Liquid Glass
+  liquid_glass_enabled: boolean;
+  liquid_glass_intensity: "subtle" | "medium" | "strong";
 }
 
 const defaultSettings: Settings = {
@@ -23,6 +26,9 @@ const defaultSettings: Settings = {
   // Max features - disabled by default
   max_git_integration: false,
   max_ssh_integration: false,
+  // Liquid Glass - enabled by default
+  liquid_glass_enabled: true,
+  liquid_glass_intensity: "medium",
 };
 
 interface SettingsState {
@@ -73,8 +79,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         max_ssh_integration:
           (allSettings.max_ssh_integration as boolean) ??
           defaultSettings.max_ssh_integration,
+        liquid_glass_enabled:
+          (allSettings.liquid_glass_enabled as boolean) ??
+          defaultSettings.liquid_glass_enabled,
+        liquid_glass_intensity:
+          (allSettings.liquid_glass_intensity as Settings["liquid_glass_intensity"]) ??
+          defaultSettings.liquid_glass_intensity,
       };
       set({ settings, loading: false });
+
+      // Apply liquid glass settings
+      applyLiquidGlass(settings.liquid_glass_enabled, settings.liquid_glass_intensity);
 
       // Apply theme
       applyTheme(settings.theme);
@@ -93,6 +108,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       // Apply theme if theme setting changed
       if (key === "theme") {
         applyTheme(value as Settings["theme"]);
+      }
+
+      // Apply liquid glass settings if changed
+      if (key === "liquid_glass_enabled" || key === "liquid_glass_intensity") {
+        const state = get();
+        applyLiquidGlass(
+          key === "liquid_glass_enabled" ? value as boolean : state.settings.liquid_glass_enabled,
+          key === "liquid_glass_intensity" ? value as Settings["liquid_glass_intensity"] : state.settings.liquid_glass_intensity
+        );
       }
     } catch (error) {
       set({ error: String(error) });
@@ -122,6 +146,31 @@ function applyTheme(theme: Settings["theme"]) {
     root.classList.add("dark");
   } else {
     root.classList.remove("dark");
+  }
+}
+
+function applyLiquidGlass(enabled: boolean, intensity: Settings["liquid_glass_intensity"]) {
+  const root = document.documentElement;
+
+  // Remove all intensity classes
+  root.classList.remove("glass-blur-sm", "glass-blur-md", "glass-blur-lg", "no-glass");
+
+  if (!enabled) {
+    root.classList.add("no-glass");
+    return;
+  }
+
+  // Apply intensity class
+  switch (intensity) {
+    case "subtle":
+      root.classList.add("glass-blur-sm");
+      break;
+    case "medium":
+      root.classList.add("glass-blur-md");
+      break;
+    case "strong":
+      root.classList.add("glass-blur-lg");
+      break;
   }
 }
 

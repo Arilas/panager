@@ -7,6 +7,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/Dialog";
+import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { SelectableOptionCard } from "../ui/SelectableOptionCard";
 import { cn } from "../../lib/utils";
@@ -208,32 +209,18 @@ export function MoveProjectDialog({
           </div>
 
           <DialogFooter>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={() => onOpenChange(false)}
-              className={cn(
-                "px-4 py-2 rounded-md text-[13px] font-medium",
-                "bg-black/5 dark:bg-white/10",
-                "hover:bg-black/10 dark:hover:bg-white/15",
-                "transition-colors"
-              )}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleConfirm}
-              disabled={loading}
-              className={cn(
-                "px-4 py-2 rounded-md text-[13px] font-medium",
-                "bg-primary text-primary-foreground",
-                "hover:bg-primary/90 transition-colors",
-                "disabled:opacity-50 disabled:cursor-not-allowed",
-                "flex items-center gap-2"
-              )}
+              loading={loading}
             >
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Confirm
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -430,36 +417,22 @@ export function MoveProjectDialog({
         </div>
 
         <DialogFooter>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={() => onOpenChange(false)}
-            className={cn(
-              "px-4 py-2 rounded-md text-[13px] font-medium",
-              "bg-black/5 dark:bg-white/10",
-              "hover:bg-black/10 dark:hover:bg-white/15",
-              "transition-colors"
-            )}
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleConfirm}
+            loading={loading}
             disabled={
-              loading ||
               (selectedOption === "move_to_target" && folderConflict) ||
               ((selectedOption === "move_to_custom" || selectedOption === "set_target_folder") && !customFolderPath)
             }
-            className={cn(
-              "px-4 py-2 rounded-md text-[13px] font-medium",
-              "bg-primary text-primary-foreground",
-              "hover:bg-primary/90 transition-colors",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-              "flex items-center gap-2"
-            )}
           >
-            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Confirm
-          </button>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

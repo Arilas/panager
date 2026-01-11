@@ -31,8 +31,12 @@ function App() {
     fetchEditors();
   }, [fetchSettings, fetchEditors]);
 
-  // Set scope color CSS variable
+  // Set scope color CSS variable on document body so dialogs (portals) can access it
   const scopeColor = currentScope?.scope.color || "#6b7280";
+
+  useEffect(() => {
+    document.body.style.setProperty("--scope-color", scopeColor);
+  }, [scopeColor]);
 
   // Keyboard shortcuts
   useEffect(() => {

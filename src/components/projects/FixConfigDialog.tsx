@@ -7,6 +7,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/Dialog";
+import { Button } from "../ui/Button";
 import { cn } from "../../lib/utils";
 import type { ConfigMismatch, SshRemoteMismatch, ProjectWithStatus } from "../../types";
 import * as api from "../../lib/tauri";
@@ -297,31 +298,19 @@ export function FixConfigDialog({
         </div>
 
         <DialogFooter className="pt-4">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={() => handleClose(false)}
-            className={cn(
-              "px-4 py-2 rounded-md text-[13px] font-medium",
-              "bg-black/5 dark:bg-white/10",
-              "hover:bg-black/10 dark:hover:bg-white/15",
-              "transition-colors"
-            )}
           >
             {allFixed ? "Done" : "Close"}
-          </button>
+          </Button>
           {!allFixed && totalIssues > 1 && (
-            <button
+            <Button
               onClick={handleFixAll}
               disabled={fixingIds.size > 0}
-              className={cn(
-                "px-4 py-2 rounded-md text-[13px] font-medium",
-                "bg-primary text-primary-foreground",
-                "hover:bg-primary/90 transition-colors",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
             >
               Fix All
-            </button>
+            </Button>
           )}
         </DialogFooter>
       </DialogContent>

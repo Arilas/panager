@@ -29,6 +29,7 @@ import {
 } from "../icons/ServiceIcons";
 import type { ScopeWithLinks, Editor } from "../../types";
 import { cn } from "../../lib/utils";
+import { Button } from "../ui/Button";
 import { LINK_TYPES } from "../../types";
 import { useScopesStore } from "../../stores/scopes";
 import { useSettingsStore } from "../../stores/settings";
@@ -95,7 +96,9 @@ export function ScopeInfoPanel({
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div
+      className="h-full flex flex-col rounded-xl overflow-hidden"
+    >
       {/* Header */}
       <div className="p-2">
         <div className="flex items-center gap-3 mb-3">
@@ -113,16 +116,14 @@ export function ScopeInfoPanel({
               {projectCount} project{projectCount !== 1 ? "s" : ""}
             </p>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onEditScope}
-            className={cn(
-              "p-2 rounded-md transition-colors",
-              "hover:bg-black/5 dark:hover:bg-white/10"
-            )}
             title="Edit Scope"
           >
             <Settings className="h-4 w-4 text-muted-foreground" />
-          </button>
+          </Button>
         </div>
 
         {/* Stats */}
@@ -169,18 +170,15 @@ export function ScopeInfoPanel({
                   {warnings.length}
                 </button>
               )}
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={handleScanNow}
                 disabled={scanning}
-                className={cn(
-                  "p-1 rounded-md transition-colors",
-                  "hover:bg-black/5 dark:hover:bg-white/10",
-                  "disabled:opacity-50"
-                )}
                 title="Scan Now"
               >
                 <RefreshCw className={cn("h-3 w-3 text-muted-foreground", scanning && "animate-spin")} />
-              </button>
+              </Button>
             </div>
           </div>
           <p className="text-[11px] text-foreground/60 truncate">
@@ -211,16 +209,14 @@ export function ScopeInfoPanel({
               <span>Git Identity</span>
             </div>
             {onSetupGitIdentity && (
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={onSetupGitIdentity}
-                className={cn(
-                  "p-1 rounded transition-colors",
-                  "hover:bg-black/5 dark:hover:bg-white/10"
-                )}
                 title="Configure"
               >
                 <Settings className="h-3 w-3 text-muted-foreground" />
-              </button>
+              </Button>
             )}
           </div>
           {gitConfig && (gitConfig.userName || gitConfig.userEmail || gitConfig.gpgSign) ? (
@@ -272,16 +268,14 @@ export function ScopeInfoPanel({
             <h3 className="text-[12px] font-medium text-foreground/70 uppercase tracking-wider">
               Quick Links
             </h3>
-            <button
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={onManageLinks}
-              className={cn(
-                "p-1 rounded transition-colors",
-                "hover:bg-black/5 dark:hover:bg-white/10"
-              )}
               title="Manage Links"
             >
               <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
+            </Button>
           </div>
 
           {scope.links.length === 0 ? (
@@ -300,7 +294,7 @@ export function ScopeInfoPanel({
               </button>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="-mx-2 space-y-0.5">
               {scope.links.map((link) => (
                 <LinkCard key={link.id} link={link} />
               ))}
@@ -349,17 +343,13 @@ function LinkCard({
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "flex items-center gap-3 p-3 rounded-lg transition-all",
-        "bg-black/[0.02] dark:bg-white/[0.02]",
-        "border border-black/5 dark:border-white/5",
-        "hover:bg-black/[0.04] dark:hover:bg-white/[0.04]",
-        "hover:border-black/10 dark:hover:border-white/10",
-        "group"
+        "flex items-center gap-2.5 p-2 transition-all group rounded-lg",
+        "hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
       )}
     >
       <div
         className={cn(
-          "h-8 w-8 rounded-md flex items-center justify-center",
+          "h-7 w-7 rounded-md flex items-center justify-center flex-shrink-0",
           "bg-black/5 dark:bg-white/10 text-foreground/60"
         )}
       >

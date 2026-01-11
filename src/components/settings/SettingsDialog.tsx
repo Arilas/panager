@@ -1,11 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "../ui/Dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/Dialog";
+import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { cn } from "../../lib/utils";
 import { useSettingsStore } from "../../stores/settings";
@@ -24,6 +20,10 @@ import {
   Check,
   Sparkles,
   Key,
+  Droplet,
+  Palette,
+  Layers,
+  Eye,
 } from "lucide-react";
 
 interface TempProjectInfo {
@@ -39,6 +39,9 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+  const { settings } = useSettingsStore();
+  const useLiquidGlass = settings.liquid_glass_enabled;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] p-0">
@@ -50,11 +53,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           <Tabs.List
             className={cn(
               "flex flex-col w-[160px] shrink-0",
-              "border-r border-black/5 dark:border-white/5",
+              useLiquidGlass
+                ? "border-r border-white/10"
+                : "border-r border-black/5 dark:border-white/5",
               "p-2"
             )}
           >
             <TabTrigger value="general">General</TabTrigger>
+            <TabTrigger value="appearance">Appearance</TabTrigger>
             <TabTrigger value="editors">Editors</TabTrigger>
             <TabTrigger value="shortcuts">Shortcuts</TabTrigger>
             <TabTrigger value="max">Max</TabTrigger>
@@ -63,6 +69,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           <div className="flex-1 overflow-y-auto">
             <Tabs.Content value="general" className="px-6 pt-2 pb-6">
               <GeneralSettings />
+            </Tabs.Content>
+            <Tabs.Content value="appearance" className="px-6 pt-2 pb-6">
+              <AppearanceSettings />
             </Tabs.Content>
             <Tabs.Content value="editors" className="px-6 pt-2 pb-6">
               <EditorsSettings />
@@ -106,12 +115,16 @@ function TabTrigger({
 function GeneralSettings() {
   const { settings, updateSetting } = useSettingsStore();
   const [tempPath, setTempPath] = useState(settings.temp_project_path);
-  const [cleanupCandidates, setCleanupCandidates] = useState<TempProjectInfo[]>([]);
+  const [cleanupCandidates, setCleanupCandidates] = useState<TempProjectInfo[]>(
+    []
+  );
   const [cleaningUp, setCleaningUp] = useState(false);
 
   const fetchCleanupCandidates = useCallback(async () => {
     try {
-      const candidates = await invoke<TempProjectInfo[]>("get_cleanup_candidates");
+      const candidates = await invoke<TempProjectInfo[]>(
+        "get_cleanup_candidates"
+      );
       setCleanupCandidates(candidates);
     } catch (error) {
       console.error("Failed to get cleanup candidates:", error);
@@ -200,10 +213,7 @@ function GeneralSettings() {
         </div>
       </Section>
 
-      <Section
-        title="Temp Projects"
-        icon={<FolderOpen className="h-4 w-4" />}
-      >
+      <Section title="Temp Projects" icon={<FolderOpen className="h-4 w-4" />}>
         <div className="space-y-3">
           <div>
             <label className="text-[12px] text-muted-foreground block mb-1.5">
@@ -223,7 +233,10 @@ function GeneralSettings() {
             <select
               value={settings.temp_project_cleanup_days}
               onChange={(e) =>
-                updateSetting("temp_project_cleanup_days", Number(e.target.value))
+                updateSetting(
+                  "temp_project_cleanup_days",
+                  Number(e.target.value)
+                )
               }
               className={cn(
                 "h-9 px-3 rounded-md text-[13px]",
@@ -248,29 +261,143 @@ function GeneralSettings() {
                   {cleanupCandidates.length > 0 ? (
                     <>
                       {cleanupCandidates.length} project
-                      {cleanupCandidates.length !== 1 ? "s" : ""} ready for cleanup
+                      {cleanupCandidates.length !== 1 ? "s" : ""} ready for
+                      cleanup
                     </>
                   ) : (
                     "No projects ready for cleanup"
                   )}
                 </p>
               </div>
-              <button
+              <Button
+                variant="destructive"
+                size="sm"
                 onClick={handleCleanupNow}
-                disabled={cleaningUp || cleanupCandidates.length === 0}
+                disabled={cleanupCandidates.length === 0}
+                loading={cleaningUp}
+                className="bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
+              >
+                {!cleaningUp && <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
+                {cleaningUp ? "Cleaning..." : "Cleanup Now"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+function AppearanceSettings() {
+  const { settings, updateSetting } = useSettingsStore();
+
+  return (
+    <div className="space-y-6">
+      {/* Liquid Glass Banner */}
+      <div className="p-3 rounded-lg bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-white/20">
+        <div className="flex items-center gap-2 mb-1">
+          <Droplet className="h-4 w-4 text-blue-500" />
+          <span className="text-[13px] font-medium">Liquid Glass</span>
+        </div>
+        <p className="text-[12px] text-muted-foreground">
+          Apple's macOS-inspired translucent glass design with dynamic blur and
+          light refraction effects.
+        </p>
+      </div>
+
+      {/* Enable/Disable Toggle */}
+      <Section title="Liquid Glass Effect" icon={<Eye className="h-4 w-4" />}>
+        <ToggleRow
+          label="Enable Liquid Glass"
+          description="Apply glass morphism effects to dialogs, cards, sidebars, and the titlebar."
+          checked={settings.liquid_glass_enabled}
+          onChange={(checked) => updateSetting("liquid_glass_enabled", checked)}
+        />
+      </Section>
+
+      {/* Intensity Setting */}
+      <Section title="Effect Intensity" icon={<Layers className="h-4 w-4" />}>
+        <p className="text-[12px] text-muted-foreground mb-3">
+          Control the strength of the blur and glass effects.
+        </p>
+        <div className="flex gap-2">
+          <IntensityButton
+            active={settings.liquid_glass_intensity === "subtle"}
+            onClick={() => updateSetting("liquid_glass_intensity", "subtle")}
+            label="Subtle"
+            description="Light blur"
+            disabled={!settings.liquid_glass_enabled}
+          />
+          <IntensityButton
+            active={settings.liquid_glass_intensity === "medium"}
+            onClick={() => updateSetting("liquid_glass_intensity", "medium")}
+            label="Medium"
+            description="Balanced"
+            disabled={!settings.liquid_glass_enabled}
+          />
+          <IntensityButton
+            active={settings.liquid_glass_intensity === "strong"}
+            onClick={() => updateSetting("liquid_glass_intensity", "strong")}
+            label="Strong"
+            description="Heavy blur"
+            disabled={!settings.liquid_glass_enabled}
+          />
+        </div>
+      </Section>
+
+      {/* Live Demo */}
+      <Section title="Preview" icon={<Eye className="h-4 w-4" />}>
+        <div className="relative p-4 rounded-xl bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 overflow-hidden">
+          {/* Background pattern for demo */}
+          <div className="absolute inset-0 opacity-30">
+            <div className="absolute top-2 left-2 w-8 h-8 rounded-full bg-blue-500" />
+            <div className="absolute top-6 right-4 w-12 h-12 rounded-full bg-purple-500" />
+            <div className="absolute bottom-4 left-8 w-6 h-6 rounded-full bg-pink-500" />
+            <div className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-cyan-500" />
+          </div>
+
+          {/* Demo Glass Cards */}
+          <div className="relative space-y-3">
+            {/* Demo Card 1 */}
+            <div
+              className={cn(
+                "p-3 transition-all",
+                settings.liquid_glass_enabled
+                  ? "liquid-glass-card-scope"
+                  : "rounded-lg bg-white/60 dark:bg-neutral-900/60 border border-black/10 dark:border-white/10"
+              )}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-3 h-3 rounded-full bg-green-500" />
+                <span className="text-[12px] font-medium">Glass Card</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                This card demonstrates the Liquid Glass effect with backdrop
+                blur.
+              </p>
+            </div>
+
+            {/* Demo Buttons Row */}
+            <div className="flex gap-2">
+              <button
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px]",
-                  "bg-red-500/10 text-red-600 dark:text-red-400",
-                  "hover:bg-red-500/20 transition-colors",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                  "flex-1 px-3 py-2 text-[11px] font-medium transition-all rounded-lg",
+                  settings.liquid_glass_enabled
+                    ? "liquid-glass-button"
+                    : "bg-white/60 dark:bg-neutral-900/60 border border-black/10 dark:border-white/10"
                 )}
               >
-                {cleaningUp ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5" />
+                Glass Button
+              </button>
+              <button
+                className={cn(
+                  "flex-1 px-3 py-2 text-[11px] font-medium transition-all rounded-lg",
+                  settings.liquid_glass_enabled
+                    ? "liquid-glass-button-scope"
+                    : "scope-solid text-primary-foreground"
                 )}
-                {cleaningUp ? "Cleaning..." : "Cleanup Now"}
+              >
+                Scope Tinted
               </button>
             </div>
           </div>
@@ -280,8 +407,48 @@ function GeneralSettings() {
   );
 }
 
+function IntensityButton({
+  active,
+  onClick,
+  label,
+  description,
+  disabled,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  description: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "flex-1 flex flex-col items-center gap-1 px-3 py-3 rounded-lg",
+        "text-[12px] transition-all",
+        active
+          ? "bg-primary text-primary-foreground"
+          : "bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15",
+        disabled && "opacity-50 cursor-not-allowed"
+      )}
+    >
+      <span className="font-medium">{label}</span>
+      <span
+        className={cn(
+          "text-[10px]",
+          active ? "text-primary-foreground/70" : "text-muted-foreground"
+        )}
+      >
+        {description}
+      </span>
+    </button>
+  );
+}
+
 function EditorsSettings() {
-  const { editors, syncEditors, deleteEditor, getDefaultEditor } = useEditorsStore();
+  const { editors, syncEditors, deleteEditor, getDefaultEditor } =
+    useEditorsStore();
   const { settings, updateSetting } = useSettingsStore();
   const [syncing, setSyncing] = useState(false);
 
@@ -389,18 +556,15 @@ function EditorsSettings() {
               </div>
             ))
           )}
-          <button
+          <Button
+            variant="secondary"
             onClick={handleSync}
-            disabled={syncing}
-            className={cn(
-              "w-full mt-2 py-2 rounded-md text-[13px]",
-              "bg-black/5 dark:bg-white/10",
-              "hover:bg-black/10 dark:hover:bg-white/15",
-              "disabled:opacity-50 transition-colors"
-            )}
+            loading={syncing}
+            className="w-full mt-2"
           >
+            {!syncing && <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
             {syncing ? "Scanning..." : "Rescan for Editors"}
-          </button>
+          </Button>
         </div>
       </Section>
     </div>
@@ -520,14 +684,12 @@ function MaxSettings() {
           <span className="text-[13px] font-medium">Max Features</span>
         </div>
         <p className="text-[12px] text-muted-foreground">
-          Enable advanced integrations for deeper git and SSH configuration management per scope.
+          Enable advanced integrations for deeper git and SSH configuration
+          management per scope.
         </p>
       </div>
 
-      <Section
-        title="Git Integration"
-        icon={<GitBranch className="h-4 w-4" />}
-      >
+      <Section title="Git Integration" icon={<GitBranch className="h-4 w-4" />}>
         <ToggleRow
           label="Deeper Git Integration"
           description="Read git config includeIf sections to detect identity per scope folder. Verify and fix repository configurations."

@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "../ui/DropdownMenu";
+import { Button } from "../ui/Button";
 
 interface ScopeSelectorProps {
   onNewScopeClick: () => void;
@@ -23,14 +24,7 @@ export function ScopeSelector({ onNewScopeClick }: ScopeSelectorProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          className={cn(
-            "flex items-center gap-2 px-3 py-1.5 rounded-lg",
-            "bg-black/[0.03] dark:bg-white/[0.06]",
-            "hover:bg-black/[0.06] dark:hover:bg-white/[0.10]",
-            "transition-colors text-left min-w-[180px]"
-          )}
-        >
+        <Button variant="glass" size="sm" className="min-w-[220px] flex gap-2">
           {currentScope ? (
             <>
               <div
@@ -49,7 +43,7 @@ export function ScopeSelector({ onNewScopeClick }: ScopeSelectorProps) {
             </span>
           )}
           <ChevronDown className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-        </button>
+        </Button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" className="w-[220px]">
@@ -74,7 +68,9 @@ export function ScopeSelector({ onNewScopeClick }: ScopeSelectorProps) {
                   backgroundColor: scopeWithLinks.scope.color || "#6b7280",
                 }}
               />
-              <span className="flex-1 truncate">{scopeWithLinks.scope.name}</span>
+              <span className="flex-1 truncate">
+                {scopeWithLinks.scope.name}
+              </span>
               {currentScopeId === scopeWithLinks.scope.id && (
                 <Check className="h-4 w-4 text-primary shrink-0" />
               )}

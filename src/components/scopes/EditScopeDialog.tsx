@@ -7,6 +7,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/Dialog";
+import { Button } from "../ui/Button";
 import { cn } from "../../lib/utils";
 import { useScopesStore } from "../../stores/scopes";
 import { useEditorsStore } from "../../stores/editors";
@@ -226,30 +227,19 @@ export function EditScopeDialog({
           </Tabs.Root>
 
           <DialogFooter className="px-6 py-4 border-t border-black/5 dark:border-white/5">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={() => onOpenChange(false)}
-              className={cn(
-                "px-4 py-2 rounded-md text-[13px] font-medium",
-                "bg-black/5 dark:bg-white/10",
-                "hover:bg-black/10 dark:hover:bg-white/15",
-                "transition-colors"
-              )}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              disabled={!name.trim() || loading}
-              className={cn(
-                "px-4 py-2 rounded-md text-[13px] font-medium",
-                "bg-primary text-primary-foreground",
-                "hover:bg-primary/90 transition-colors",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
+              disabled={!name.trim()}
+              loading={loading}
             >
               {loading ? "Saving..." : "Save Changes"}
-            </button>
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
