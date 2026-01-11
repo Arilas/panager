@@ -11,7 +11,8 @@ pub fn get_scopes(db: State<Database>) -> Result<Vec<ScopeWithLinks>, String> {
     let mut stmt = conn
         .prepare(
             r#"
-            SELECT id, name, color, icon, default_editor_id, settings, sort_order, created_at, updated_at
+            SELECT id, name, color, icon, default_editor_id, settings, sort_order,
+                   created_at, updated_at, default_folder, folder_scan_interval, ssh_alias
             FROM scopes ORDER BY sort_order ASC
             "#,
         )
@@ -37,6 +38,9 @@ pub fn get_scopes(db: State<Database>) -> Result<Vec<ScopeWithLinks>, String> {
                     .get::<_, String>(8)?
                     .parse()
                     .unwrap_or_else(|_| Utc::now()),
+                default_folder: row.get(9)?,
+                folder_scan_interval: row.get(10)?,
+                ssh_alias: row.get(11)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -69,8 +73,8 @@ pub fn create_scope(db: State<Database>, request: CreateScopeRequest) -> Result<
 
     conn.execute(
         r#"
-        INSERT INTO scopes (id, name, color, icon, sort_order, created_at, updated_at)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        INSERT INTO scopes (id, name, color, icon, sort_order, created_at, updated_at, default_folder, ssh_alias)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
         "#,
         (
             &id,
@@ -80,6 +84,8 @@ pub fn create_scope(db: State<Database>, request: CreateScopeRequest) -> Result<
             max_order + 1,
             now.to_rfc3339(),
             now.to_rfc3339(),
+            &request.default_folder,
+            &request.ssh_alias,
         ),
     )
     .map_err(|e| e.to_string())?;
@@ -94,6 +100,9 @@ pub fn create_scope(db: State<Database>, request: CreateScopeRequest) -> Result<
         sort_order: max_order + 1,
         created_at: now,
         updated_at: now,
+        default_folder: request.default_folder,
+        folder_scan_interval: Some(300000), // Default 5 minutes
+        ssh_alias: request.ssh_alias,
     })
 }
 
@@ -105,6 +114,9 @@ pub fn update_scope(
     color: Option<String>,
     icon: Option<String>,
     default_editor_id: Option<String>,
+    default_folder: Option<String>,
+    folder_scan_interval: Option<i64>,
+    ssh_alias: Option<String>,
 ) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = Utc::now();
@@ -131,6 +143,21 @@ pub fn update_scope(
     if let Some(ref e) = default_editor_id {
         updates.push(format!("default_editor_id = ?{}", param_idx));
         params.push(Box::new(e.clone()));
+        param_idx += 1;
+    }
+    if let Some(ref f) = default_folder {
+        updates.push(format!("default_folder = ?{}", param_idx));
+        params.push(Box::new(f.clone()));
+        param_idx += 1;
+    }
+    if let Some(interval) = folder_scan_interval {
+        updates.push(format!("folder_scan_interval = ?{}", param_idx));
+        params.push(Box::new(interval));
+        param_idx += 1;
+    }
+    if let Some(ref alias) = ssh_alias {
+        updates.push(format!("ssh_alias = ?{}", param_idx));
+        params.push(Box::new(alias.clone()));
         param_idx += 1;
     }
 

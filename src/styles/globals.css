@@ -199,21 +199,21 @@
 
 /* Vibrancy compatible backgrounds */
 .bg-vibrancy {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(20px);
 }
 
 .dark .bg-vibrancy {
-  background: rgba(30, 30, 30, 0.7);
+  background: rgba(30, 30, 30, 0.5);
 }
 
 .bg-vibrancy-sidebar {
-  background: rgba(246, 246, 246, 0.8);
+  background: rgba(200, 200, 210, 0.4);
   backdrop-filter: blur(20px);
 }
 
 .dark .bg-vibrancy-sidebar {
-  background: rgba(28, 28, 30, 0.8);
+  background: rgba(30, 30, 35, 0.4);
 }
 
 /* Native-like hover effects */

@@ -21,6 +21,8 @@ import { ProjectTagsDialog } from "../components/projects/ProjectTagsDialog";
 import { EditScopeDialog } from "../components/scopes/EditScopeDialog";
 import { DeleteScopeDialog } from "../components/scopes/DeleteScopeDialog";
 import { ScopeLinksDialog } from "../components/scopes/ScopeLinksDialog";
+import { ScopeFolderWarnings } from "../components/scopes/ScopeFolderWarnings";
+import { GitConfigDialog } from "../components/git/GitConfigDialog";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -62,11 +64,14 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const [showEditScope, setShowEditScope] = useState(false);
   const [showDeleteScope, setShowDeleteScope] = useState(false);
   const [showScopeLinks, setShowScopeLinks] = useState(false);
+  const [showFolderWarnings, setShowFolderWarnings] = useState(false);
+  const [showGitConfig, setShowGitConfig] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isDragOver, setIsDragOver] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   const currentScope = getCurrentScope();
+  const { folderWarnings, gitConfigs } = useScopesStore();
 
   // Handle dropped folders to add as projects
   const handleDroppedPaths = useCallback(
@@ -263,32 +268,8 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
     });
 
     if (selected && typeof selected === "string") {
-      const name = selected.split("/").pop() || "Untitled";
       try {
-        await createProject({
-          scopeId: currentScopeId,
-          name,
-          path: selected,
-        });
-        // Force refresh to ensure we have latest data
-        await fetchProjects(currentScopeId);
-      } catch (e) {
-        console.error("Failed to add project:", e);
-      }
-    }
-  };
-
-  const handleScanFolder = async () => {
-    if (!currentScopeId) return;
-
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: "Select Folder to Scan",
-    });
-
-    if (selected && typeof selected === "string") {
-      try {
+        // Scan the folder for git repos (handles both single repo and nested repos)
         const repos = await scanFolder(selected);
         console.log("Found repos:", repos);
 
@@ -314,7 +295,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           `Added ${addedCount} projects, found ${repos.length} repos`
         );
       } catch (e) {
-        console.error("Scan folder error:", e);
+        console.error("Failed to add project:", e);
       }
     }
   };
@@ -398,7 +379,8 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
         <div
           className={cn(
             "flex-1 flex items-center justify-center",
-            "bg-white/80 dark:bg-neutral-900/80",
+            "bg-white/60 dark:bg-neutral-900/60",
+            "backdrop-blur-xl",
             "rounded-xl",
             "border border-black/[0.08] dark:border-white/[0.08]"
           )}
@@ -427,7 +409,8 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
       <div
         className={cn(
           "flex-1 flex flex-col min-w-0 relative",
-          "bg-white/80 dark:bg-neutral-900/80",
+          "bg-white/60 dark:bg-neutral-900/60",
+          "backdrop-blur-xl",
           "rounded-xl",
           "border border-black/[0.08] dark:border-white/[0.08]",
           "overflow-hidden",
@@ -484,17 +467,6 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
               Refresh
             </button>
             <button
-              onClick={handleScanFolder}
-              className={cn(
-                "px-2.5 py-1 rounded-md text-[12px] font-medium",
-                "bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15",
-                "text-foreground/70 transition-colors flex items-center gap-1.5"
-              )}
-            >
-              <FolderPlus className="h-3 w-3" />
-              Scan
-            </button>
-            <button
               onClick={() => setShowTempProject(true)}
               className={cn(
                 "px-2.5 py-1 rounded-md text-[12px] font-medium",
@@ -505,17 +477,19 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
               <Zap className="h-3 w-3" />
               Temp
             </button>
-            <button
-              onClick={handleAddProject}
-              className={cn(
-                "px-2.5 py-1 rounded-md text-[12px] font-medium",
-                "scope-accent scope-accent-text",
-                "transition-colors flex items-center gap-1.5"
-              )}
-            >
-              <Plus className="h-3 w-3" />
-              Add
-            </button>
+            {!currentScope?.scope.defaultFolder && (
+              <button
+                onClick={handleAddProject}
+                className={cn(
+                  "px-2.5 py-1 rounded-md text-[12px] font-medium",
+                  "scope-accent scope-accent-text",
+                  "transition-colors flex items-center gap-1.5"
+                )}
+              >
+                <Plus className="h-3 w-3" />
+                Add
+              </button>
+            )}
           </div>
         </div>
 
@@ -594,21 +568,11 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                 No Projects Yet
               </h3>
               <p className="text-[12px] text-muted-foreground mb-4 max-w-[280px]">
-                Add a project manually or scan a folder to find Git
-                repositories.
+                {currentScope?.scope.defaultFolder
+                  ? "Projects will be auto-discovered from your default folder."
+                  : "Add a folder to find Git repositories."}
               </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleScanFolder}
-                  className={cn(
-                    "px-3 py-1.5 rounded-md text-[12px] font-medium",
-                    "bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15",
-                    "text-foreground/70 transition-colors flex items-center gap-1.5"
-                  )}
-                >
-                  <FolderPlus className="h-3 w-3" />
-                  Scan Folder
-                </button>
+              {!currentScope?.scope.defaultFolder && (
                 <button
                   onClick={handleAddProject}
                   className={cn(
@@ -620,7 +584,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                   <Plus className="h-3 w-3" />
                   Add Project
                 </button>
-              </div>
+              )}
             </div>
           ) : filteredProjects.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center">
@@ -714,7 +678,8 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           defaultEditor={scopeDefaultEditor}
           onEditScope={() => setShowEditScope(true)}
           onManageLinks={() => setShowScopeLinks(true)}
-          onDeleteScope={() => setShowDeleteScope(true)}
+          onShowFolderWarnings={() => setShowFolderWarnings(true)}
+          onSetupGitIdentity={() => setShowGitConfig(true)}
         />
       </div>
 
@@ -732,6 +697,10 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
         scope={currentScope}
         open={showEditScope}
         onOpenChange={setShowEditScope}
+        onDeleteScope={() => {
+          setShowEditScope(false);
+          setShowDeleteScope(true);
+        }}
       />
       <DeleteScopeDialog
         scope={currentScope}
@@ -743,6 +712,22 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
         open={showScopeLinks}
         onOpenChange={setShowScopeLinks}
       />
+      {currentScope && (
+        <ScopeFolderWarnings
+          scope={currentScope}
+          warnings={folderWarnings.get(currentScope.scope.id) || []}
+          open={showFolderWarnings}
+          onOpenChange={setShowFolderWarnings}
+        />
+      )}
+      {currentScope && (
+        <GitConfigDialog
+          scope={currentScope}
+          existingConfig={gitConfigs.get(currentScope.scope.id)}
+          open={showGitConfig}
+          onOpenChange={setShowGitConfig}
+        />
+      )}
     </div>
   );
 }

@@ -22,6 +22,8 @@ import {
   Trash2,
   RefreshCw,
   Check,
+  Sparkles,
+  Key,
 } from "lucide-react";
 
 interface TempProjectInfo {
@@ -55,6 +57,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <TabTrigger value="general">General</TabTrigger>
             <TabTrigger value="editors">Editors</TabTrigger>
             <TabTrigger value="shortcuts">Shortcuts</TabTrigger>
+            <TabTrigger value="max">Max</TabTrigger>
           </Tabs.List>
 
           <div className="flex-1 overflow-y-auto">
@@ -66,6 +69,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             </Tabs.Content>
             <Tabs.Content value="shortcuts" className="px-6 pt-2 pb-6">
               <ShortcutsSettings />
+            </Tabs.Content>
+            <Tabs.Content value="max" className="px-6 pt-2 pb-6">
+              <MaxSettings />
             </Tabs.Content>
           </div>
         </Tabs.Root>
@@ -500,5 +506,89 @@ function ShortcutRow({ label, shortcut }: { label: string; shortcut: string }) {
         {shortcut}
       </kbd>
     </div>
+  );
+}
+
+function MaxSettings() {
+  const { settings, updateSetting } = useSettingsStore();
+
+  return (
+    <div className="space-y-6">
+      <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+        <div className="flex items-center gap-2 mb-1">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="text-[13px] font-medium">Max Features</span>
+        </div>
+        <p className="text-[12px] text-muted-foreground">
+          Enable advanced integrations for deeper git and SSH configuration management per scope.
+        </p>
+      </div>
+
+      <Section
+        title="Git Integration"
+        icon={<GitBranch className="h-4 w-4" />}
+      >
+        <ToggleRow
+          label="Deeper Git Integration"
+          description="Read git config includeIf sections to detect identity per scope folder. Verify and fix repository configurations."
+          checked={settings.max_git_integration}
+          onChange={(checked) => updateSetting("max_git_integration", checked)}
+        />
+      </Section>
+
+      <Section title="SSH Integration" icon={<Key className="h-4 w-4" />}>
+        <ToggleRow
+          label="Deeper SSH Integration"
+          description="Read SSH config to detect host aliases. Create and manage SSH aliases per scope. Verify remote URLs use correct aliases."
+          checked={settings.max_ssh_integration}
+          onChange={(checked) => updateSetting("max_ssh_integration", checked)}
+        />
+      </Section>
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "w-full flex items-start gap-3 p-3 rounded-lg text-left",
+        "transition-colors",
+        checked
+          ? "bg-primary/10 border border-primary/20"
+          : "bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+      )}
+    >
+      <div
+        className={cn(
+          "w-10 h-6 rounded-full p-0.5 transition-colors shrink-0 mt-0.5",
+          checked ? "bg-primary" : "bg-black/20 dark:bg-white/20"
+        )}
+      >
+        <div
+          className={cn(
+            "w-5 h-5 rounded-full bg-white shadow transition-transform",
+            checked ? "translate-x-4" : "translate-x-0"
+          )}
+        />
+      </div>
+      <div>
+        <div className="text-[13px] font-medium">{label}</div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">
+          {description}
+        </div>
+      </div>
+    </button>
   );
 }

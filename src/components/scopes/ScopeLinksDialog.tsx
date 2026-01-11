@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,8 +9,8 @@ import {
 import { Input } from "../ui/Input";
 import { cn } from "../../lib/utils";
 import { useScopesStore } from "../../stores/scopes";
-import { LINK_TYPES } from "../../types";
-import type { ScopeWithLinks, ScopeLink } from "../../types";
+import { LINK_TYPES, detectLinkType } from "../../types";
+import type { ScopeWithLinks, ScopeLink, LinkType } from "../../types";
 import {
   Plus,
   Trash2,
@@ -39,29 +39,71 @@ export function ScopeLinksDialog({
   open,
   onOpenChange,
 }: ScopeLinksDialogProps) {
-  const [newLink, setNewLink] = useState({
-    type: "github",
-    label: "",
-    url: "",
-  });
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[550px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <LinkIcon className="h-5 w-5" />
+            Manage Links
+          </DialogTitle>
+          <DialogDescription>
+            Add quick access links for{" "}
+            <span className="font-medium">{scope?.scope.name}</span>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-[60vh] overflow-y-auto">
+          {scope && <ScopeLinksContent scope={scope} />}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Reusable content component that can be used in dialogs or as a section
+interface ScopeLinksContentProps {
+  scope: ScopeWithLinks;
+  compact?: boolean;
+}
+
+export function ScopeLinksContent({ scope, compact }: ScopeLinksContentProps) {
+  const [newLink, setNewLink] = useState({ label: "", url: "" });
+  const [typeOverride, setTypeOverride] = useState<LinkType | null>(null);
+  const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [adding, setAdding] = useState(false);
   const [loading, setLoading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const { createScopeLink, deleteScopeLink } = useScopesStore();
 
+  // Scroll form into view when it appears
+  useEffect(() => {
+    if (adding && formRef.current) {
+      formRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [adding]);
+
+  // Auto-detect type from URL, use override if set
+  const detectedType = detectLinkType(newLink.url);
+  const linkType = typeOverride ?? detectedType;
+  const typeInfo = LINK_TYPES.find((t) => t.id === linkType);
+
   const handleAddLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!scope || !newLink.label.trim() || !newLink.url.trim()) return;
+    if (!newLink.label.trim() || !newLink.url.trim()) return;
 
     setLoading(true);
     try {
       await createScopeLink({
         scopeId: scope.scope.id,
-        linkType: newLink.type,
+        linkType,
         label: newLink.label.trim(),
         url: newLink.url.trim(),
       });
-      setNewLink({ type: "github", label: "", url: "" });
+      setNewLink({ label: "", url: "" });
+      setTypeOverride(null);
+      setShowTypeSelector(false);
       setAdding(false);
     } catch (error) {
       console.error("Failed to add link:", error);
@@ -79,139 +121,157 @@ export function ScopeLinksDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <LinkIcon className="h-5 w-5" />
-            Manage Links
-          </DialogTitle>
-          <DialogDescription>
-            Add quick access links for{" "}
-            <span className="font-medium">{scope?.scope.name}</span>
-          </DialogDescription>
-        </DialogHeader>
+    <div className="space-y-3 w-full overflow-hidden">
+      {/* Existing Links */}
+      <div className="space-y-2 w-full">
+        {scope.links.length === 0 && !adding ? (
+          <div
+            className={cn(
+              "text-center text-[13px] text-muted-foreground",
+              compact ? "py-4" : "py-8"
+            )}
+          >
+            No links added yet
+          </div>
+        ) : (
+          scope.links.map((link) => (
+            <LinkItem
+              key={link.id}
+              link={link}
+              onDelete={() => handleDeleteLink(link.id)}
+              compact={compact}
+            />
+          ))
+        )}
+      </div>
 
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-          {/* Existing Links */}
-          <div className="space-y-2">
-            {scope?.links.length === 0 && !adding ? (
-              <div className="text-center py-8 text-[13px] text-muted-foreground">
-                No links added yet
+      {/* Add New Link Form */}
+      {adding ? (
+        <form
+          ref={formRef}
+          onSubmit={handleAddLink}
+          className="space-y-3 p-3 rounded-lg border border-black/10 dark:border-white/10"
+        >
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium text-foreground/70">
+              URL
+            </label>
+            <Input
+              value={newLink.url}
+              onChange={(e) =>
+                setNewLink({ ...newLink, url: e.target.value })
+              }
+              placeholder="https://github.com/..."
+              type="url"
+              autoFocus
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium text-foreground/70">
+              Label
+            </label>
+            <Input
+              value={newLink.label}
+              onChange={(e) =>
+                setNewLink({ ...newLink, label: e.target.value })
+              }
+              placeholder="e.g., Main Repo"
+            />
+          </div>
+
+          {/* Auto-detected type with override option */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted-foreground">Type:</span>
+            {showTypeSelector ? (
+              <div className="flex flex-wrap gap-1">
+                {LINK_TYPES.map((type) => (
+                  <button
+                    key={type.id}
+                    type="button"
+                    onClick={() => {
+                      setTypeOverride(type.id as LinkType);
+                      setShowTypeSelector(false);
+                    }}
+                    className={cn(
+                      "px-2 py-0.5 rounded text-[11px] transition-colors",
+                      linkType === type.id
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15"
+                    )}
+                  >
+                    {type.label}
+                  </button>
+                ))}
               </div>
             ) : (
-              scope?.links.map((link) => (
-                <LinkItem
-                  key={link.id}
-                  link={link}
-                  onDelete={() => handleDeleteLink(link.id)}
-                />
-              ))
+              <button
+                type="button"
+                onClick={() => setShowTypeSelector(true)}
+                className={cn(
+                  "flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px]",
+                  "bg-black/5 dark:bg-white/10",
+                  "hover:bg-black/10 dark:hover:bg-white/15 transition-colors"
+                )}
+              >
+                {getLinkIcon(linkType)}
+                <span>{typeInfo?.label || "Custom"}</span>
+                {typeOverride && (
+                  <span className="text-muted-foreground">(override)</span>
+                )}
+              </button>
             )}
           </div>
 
-          {/* Add New Link Form */}
-          {adding ? (
-            <form onSubmit={handleAddLink} className="space-y-3 p-3 rounded-lg border border-black/10 dark:border-white/10">
-              <div className="space-y-2">
-                <label className="text-[12px] font-medium text-foreground/70">
-                  Link Type
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {LINK_TYPES.map((type) => (
-                    <button
-                      key={type.id}
-                      type="button"
-                      onClick={() => setNewLink({ ...newLink, type: type.id })}
-                      className={cn(
-                        "px-2.5 py-1 rounded-md text-[12px] transition-colors",
-                        newLink.type === type.id
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15"
-                      )}
-                    >
-                      {type.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-[12px] font-medium text-foreground/70">
-                    Label
-                  </label>
-                  <Input
-                    value={newLink.label}
-                    onChange={(e) =>
-                      setNewLink({ ...newLink, label: e.target.value })
-                    }
-                    placeholder="e.g., Main Repo"
-                    autoFocus
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[12px] font-medium text-foreground/70">
-                    URL
-                  </label>
-                  <Input
-                    value={newLink.url}
-                    onChange={(e) =>
-                      setNewLink({ ...newLink, url: e.target.value })
-                    }
-                    placeholder="https://..."
-                    type="url"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdding(false);
-                    setNewLink({ type: "github", label: "", url: "" });
-                  }}
-                  className={cn(
-                    "px-3 py-1.5 rounded-md text-[12px] font-medium",
-                    "bg-black/5 dark:bg-white/10",
-                    "hover:bg-black/10 dark:hover:bg-white/15",
-                    "transition-colors"
-                  )}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!newLink.label.trim() || !newLink.url.trim() || loading}
-                  className={cn(
-                    "px-3 py-1.5 rounded-md text-[12px] font-medium",
-                    "bg-primary text-primary-foreground",
-                    "hover:bg-primary/90 transition-colors",
-                    "disabled:opacity-50 disabled:cursor-not-allowed"
-                  )}
-                >
-                  {loading ? "Adding..." : "Add Link"}
-                </button>
-              </div>
-            </form>
-          ) : (
+          <div className="flex justify-end gap-2 pt-2">
             <button
-              onClick={() => setAdding(true)}
+              type="button"
+              onClick={() => {
+                setAdding(false);
+                setNewLink({ label: "", url: "" });
+                setTypeOverride(null);
+                setShowTypeSelector(false);
+              }}
               className={cn(
-                "w-full flex items-center justify-center gap-2 py-2.5 rounded-lg",
-                "border border-dashed border-black/10 dark:border-white/10",
-                "text-[13px] text-muted-foreground",
-                "hover:border-primary/50 hover:text-primary transition-colors"
+                "px-3 py-1.5 rounded-md text-[12px] font-medium",
+                "bg-black/5 dark:bg-white/10",
+                "hover:bg-black/10 dark:hover:bg-white/15",
+                "transition-colors"
               )}
             >
-              <Plus className="h-4 w-4" />
-              Add Link
+              Cancel
             </button>
+            <button
+              type="submit"
+              disabled={!newLink.label.trim() || !newLink.url.trim() || loading}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[12px] font-medium",
+                "bg-primary text-primary-foreground",
+                "hover:bg-primary/90 transition-colors",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              {loading ? "Adding..." : "Add Link"}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className={cn(
+            "w-full flex items-center justify-center gap-2 rounded-lg",
+            "border border-dashed border-black/10 dark:border-white/10",
+            "text-[13px] text-muted-foreground",
+            "hover:border-primary/50 hover:text-primary transition-colors",
+            compact ? "py-2" : "py-2.5"
           )}
-        </div>
-      </DialogContent>
-    </Dialog>
+        >
+          <Plus className="h-4 w-4" />
+          Add Link
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -241,42 +301,48 @@ function getLinkIcon(linkType: string) {
 function LinkItem({
   link,
   onDelete,
+  compact,
 }: {
   link: ScopeLink;
   onDelete: () => void;
+  compact?: boolean;
 }) {
   const typeInfo = LINK_TYPES.find((t) => t.id === link.linkType);
 
   return (
     <div
       className={cn(
-        "flex items-center gap-3 px-3 py-2.5 rounded-lg",
+        "flex items-center gap-3 rounded-lg w-full",
         "bg-black/[0.02] dark:bg-white/[0.02]",
         "border border-black/5 dark:border-white/5",
-        "group"
+        "group",
+        compact ? "px-2.5 py-2" : "px-3 py-2.5"
       )}
     >
-      <div className="h-8 w-8 rounded-md bg-black/5 dark:bg-white/10 flex items-center justify-center text-foreground/60">
+      <div
+        className={cn(
+          "rounded-md bg-black/5 dark:bg-white/10 flex items-center justify-center text-foreground/60 shrink-0",
+          compact ? "h-7 w-7" : "h-8 w-8"
+        )}
+      >
         {getLinkIcon(link.linkType)}
       </div>
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 overflow-hidden">
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-medium truncate">{link.label}</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-muted-foreground/70">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-muted-foreground/70 shrink-0">
             {typeInfo?.label || "Custom"}
           </span>
         </div>
-        <a
-          href={link.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[11px] text-muted-foreground hover:text-primary block break-all"
-          onClick={(e) => e.stopPropagation()}
+        <p
+          className="w-full text-[11px] text-muted-foreground truncate cursor-pointer hover:text-primary"
+          onClick={() => window.open(link.url, "_blank")}
+          title={link.url}
         >
           {link.url}
-        </a>
+        </p>
       </div>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
         <a
           href={link.url}
           target="_blank"
@@ -290,6 +356,7 @@ function LinkItem({
           <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
         </a>
         <button
+          type="button"
           onClick={onDelete}
           className={cn(
             "p-1.5 rounded-md",

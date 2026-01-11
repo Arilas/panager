@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   ExternalLink,
   Github,
@@ -7,7 +8,15 @@ import {
   Code,
   FolderOpen,
   Calendar,
-  Trash2,
+  AlertTriangle,
+  Key,
+  RefreshCw,
+  GitBranch,
+  User,
+  Mail,
+  ShieldCheck,
+  ShieldOff,
+  AlertCircle,
 } from "lucide-react";
 import {
   JiraIcon,
@@ -21,6 +30,8 @@ import {
 import type { ScopeWithLinks, Editor } from "../../types";
 import { cn } from "../../lib/utils";
 import { LINK_TYPES } from "../../types";
+import { useScopesStore } from "../../stores/scopes";
+import { useSettingsStore } from "../../stores/settings";
 
 interface ScopeInfoPanelProps {
   scope: ScopeWithLinks;
@@ -28,7 +39,8 @@ interface ScopeInfoPanelProps {
   defaultEditor?: Editor;
   onEditScope: () => void;
   onManageLinks: () => void;
-  onDeleteScope: () => void;
+  onShowFolderWarnings?: () => void;
+  onSetupGitIdentity?: () => void;
 }
 
 export function ScopeInfoPanel({
@@ -37,8 +49,42 @@ export function ScopeInfoPanel({
   defaultEditor,
   onEditScope,
   onManageLinks,
-  onDeleteScope,
+  onShowFolderWarnings,
+  onSetupGitIdentity,
 }: ScopeInfoPanelProps) {
+  const [scanning, setScanning] = useState(false);
+
+  const { settings } = useSettingsStore();
+  const {
+    folderWarnings,
+    gitConfigs,
+    fetchFolderWarnings,
+    fetchGitConfig,
+    scanScopeFolder
+  } = useScopesStore();
+
+  const warnings = folderWarnings.get(scope.scope.id) || [];
+  const gitConfig = gitConfigs.get(scope.scope.id);
+
+  useEffect(() => {
+    if (scope.scope.defaultFolder) {
+      fetchFolderWarnings(scope.scope.id);
+    }
+    if (scope.scope.defaultFolder && settings.max_git_integration) {
+      fetchGitConfig(scope.scope.id);
+    }
+  }, [scope.scope.id, scope.scope.defaultFolder, settings.max_git_integration, fetchFolderWarnings, fetchGitConfig]);
+
+  const handleScanNow = async () => {
+    setScanning(true);
+    try {
+      await scanScopeFolder(scope.scope.id);
+      await fetchFolderWarnings(scope.scope.id);
+    } finally {
+      setScanning(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -101,6 +147,124 @@ export function ScopeInfoPanel({
         </div>
       )}
 
+      {/* Default Folder Section */}
+      {scope.scope.defaultFolder && (
+        <div className="px-2 py-3 border-t border-black/5 dark:border-white/5">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+              <FolderOpen className="h-3 w-3" />
+              <span>Default Folder</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {warnings.length > 0 && onShowFolderWarnings && (
+                <button
+                  onClick={onShowFolderWarnings}
+                  className={cn(
+                    "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
+                    "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                    "hover:bg-amber-500/20 transition-colors"
+                  )}
+                >
+                  <AlertTriangle className="h-2.5 w-2.5" />
+                  {warnings.length}
+                </button>
+              )}
+              <button
+                onClick={handleScanNow}
+                disabled={scanning}
+                className={cn(
+                  "p-1 rounded-md transition-colors",
+                  "hover:bg-black/5 dark:hover:bg-white/10",
+                  "disabled:opacity-50"
+                )}
+                title="Scan Now"
+              >
+                <RefreshCw className={cn("h-3 w-3 text-muted-foreground", scanning && "animate-spin")} />
+              </button>
+            </div>
+          </div>
+          <p className="text-[11px] text-foreground/60 truncate">
+            {scope.scope.defaultFolder.replace(/^\/Users\/[^/]+/, "~")}
+          </p>
+        </div>
+      )}
+
+      {/* SSH Alias Section */}
+      {scope.scope.sshAlias && settings.max_ssh_integration && (
+        <div className="px-2 py-3 border-t border-black/5 dark:border-white/5">
+          <div className="flex items-center gap-2 text-[12px] text-muted-foreground mb-1">
+            <Key className="h-3 w-3" />
+            <span>SSH Alias</span>
+          </div>
+          <p className="text-[13px] font-medium text-foreground/80 font-mono">
+            {scope.scope.sshAlias}
+          </p>
+        </div>
+      )}
+
+      {/* Git Identity Section */}
+      {settings.max_git_integration && scope.scope.defaultFolder && (
+        <div className="px-2 py-3 border-t border-black/5 dark:border-white/5">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+              <GitBranch className="h-3 w-3" />
+              <span>Git Identity</span>
+            </div>
+            {onSetupGitIdentity && (
+              <button
+                onClick={onSetupGitIdentity}
+                className={cn(
+                  "p-1 rounded transition-colors",
+                  "hover:bg-black/5 dark:hover:bg-white/10"
+                )}
+                title="Configure"
+              >
+                <Settings className="h-3 w-3 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+          {gitConfig && (gitConfig.userName || gitConfig.userEmail || gitConfig.gpgSign) ? (
+            <div className="space-y-1.5">
+              {gitConfig.gpgSign && (!gitConfig.userName || !gitConfig.userEmail) && (
+                <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-1 rounded">
+                  <AlertCircle className="h-2.5 w-2.5 flex-shrink-0" />
+                  <span>Identity incomplete</span>
+                </div>
+              )}
+              {gitConfig.userName && (
+                <div className="flex items-center gap-1.5 text-[11px] text-foreground/70">
+                  <User className="h-2.5 w-2.5" />
+                  <span className="truncate">{gitConfig.userName}</span>
+                </div>
+              )}
+              {gitConfig.userEmail && (
+                <div className="flex items-center gap-1.5 text-[11px] text-foreground/70">
+                  <Mail className="h-2.5 w-2.5" />
+                  <span className="truncate">{gitConfig.userEmail}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 text-[11px]">
+                {gitConfig.gpgSign ? (
+                  <>
+                    <ShieldCheck className="h-2.5 w-2.5 text-green-500" />
+                    <span className="text-green-600 dark:text-green-400">GPG signing enabled</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldOff className="h-2.5 w-2.5 text-muted-foreground/50" />
+                    <span className="text-muted-foreground/60">GPG signing disabled</span>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="text-[11px] text-muted-foreground/60">
+              No identity configured
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Links Section */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-2">
@@ -145,20 +309,6 @@ export function ScopeInfoPanel({
         </div>
       </div>
 
-      {/* Danger Zone */}
-      <div className="p-2">
-        <button
-          onClick={onDeleteScope}
-          className={cn(
-            "w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-[12px] font-medium",
-            "text-red-500 hover:bg-red-500/10",
-            "transition-colors"
-          )}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Delete Scope
-        </button>
-      </div>
     </div>
   );
 }

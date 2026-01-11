@@ -8,6 +8,10 @@ export interface Scope {
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+  // Max features
+  defaultFolder: string | null;
+  folderScanInterval: number | null;
+  sshAlias: string | null;
 }
 
 export interface ScopeLink {
@@ -74,6 +78,8 @@ export interface CreateScopeRequest {
   name: string;
   color?: string | null;
   icon?: string | null;
+  defaultFolder?: string | null;
+  sshAlias?: string | null;
 }
 
 export interface CreateProjectRequest {
@@ -104,6 +110,26 @@ export const LINK_TYPES = [
 
 export type LinkType = (typeof LINK_TYPES)[number]["id"];
 
+// Auto-detect link type from URL
+export function detectLinkType(url: string): LinkType {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (hostname.includes("github.com") || hostname.includes("github.")) return "github";
+    if (hostname.includes("gitlab.com") || hostname.includes("gitlab.")) return "gitlab";
+    if (hostname.includes("bitbucket.org") || hostname.includes("bitbucket.")) return "bitbucket";
+    if (hostname.includes("atlassian.net") && url.includes("/jira")) return "jira";
+    if (hostname.includes("jira.")) return "jira";
+    if (hostname.includes("atlassian.net") && url.includes("/wiki")) return "confluence";
+    if (hostname.includes("confluence.")) return "confluence";
+    if (hostname.includes("notion.so") || hostname.includes("notion.site")) return "notion";
+    if (hostname.includes("linear.app")) return "linear";
+    if (hostname.includes("slack.com")) return "slack";
+  } catch {
+    // Invalid URL, return custom
+  }
+  return "custom";
+}
+
 export const SCOPE_COLORS = [
   { id: "blue", value: "#3b82f6" },
   { id: "green", value: "#22c55e" },
@@ -114,3 +140,83 @@ export const SCOPE_COLORS = [
   { id: "red", value: "#ef4444" },
   { id: "yellow", value: "#eab308" },
 ] as const;
+
+// Max Features Types
+
+export interface IgnoredFolderWarning {
+  id: string;
+  scopeId: string;
+  projectPath: string;
+  createdAt: string;
+}
+
+export type GpgSigningMethod = "none" | "manual" | "password_manager";
+
+export interface ScopeGitConfig {
+  scopeId: string;
+  userName: string | null;
+  userEmail: string | null;
+  gpgSign: boolean;
+  gpgSigningMethod: GpgSigningMethod | null;
+  signingKey: string | null;
+  rawGpgConfig: string | null;
+  configFilePath: string | null;
+  lastCheckedAt: string | null;
+}
+
+export interface ProjectConfigIssue {
+  id: string;
+  projectId: string;
+  issueType: "git_name" | "git_email" | "git_gpg" | "ssh_remote" | "folder_outside";
+  expectedValue: string | null;
+  actualValue: string | null;
+  dismissed: boolean;
+  createdAt: string;
+}
+
+export interface SshAlias {
+  host: string;
+  hostName: string | null;
+  user: string | null;
+  identityFile: string | null;
+}
+
+export interface GitIncludeIf {
+  condition: string;
+  path: string;
+}
+
+export interface CreateSshAliasRequest {
+  host: string;
+  hostName: string;
+  user?: string | null;
+  identityFile?: string | null;
+  publicKey?: string | null;
+}
+
+export interface CreateGitConfigRequest {
+  scopeId: string;
+  userName: string;
+  userEmail: string;
+  gpgSigningMethod: GpgSigningMethod;
+  signingKey?: string | null;
+  rawGpgConfig?: string | null;
+}
+
+export interface ProjectFolderWarning {
+  projectId: string;
+  projectName: string;
+  projectPath: string;
+}
+
+export interface ConfigMismatch {
+  issueType: string;
+  expectedValue: string | null;
+  actualValue: string | null;
+}
+
+export interface SshRemoteMismatch {
+  projectId: string;
+  expectedAlias: string;
+  actualUrl: string;
+}

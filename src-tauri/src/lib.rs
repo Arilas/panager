@@ -4,6 +4,7 @@ mod services;
 
 use db::Database;
 use services::cleanup::CleanupServiceState;
+use services::folder_scanner::FolderScanServiceState;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -27,9 +28,17 @@ pub fn run() {
             // Initialize cleanup service state
             app.manage(CleanupServiceState::default());
 
+            // Initialize folder scan service state
+            app.manage(FolderScanServiceState::default());
+
             // Sync editors on startup
             if app.try_state::<Database>().is_some() {
                 let _ = commands::editors::detect_editors();
+            }
+
+            // Validate git config caches on startup
+            if let Some(db) = app.try_state::<Database>() {
+                let _ = services::git_config::validate_git_config_caches(&db);
             }
 
             // Apply vibrancy effect on macOS
@@ -47,6 +56,12 @@ pub fn run() {
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 services::cleanup::start_cleanup_service(app_handle).await;
+            });
+
+            // Start folder scan service
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                services::folder_scanner::start_folder_scan_service(app_handle);
             });
 
             // Setup application menu bar (macOS)
@@ -263,6 +278,28 @@ pub fn run() {
             // Cleanup Service
             services::cleanup::cleanup_temp_projects_now,
             services::cleanup::get_cleanup_candidates,
+            // Folder Scanner
+            services::folder_scanner::get_projects_outside_folder,
+            services::folder_scanner::ignore_folder_warning,
+            services::folder_scanner::remove_ignored_warning,
+            services::folder_scanner::get_ignored_warnings,
+            services::folder_scanner::scan_scope_folder,
+            services::folder_scanner::move_project_to_scope_folder,
+            // Git Config
+            services::git_config::read_git_include_ifs,
+            services::git_config::get_scope_git_identity,
+            services::git_config::verify_project_git_config,
+            services::git_config::fix_project_git_config,
+            services::git_config::create_git_include_if,
+            services::git_config::create_scope_git_config_file,
+            services::git_config::refresh_scope_git_identity,
+            services::git_config::discover_scope_git_config,
+            // SSH Config
+            services::ssh_config::read_ssh_aliases,
+            services::ssh_config::get_ssh_alias_details,
+            services::ssh_config::create_ssh_alias,
+            services::ssh_config::verify_project_ssh_remote,
+            services::ssh_config::fix_project_ssh_remote,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

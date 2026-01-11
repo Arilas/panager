@@ -1,3 +1,4 @@
+pub mod migrations;
 pub mod models;
 pub mod schema;
 
@@ -25,8 +26,11 @@ impl Database {
         // Enable foreign keys
         conn.execute_batch("PRAGMA foreign_keys = ON;")?;
 
-        // Initialize schema
+        // Initialize schema (creates tables if they don't exist)
         schema::init_database(&conn)?;
+
+        // Run migrations for schema updates
+        migrations::run_migrations(&conn)?;
 
         Ok(Self {
             conn: Mutex::new(conn),
