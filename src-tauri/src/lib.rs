@@ -254,6 +254,7 @@ pub fn run() {
             commands::projects::delete_project_with_folder,
             commands::projects::update_project_last_opened,
             commands::projects::move_project_to_scope,
+            commands::projects::move_project_to_scope_with_folder,
             commands::projects::add_project_tag,
             commands::projects::remove_project_tag,
             commands::projects::scan_folder_for_projects,

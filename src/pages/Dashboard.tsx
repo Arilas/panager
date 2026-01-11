@@ -26,6 +26,7 @@ import { ScopeFolderWarnings } from "../components/scopes/ScopeFolderWarnings";
 import { GitConfigDialog } from "../components/git/GitConfigDialog";
 import { CloneRepositoryDialog } from "../components/scopes/CloneRepositoryDialog";
 import { DeleteProjectDialog } from "../components/projects/DeleteProjectDialog";
+import { MoveProjectDialog } from "../components/projects/MoveProjectDialog";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -51,7 +52,6 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
     openInEditor,
     updateLastOpened,
     scanFolder,
-    moveProjectToScope,
   } = useProjectsStore();
   const { editors, syncEditors, getDefaultEditor } = useEditorsStore();
   const { rightPanelVisible, searchQuery } = useUIStore();
@@ -71,6 +71,10 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const [showGitConfig, setShowGitConfig] = useState(false);
   const [showCloneRepo, setShowCloneRepo] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<ProjectWithStatus | null>(null);
+  const [projectToMove, setProjectToMove] = useState<{
+    project: ProjectWithStatus;
+    targetScopeId: string;
+  } | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isDragOver, setIsDragOver] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -370,11 +374,13 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
     navigator.clipboard.writeText(projectPath);
   };
 
-  const handleMoveToScope = async (projectId: string, scopeId: string) => {
-    try {
-      await moveProjectToScope(projectId, scopeId);
-    } catch (e) {
-      console.error("Failed to move project:", e);
+  const handleMoveToScope = (project: ProjectWithStatus, scopeId: string) => {
+    setProjectToMove({ project, targetScopeId: scopeId });
+  };
+
+  const handleMoveSuccess = async () => {
+    if (currentScopeId) {
+      await fetchProjects(currentScopeId);
     }
   };
 
@@ -674,7 +680,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                     }
                     onCopyPath={() => handleCopyPath(project.project.path)}
                     onMoveToScope={(scopeId) =>
-                      handleMoveToScope(project.project.id, scopeId)
+                      handleMoveToScope(project, scopeId)
                     }
                     onManageTags={() => setTagsProject(project)}
                   />
@@ -738,6 +744,12 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           warnings={folderWarnings.get(currentScope.scope.id) || []}
           open={showFolderWarnings}
           onOpenChange={setShowFolderWarnings}
+          onMoveToScope={(projectId, targetScopeId) => {
+            const project = projects.find((p) => p.project.id === projectId);
+            if (project) {
+              setProjectToMove({ project, targetScopeId });
+            }
+          }}
         />
       )}
       {currentScope && (
@@ -765,6 +777,18 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
         project={projectToDelete}
         open={!!projectToDelete}
         onOpenChange={(open) => !open && setProjectToDelete(null)}
+      />
+      <MoveProjectDialog
+        project={projectToMove?.project ?? null}
+        sourceScope={currentScope}
+        targetScope={
+          projectToMove
+            ? scopes.find((s) => s.scope.id === projectToMove.targetScopeId) ?? null
+            : null
+        }
+        open={!!projectToMove}
+        onOpenChange={(open) => !open && setProjectToMove(null)}
+        onSuccess={handleMoveSuccess}
       />
     </div>
   );

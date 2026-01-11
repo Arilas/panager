@@ -128,6 +128,20 @@ export async function moveProjectToScope(
   });
 }
 
+export async function moveProjectToScopeWithFolder(
+  projectId: string,
+  newScopeId: string,
+  targetFolder?: string,
+  folderName?: string
+): Promise<string> {
+  return invoke("move_project_to_scope_with_folder", {
+    projectId,
+    newScopeId,
+    targetFolder,
+    folderName,
+  });
+}
+
 // Project Tags
 export async function addProjectTag(
   projectId: string,

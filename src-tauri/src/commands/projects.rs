@@ -303,6 +303,79 @@ pub fn move_project_to_scope(
     Ok(())
 }
 
+/// Move a project to a new scope, optionally moving the folder physically
+#[tauri::command]
+pub fn move_project_to_scope_with_folder(
+    db: State<Database>,
+    project_id: String,
+    new_scope_id: String,
+    target_folder: Option<String>,
+    folder_name: Option<String>,
+) -> Result<String, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    let now = Utc::now();
+
+    // Get current project path
+    let project_path: String = conn
+        .query_row(
+            "SELECT path FROM projects WHERE id = ?1",
+            [&project_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Project not found: {}", e))?;
+
+    let mut final_path = project_path.clone();
+
+    // If target folder is provided, move the folder physically
+    if let Some(target) = target_folder {
+        let current_path = Path::new(&project_path);
+
+        // Determine folder name (use provided or keep original)
+        let name = folder_name.unwrap_or_else(|| {
+            current_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("project")
+                .to_string()
+        });
+
+        let new_path = Path::new(&target).join(&name);
+        let new_path_str = new_path.to_str().ok_or("Invalid new path")?;
+
+        // Check if source and destination are the same
+        if current_path == new_path {
+            // No need to move, just update scope
+        } else {
+            // Check if destination already exists
+            if new_path.exists() {
+                return Err(format!("Destination already exists: {}", new_path_str));
+            }
+
+            // Ensure target directory exists
+            let target_dir = Path::new(&target);
+            if !target_dir.exists() {
+                std::fs::create_dir_all(target_dir)
+                    .map_err(|e| format!("Failed to create target directory: {}", e))?;
+            }
+
+            // Move the folder
+            std::fs::rename(&project_path, &new_path)
+                .map_err(|e| format!("Failed to move folder: {}", e))?;
+
+            final_path = new_path_str.to_string();
+        }
+    }
+
+    // Update database with new scope and possibly new path
+    conn.execute(
+        "UPDATE projects SET scope_id = ?1, path = ?2, is_temp = 0, updated_at = ?3 WHERE id = ?4",
+        (&new_scope_id, &final_path, now.to_rfc3339(), &project_id),
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(final_path)
+}
+
 // Project Tags
 #[tauri::command]
 pub fn add_project_tag(db: State<Database>, project_id: String, tag: String) -> Result<(), String> {

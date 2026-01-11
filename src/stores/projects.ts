@@ -22,6 +22,12 @@ interface ProjectsState {
   deleteProject: (id: string) => Promise<void>;
   deleteProjectWithFolder: (id: string) => Promise<void>;
   moveProjectToScope: (projectId: string, newScopeId: string) => Promise<void>;
+  moveProjectToScopeWithFolder: (
+    projectId: string,
+    newScopeId: string,
+    targetFolder?: string,
+    folderName?: string
+  ) => Promise<void>;
 
   // Tags
   addTag: (projectId: string, tag: string) => Promise<void>;
@@ -158,6 +164,36 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
             ? {
                 ...p,
                 project: { ...p.project, scopeId: newScopeId, isTemp: false },
+              }
+            : p
+        ),
+      }));
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  moveProjectToScopeWithFolder: async (projectId, newScopeId, targetFolder, folderName) => {
+    try {
+      const newPath = await api.moveProjectToScopeWithFolder(
+        projectId,
+        newScopeId,
+        targetFolder,
+        folderName
+      );
+      set((state) => ({
+        projects: state.projects.filter((p) => p.project.id !== projectId),
+        allProjects: state.allProjects.map((p) =>
+          p.project.id === projectId
+            ? {
+                ...p,
+                project: {
+                  ...p.project,
+                  scopeId: newScopeId,
+                  path: newPath,
+                  isTemp: false,
+                },
               }
             : p
         ),
