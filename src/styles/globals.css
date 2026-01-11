@@ -291,3 +291,617 @@
     transform: translateX(-50%) translateY(0) scale(1);
   }
 }
+
+/* ============================================
+   LIQUID GLASS DESIGN SYSTEM
+   Apple's macOS 26+ Liquid Glass aesthetic
+   ============================================ */
+
+/* CSS Custom Properties for Liquid Glass */
+:root {
+  /* Glass properties - light mode */
+  --glass-blur: 40px;
+  --glass-saturation: 1.8;
+  --glass-brightness: 1.05;
+  --glass-contrast: 1.1;
+  --glass-opacity: 0.7;
+  --glass-border-opacity: 0.2;
+  --glass-shadow-opacity: 0.1;
+
+  /* Glass colors - light mode */
+  --glass-bg: rgba(255, 255, 255, var(--glass-opacity));
+  --glass-border: rgba(255, 255, 255, var(--glass-border-opacity));
+  --glass-shadow: rgba(0, 0, 0, var(--glass-shadow-opacity));
+  --glass-highlight: rgba(255, 255, 255, 0.5);
+  --glass-refraction: rgba(255, 255, 255, 0.1);
+
+  /* Scope-tinted glass */
+  --glass-scope-tint: color-mix(in srgb, var(--scope-color, #6b7280) 15%, transparent);
+  --glass-scope-border: color-mix(in srgb, var(--scope-color, #6b7280) 25%, transparent);
+}
+
+.dark {
+  /* Glass properties - dark mode */
+  --glass-opacity: 0.5;
+  --glass-border-opacity: 0.15;
+  --glass-shadow-opacity: 0.3;
+  --glass-saturation: 1.4;
+  --glass-brightness: 0.9;
+
+  /* Glass colors - dark mode */
+  --glass-bg: rgba(30, 30, 35, var(--glass-opacity));
+  --glass-border: rgba(255, 255, 255, var(--glass-border-opacity));
+  --glass-shadow: rgba(0, 0, 0, var(--glass-shadow-opacity));
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --glass-refraction: rgba(255, 255, 255, 0.05);
+}
+
+/* ----------------------------------------
+   Liquid Glass Base Class
+   ---------------------------------------- */
+.liquid-glass {
+  background: var(--glass-bg);
+  backdrop-filter:
+    blur(var(--glass-blur))
+    saturate(var(--glass-saturation))
+    brightness(var(--glass-brightness))
+    contrast(var(--glass-contrast));
+  -webkit-backdrop-filter:
+    blur(var(--glass-blur))
+    saturate(var(--glass-saturation))
+    brightness(var(--glass-brightness))
+    contrast(var(--glass-contrast));
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 8px 32px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Glass highlight layer (top edge glow) */
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--glass-highlight) 20%,
+    var(--glass-highlight) 80%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Glass refraction layer */
+.liquid-glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    var(--glass-refraction) 0%,
+    transparent 50%,
+    var(--glass-refraction) 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ----------------------------------------
+   Liquid Glass Variants
+   ---------------------------------------- */
+
+/* Subtle - minimal glass effect */
+.liquid-glass-subtle {
+  --glass-blur: 20px;
+  --glass-opacity: 0.5;
+  --glass-saturation: 1.3;
+  background: var(--glass-bg);
+  backdrop-filter:
+    blur(var(--glass-blur))
+    saturate(var(--glass-saturation));
+  -webkit-backdrop-filter:
+    blur(var(--glass-blur))
+    saturate(var(--glass-saturation));
+  border: 1px solid var(--glass-border);
+}
+
+/* Strong - maximum glass effect */
+.liquid-glass-strong {
+  --glass-blur: 60px;
+  --glass-opacity: 0.8;
+  --glass-saturation: 2;
+  background: var(--glass-bg);
+  backdrop-filter:
+    blur(var(--glass-blur))
+    saturate(var(--glass-saturation))
+    brightness(var(--glass-brightness));
+  -webkit-backdrop-filter:
+    blur(var(--glass-blur))
+    saturate(var(--glass-saturation))
+    brightness(var(--glass-brightness));
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 12px 48px var(--glass-shadow),
+    inset 0 2px 0 var(--glass-highlight);
+}
+
+/* ----------------------------------------
+   Scope-Tinted Liquid Glass
+   Incorporates the current scope color
+   ---------------------------------------- */
+.liquid-glass-scope {
+  background: color-mix(
+    in srgb,
+    var(--glass-bg) 85%,
+    var(--scope-color, #6b7280) 15%
+  );
+  backdrop-filter:
+    blur(var(--glass-blur))
+    saturate(var(--glass-saturation))
+    brightness(var(--glass-brightness));
+  -webkit-backdrop-filter:
+    blur(var(--glass-blur))
+    saturate(var(--glass-saturation))
+    brightness(var(--glass-brightness));
+  border: 1px solid color-mix(
+    in srgb,
+    var(--glass-border) 70%,
+    var(--scope-color, #6b7280) 30%
+  );
+  box-shadow:
+    0 8px 32px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight),
+    0 0 0 1px color-mix(in srgb, var(--scope-color, #6b7280) 10%, transparent);
+  position: relative;
+}
+
+.liquid-glass-scope::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--scope-color, #6b7280) 30%, var(--glass-highlight)) 20%,
+    color-mix(in srgb, var(--scope-color, #6b7280) 30%, var(--glass-highlight)) 80%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ----------------------------------------
+   Liquid Glass Button
+   ---------------------------------------- */
+.liquid-glass-button {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 2px 8px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-glass-button:hover {
+  background: color-mix(in srgb, var(--glass-bg) 90%, white 10%);
+  box-shadow:
+    0 4px 16px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight);
+  transform: translateY(-1px);
+}
+
+.liquid-glass-button:active {
+  transform: translateY(0);
+  box-shadow:
+    0 2px 8px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight);
+}
+
+.dark .liquid-glass-button:hover {
+  background: color-mix(in srgb, var(--glass-bg) 90%, white 5%);
+}
+
+/* Scope-tinted button */
+.liquid-glass-button-scope {
+  background: color-mix(
+    in srgb,
+    var(--glass-bg) 80%,
+    var(--scope-color, #6b7280) 20%
+  );
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid color-mix(
+    in srgb,
+    var(--glass-border) 60%,
+    var(--scope-color, #6b7280) 40%
+  );
+  box-shadow:
+    0 2px 8px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.liquid-glass-button-scope:hover {
+  background: color-mix(
+    in srgb,
+    var(--glass-bg) 70%,
+    var(--scope-color, #6b7280) 30%
+  );
+  box-shadow:
+    0 4px 16px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight),
+    0 0 20px color-mix(in srgb, var(--scope-color, #6b7280) 20%, transparent);
+  transform: translateY(-1px);
+}
+
+/* ----------------------------------------
+   Liquid Glass Card
+   ---------------------------------------- */
+.liquid-glass-card {
+  background: var(--glass-bg);
+  backdrop-filter:
+    blur(30px)
+    saturate(var(--glass-saturation));
+  -webkit-backdrop-filter:
+    blur(30px)
+    saturate(var(--glass-saturation));
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow:
+    0 4px 24px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-glass-card:hover {
+  box-shadow:
+    0 8px 40px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight);
+  transform: translateY(-2px);
+}
+
+/* Card with scope tint */
+.liquid-glass-card-scope {
+  background: color-mix(
+    in srgb,
+    var(--glass-bg) 90%,
+    var(--scope-color, #6b7280) 10%
+  );
+  backdrop-filter:
+    blur(30px)
+    saturate(var(--glass-saturation));
+  -webkit-backdrop-filter:
+    blur(30px)
+    saturate(var(--glass-saturation));
+  border: 1px solid color-mix(
+    in srgb,
+    var(--glass-border) 80%,
+    var(--scope-color, #6b7280) 20%
+  );
+  border-radius: 16px;
+  box-shadow:
+    0 4px 24px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.liquid-glass-card-scope:hover {
+  background: color-mix(
+    in srgb,
+    var(--glass-bg) 85%,
+    var(--scope-color, #6b7280) 15%
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--glass-border) 60%,
+    var(--scope-color, #6b7280) 40%
+  );
+  box-shadow:
+    0 8px 40px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight),
+    0 0 30px color-mix(in srgb, var(--scope-color, #6b7280) 15%, transparent);
+}
+
+/* ----------------------------------------
+   Liquid Glass Overlay (for dialogs)
+   ---------------------------------------- */
+.liquid-glass-overlay {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px) saturate(1.2);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+}
+
+.dark .liquid-glass-overlay {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* ----------------------------------------
+   Liquid Glass Dialog
+   ---------------------------------------- */
+.liquid-glass-dialog {
+  background: var(--glass-bg);
+  backdrop-filter:
+    blur(50px)
+    saturate(var(--glass-saturation))
+    brightness(var(--glass-brightness));
+  -webkit-backdrop-filter:
+    blur(50px)
+    saturate(var(--glass-saturation))
+    brightness(var(--glass-brightness));
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.25),
+    0 12px 40px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-glass-dialog::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.6) 20%,
+    rgba(255, 255, 255, 0.6) 80%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.dark .liquid-glass-dialog::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.15) 20%,
+    rgba(255, 255, 255, 0.15) 80%,
+    transparent
+  );
+}
+
+/* ----------------------------------------
+   Liquid Glass Sidebar
+   ---------------------------------------- */
+.liquid-glass-sidebar {
+  background: color-mix(in srgb, var(--glass-bg) 95%, var(--scope-color, #6b7280) 5%);
+  backdrop-filter:
+    blur(40px)
+    saturate(1.6);
+  -webkit-backdrop-filter:
+    blur(40px)
+    saturate(1.6);
+  border-right: 1px solid var(--glass-border);
+  position: relative;
+}
+
+.liquid-glass-sidebar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    var(--glass-highlight),
+    transparent 20%,
+    transparent 80%,
+    var(--glass-highlight)
+  );
+  pointer-events: none;
+}
+
+/* ----------------------------------------
+   Liquid Glass Titlebar
+   ---------------------------------------- */
+.liquid-glass-titlebar {
+  background: color-mix(
+    in srgb,
+    var(--glass-bg) 90%,
+    var(--scope-color, #6b7280) 10%
+  );
+  backdrop-filter: blur(30px) saturate(1.5);
+  -webkit-backdrop-filter: blur(30px) saturate(1.5);
+  border-bottom: 1px solid var(--glass-border);
+  position: relative;
+}
+
+.liquid-glass-titlebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--scope-color, #6b7280) 12%, transparent),
+    color-mix(in srgb, var(--scope-color, #6b7280) 3%, transparent)
+  );
+  pointer-events: none;
+}
+
+.liquid-glass-titlebar::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--glass-highlight) 20%,
+    var(--glass-highlight) 80%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* ----------------------------------------
+   Liquid Glass Input
+   ---------------------------------------- */
+.liquid-glass-input {
+  background: color-mix(in srgb, var(--glass-bg) 60%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.liquid-glass-input:focus {
+  background: var(--glass-bg);
+  border-color: color-mix(
+    in srgb,
+    var(--glass-border) 50%,
+    var(--scope-color, #3b82f6) 50%
+  );
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.05),
+    0 0 0 3px color-mix(in srgb, var(--scope-color, #3b82f6) 20%, transparent);
+}
+
+/* ----------------------------------------
+   Liquid Glass Command Palette
+   ---------------------------------------- */
+.liquid-glass-command {
+  background: var(--glass-bg);
+  backdrop-filter:
+    blur(50px)
+    saturate(2)
+    brightness(1.05);
+  -webkit-backdrop-filter:
+    blur(50px)
+    saturate(2)
+    brightness(1.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.3),
+    0 8px 32px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 var(--glass-highlight);
+  overflow: hidden;
+}
+
+/* ----------------------------------------
+   Liquid Glass Animations
+   ---------------------------------------- */
+@keyframes glassAppear {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    transform: scale(1);
+  }
+}
+
+@keyframes glassShimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.liquid-glass-animate {
+  animation: glassAppear 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Shimmer effect for loading states */
+.liquid-glass-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: glassShimmer 2s infinite;
+  pointer-events: none;
+}
+
+/* ----------------------------------------
+   Utility Classes
+   ---------------------------------------- */
+
+/* Blur intensities */
+.glass-blur-sm { --glass-blur: 20px; }
+.glass-blur-md { --glass-blur: 40px; }
+.glass-blur-lg { --glass-blur: 60px; }
+.glass-blur-xl { --glass-blur: 80px; }
+
+/* Opacity levels */
+.glass-opacity-low { --glass-opacity: 0.4; }
+.glass-opacity-medium { --glass-opacity: 0.6; }
+.glass-opacity-high { --glass-opacity: 0.8; }
+
+/* Disable glass effects (for performance or preference) */
+.no-glass,
+.no-glass * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.no-glass .liquid-glass,
+.no-glass .liquid-glass-subtle,
+.no-glass .liquid-glass-strong,
+.no-glass .liquid-glass-scope,
+.no-glass .liquid-glass-card,
+.no-glass .liquid-glass-card-scope,
+.no-glass .liquid-glass-dialog,
+.no-glass .liquid-glass-sidebar,
+.no-glass .liquid-glass-titlebar,
+.no-glass .liquid-glass-button,
+.no-glass .liquid-glass-button-scope,
+.no-glass .liquid-glass-command {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.dark.no-glass .liquid-glass,
+.dark.no-glass .liquid-glass-subtle,
+.dark.no-glass .liquid-glass-strong,
+.dark.no-glass .liquid-glass-scope,
+.dark.no-glass .liquid-glass-card,
+.dark.no-glass .liquid-glass-card-scope,
+.dark.no-glass .liquid-glass-dialog,
+.dark.no-glass .liquid-glass-sidebar,
+.dark.no-glass .liquid-glass-titlebar,
+.dark.no-glass .liquid-glass-button,
+.dark.no-glass .liquid-glass-button-scope,
+.dark.no-glass .liquid-glass-command {
+  background: hsl(var(--card));
+}

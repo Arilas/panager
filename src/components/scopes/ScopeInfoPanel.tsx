@@ -94,8 +94,20 @@ export function ScopeInfoPanel({
     });
   };
 
+  const useLiquidGlass = settings.liquid_glass_enabled;
+  const useScopeTint = settings.liquid_glass_scope_tint;
+
   return (
-    <div className="h-full flex flex-col">
+    <div
+      className={cn(
+        "h-full flex flex-col rounded-xl overflow-hidden",
+        useLiquidGlass
+          ? useScopeTint
+            ? "liquid-glass-sidebar"
+            : "liquid-glass"
+          : "bg-white/60 dark:bg-neutral-900/60 border border-black/[0.08] dark:border-white/[0.08]"
+      )}
+    >
       {/* Header */}
       <div className="p-2">
         <div className="flex items-center gap-3 mb-3">
@@ -319,6 +331,8 @@ function LinkCard({
   link: { id: string; linkType: string; label: string; url: string };
 }) {
   const typeInfo = LINK_TYPES.find((t) => t.id === link.linkType);
+  const { settings } = useSettingsStore();
+  const useLiquidGlass = settings.liquid_glass_enabled;
 
   const getIcon = () => {
     switch (link.linkType) {
@@ -349,12 +363,16 @@ function LinkCard({
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "flex items-center gap-3 p-3 rounded-lg transition-all",
-        "bg-black/[0.02] dark:bg-white/[0.02]",
-        "border border-black/5 dark:border-white/5",
-        "hover:bg-black/[0.04] dark:hover:bg-white/[0.04]",
-        "hover:border-black/10 dark:hover:border-white/10",
-        "group"
+        "flex items-center gap-3 p-3 transition-all group",
+        useLiquidGlass
+          ? "liquid-glass-subtle rounded-xl"
+          : [
+              "rounded-lg",
+              "bg-black/[0.02] dark:bg-white/[0.02]",
+              "border border-black/5 dark:border-white/5",
+              "hover:bg-black/[0.04] dark:hover:bg-white/[0.04]",
+              "hover:border-black/10 dark:hover:border-white/10",
+            ]
       )}
     >
       <div

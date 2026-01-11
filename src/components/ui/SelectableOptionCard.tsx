@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Check } from "lucide-react";
+import { useSettingsStore } from "../../stores/settings";
 
 interface SelectableOptionCardProps {
   selected: boolean;
@@ -21,18 +22,30 @@ export function SelectableOptionCard({
   disabled = false,
   children,
 }: SelectableOptionCardProps) {
+  const { settings } = useSettingsStore();
+  const useLiquidGlass = settings.liquid_glass_enabled;
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "w-full p-3 rounded-lg text-left transition-all",
-        "border-2",
-        selected
-          ? "border-primary bg-primary/5"
-          : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02]",
-        !disabled && !selected && "hover:border-black/20 dark:hover:border-white/20 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]",
+        "w-full p-3 text-left transition-all",
+        useLiquidGlass
+          ? [
+              selected
+                ? "liquid-glass-scope border-2 border-primary/50"
+                : "liquid-glass-subtle",
+              "rounded-xl"
+            ]
+          : [
+              "rounded-lg border-2",
+              selected
+                ? "border-primary bg-primary/5"
+                : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02]",
+              !disabled && !selected && "hover:border-black/20 dark:hover:border-white/20 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]",
+            ],
         disabled && "opacity-50 cursor-not-allowed"
       )}
     >
@@ -43,7 +56,9 @@ export function SelectableOptionCard({
               "shrink-0 h-8 w-8 rounded-lg flex items-center justify-center",
               selected
                 ? "bg-primary/10 text-primary"
-                : "bg-black/5 dark:bg-white/10 text-muted-foreground"
+                : useLiquidGlass
+                  ? "bg-white/20 dark:bg-white/10 text-muted-foreground"
+                  : "bg-black/5 dark:bg-white/10 text-muted-foreground"
             )}
           >
             {icon}

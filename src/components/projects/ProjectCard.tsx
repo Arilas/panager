@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { ProjectWithStatus, Editor, ScopeWithLinks } from "../../types";
 import { cn } from "../../lib/utils";
+import { useSettingsStore } from "../../stores/settings";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -65,6 +66,9 @@ export function ProjectCard({
 }: ProjectCardProps) {
   const { project: p, tags, gitStatus } = project;
   const otherScopes = scopes.filter((s) => s.scope.id !== currentScopeId);
+  const { settings } = useSettingsStore();
+  const useLiquidGlass = settings.liquid_glass_enabled;
+  const useScopeTint = settings.liquid_glass_scope_tint;
 
   const hasChanges = gitStatus?.hasUncommitted || gitStatus?.hasUntracked;
   const needsPull = (gitStatus?.behind ?? 0) > 0;
@@ -73,11 +77,18 @@ export function ProjectCard({
   return (
     <div
       className={cn(
-        "group rounded-lg p-3 transition-all cursor-pointer",
-        "bg-white/60 dark:bg-white/5",
-        "border border-black/[0.06] dark:border-white/[0.08]",
-        "hover:bg-white/80 dark:hover:bg-white/10",
-        "hover:shadow-sm hover:border-black/10 dark:hover:border-white/10"
+        "group p-3 transition-all cursor-pointer",
+        useLiquidGlass
+          ? useScopeTint
+            ? "liquid-glass-card-scope"
+            : "liquid-glass-card"
+          : [
+              "rounded-lg",
+              "bg-white/60 dark:bg-white/5",
+              "border border-black/[0.06] dark:border-white/[0.08]",
+              "hover:bg-white/80 dark:hover:bg-white/10",
+              "hover:shadow-sm hover:border-black/10 dark:hover:border-white/10"
+            ]
       )}
       onClick={onOpen}
     >

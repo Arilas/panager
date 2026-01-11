@@ -2,6 +2,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useSettingsStore } from "../../stores/settings";
 
 const Dialog = DialogPrimitive.Root;
 
@@ -13,12 +14,17 @@ const DialogClose = DialogPrimitive.Close;
 
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay> & {
+    useLiquidGlass?: boolean;
+  }
+>(({ className, useLiquidGlass, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/40 backdrop-blur-sm",
+      "fixed inset-0 z-50",
+      useLiquidGlass
+        ? "liquid-glass-overlay"
+        : "bg-black/40 backdrop-blur-sm",
       "data-[state=open]:animate-in data-[state=closed]:animate-out",
       "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
@@ -31,41 +37,53 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%]",
-        "gap-4 rounded-xl p-6 shadow-xl",
-        "bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl",
-        "border border-black/10 dark:border-white/10",
-        "duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out",
-        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-        "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%]",
-        "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close
+>(({ className, children, ...props }, ref) => {
+  const { settings } = useSettingsStore();
+  const useLiquidGlass = settings.liquid_glass_enabled;
+
+  return (
+    <DialogPortal>
+      <DialogOverlay useLiquidGlass={useLiquidGlass} />
+      <DialogPrimitive.Content
+        ref={ref}
         className={cn(
-          "absolute right-4 top-4 rounded-md p-1",
-          "opacity-70 transition-opacity hover:opacity-100",
-          "hover:bg-black/5 dark:hover:bg-white/10",
-          "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-          "disabled:pointer-events-none"
+          "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%]",
+          "gap-4 p-6 shadow-xl",
+          useLiquidGlass
+            ? "liquid-glass-dialog liquid-glass-animate"
+            : [
+                "rounded-xl",
+                "bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl",
+                "border border-black/10 dark:border-white/10",
+              ],
+          "duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+          "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%]",
+          "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+          className
         )}
+        {...props}
       >
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPortal>
-));
+        {children}
+        <DialogPrimitive.Close
+          className={cn(
+            "absolute right-4 top-4 rounded-md p-1",
+            "opacity-70 transition-opacity hover:opacity-100",
+            useLiquidGlass
+              ? "hover:bg-white/20 dark:hover:bg-white/10"
+              : "hover:bg-black/5 dark:hover:bg-white/10",
+            "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+            "disabled:pointer-events-none"
+          )}
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </DialogPortal>
+  );
+});
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({

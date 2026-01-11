@@ -2,6 +2,7 @@ import { useRef, useEffect } from "react";
 import { Search, PanelRight, Settings } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui";
+import { useSettingsStore } from "../../stores/settings";
 
 interface TitlebarProps {
   onOpenCommandPalette: () => void;
@@ -15,6 +16,9 @@ export function Titlebar({
   const inputRef = useRef<HTMLInputElement>(null);
   const { rightPanelVisible, searchQuery, toggleRightPanel, setSearchQuery } =
     useUIStore();
+  const { settings } = useSettingsStore();
+  const useLiquidGlass = settings.liquid_glass_enabled;
+  const useScopeTint = settings.liquid_glass_scope_tint;
 
   // Focus search on Cmd+F
   useEffect(() => {
@@ -44,7 +48,11 @@ export function Titlebar({
     <div
       className={cn(
         "titlebar flex items-center gap-2 px-3 select-none",
-        "bg-vibrancy-sidebar"
+        useLiquidGlass
+          ? useScopeTint
+            ? "liquid-glass-titlebar"
+            : "liquid-glass-subtle"
+          : "bg-vibrancy-sidebar"
       )}
       data-tauri-drag-region
     >
@@ -56,11 +64,15 @@ export function Titlebar({
         <div
           className={cn(
             "relative flex items-center w-full max-w-[480px]",
-            "bg-black/[0.04] dark:bg-white/[0.08]",
-            "hover:bg-black/[0.06] dark:hover:bg-white/[0.10]",
-            "focus-within:bg-black/[0.06] dark:focus-within:bg-white/[0.10]",
-            "focus-within:ring-1 focus-within:ring-primary/30",
-            "rounded-lg transition-all"
+            useLiquidGlass
+              ? "liquid-glass-input rounded-lg"
+              : [
+                  "bg-black/[0.04] dark:bg-white/[0.08]",
+                  "hover:bg-black/[0.06] dark:hover:bg-white/[0.10]",
+                  "focus-within:bg-black/[0.06] dark:focus-within:bg-white/[0.10]",
+                  "focus-within:ring-1 focus-within:ring-primary/30",
+                  "rounded-lg transition-all"
+                ]
           )}
         >
           <Search className="absolute left-3 h-3.5 w-3.5 text-muted-foreground/50 pointer-events-none" />

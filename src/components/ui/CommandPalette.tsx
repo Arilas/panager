@@ -12,6 +12,7 @@ import { cn } from "../../lib/utils";
 import { useScopesStore } from "../../stores/scopes";
 import { useProjectsStore } from "../../stores/projects";
 import { useEditorsStore } from "../../stores/editors";
+import { useSettingsStore } from "../../stores/settings";
 import type { ProjectWithStatus, ScopeWithLinks } from "../../types";
 
 interface CommandPaletteProps {
@@ -32,6 +33,8 @@ export function CommandPalette({
   const { allProjects, fetchAllProjects, openInEditor, updateLastOpened } =
     useProjectsStore();
   const { getDefaultEditor } = useEditorsStore();
+  const { settings } = useSettingsStore();
+  const useLiquidGlass = settings.liquid_glass_enabled;
 
   useEffect(() => {
     if (open) {
@@ -80,9 +83,14 @@ export function CommandPalette({
       label="Command Palette"
       className={cn(
         "fixed left-1/2 top-[15%] z-50 w-full max-w-[560px] -translate-x-1/2",
-        "rounded-xl shadow-2xl overflow-hidden",
-        "bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl",
-        "border border-black/10 dark:border-white/10"
+        "shadow-2xl overflow-hidden",
+        useLiquidGlass
+          ? "liquid-glass-command liquid-glass-animate"
+          : [
+              "rounded-xl",
+              "bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl",
+              "border border-black/10 dark:border-white/10"
+            ]
       )}
     >
       <div className="flex items-center px-4 border-b border-black/5 dark:border-white/5">

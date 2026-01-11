@@ -31,6 +31,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { cn } from "../lib/utils";
+import { useSettingsStore } from "../stores/settings";
 import type { ProjectWithStatus } from "../types";
 
 interface DashboardProps {
@@ -55,6 +56,9 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   } = useProjectsStore();
   const { editors, syncEditors, getDefaultEditor } = useEditorsStore();
   const { rightPanelVisible, searchQuery } = useUIStore();
+  const { settings } = useSettingsStore();
+  const useLiquidGlass = settings.liquid_glass_enabled;
+  const useScopeTint = settings.liquid_glass_scope_tint;
   const [refreshing, setRefreshing] = useState(false);
   const [showTempProject, setShowTempProject] = useState(false);
   const [tagsProject, setTagsProject] = useState<ProjectWithStatus | null>(
@@ -389,11 +393,16 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
       <div className="flex-1 flex bg-vibrancy-sidebar overflow-hidden p-2 pt-0">
         <div
           className={cn(
-            "flex-1 flex items-center justify-center",
-            "bg-white/60 dark:bg-neutral-900/60",
-            "backdrop-blur-xl",
-            "rounded-xl",
-            "border border-black/[0.08] dark:border-white/[0.08]"
+            "flex-1 flex items-center justify-center rounded-xl",
+            useLiquidGlass
+              ? useScopeTint
+                ? "liquid-glass-scope"
+                : "liquid-glass"
+              : [
+                  "bg-white/60 dark:bg-neutral-900/60",
+                  "backdrop-blur-xl",
+                  "border border-black/[0.08] dark:border-white/[0.08]"
+                ]
           )}
         >
           <div className="text-center">
@@ -419,12 +428,17 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
       {/* Main Content Island */}
       <div
         className={cn(
-          "flex-1 flex flex-col min-w-0 relative",
-          "bg-white/60 dark:bg-neutral-900/60",
-          "backdrop-blur-xl",
-          "rounded-xl",
-          "border border-black/[0.08] dark:border-white/[0.08]",
-          "overflow-hidden",
+          "flex-1 flex flex-col min-w-0 relative overflow-hidden",
+          useLiquidGlass
+            ? useScopeTint
+              ? "liquid-glass-scope rounded-xl"
+              : "liquid-glass rounded-xl"
+            : [
+                "bg-white/60 dark:bg-neutral-900/60",
+                "backdrop-blur-xl",
+                "rounded-xl",
+                "border border-black/[0.08] dark:border-white/[0.08]",
+              ],
           isDragOver && "border-primary border-2"
         )}
       >
