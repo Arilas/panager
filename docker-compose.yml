@@ -1,13 +1,20 @@
 # Docker Compose for Panager Linux build and testing
 #
-# Usage:
-#   docker-compose run test      # Run all tests (cargo check, clippy, tests)
-#   docker-compose run build     # Build production binaries
-#   docker-compose run dev       # Interactive development shell
+# Usage (Docker Compose v2 - recommended):
+#   docker compose run --rm test      # Run all tests
+#   docker compose run --rm build     # Build production binaries
+#   docker compose run --rm check     # Quick cargo check
+#   docker compose run --rm dev       # Interactive development shell
 #
-# To extract built artifacts:
-#   docker-compose run build
-#   docker cp $(docker-compose ps -q build):/app/src-tauri/target/release/bundle ./bundle
+# Usage (Docker Compose v1 - legacy):
+#   docker-compose run --rm test
+#   docker-compose run --rm build
+#
+# Or use the helper script:
+#   ./scripts/docker-build.sh check
+#   ./scripts/docker-build.sh build
+#
+# Build artifacts will be in ./build-output/
 
 services:
   # Run cargo check, clippy, and tests
