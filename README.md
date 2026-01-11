@@ -20,7 +20,9 @@
 
 ## Features
 
+### Core Features
 - **Scope-Based Organization** — Group projects into custom scopes (work, personal, clients) with unique colors and icons
+- **Default Folders** — Assign a default folder to each scope; new projects are automatically organized
 - **Git Integration** — Real-time git status tracking, branch info, ahead/behind status, and one-click pull/push
 - **Editor Integration** — Open projects in your preferred editor with one click; auto-detects installed editors
 - **Smart Search** — Filter projects by name, path, or tags with keyboard navigation
@@ -30,6 +32,25 @@
 - **Tags** — Flexible project categorization with custom tags
 - **Scope Links** — Add quick links to related resources (GitHub, Jira, Notion, Slack)
 - **Native Feel** — macOS vibrancy effects, native titlebar, dark/light mode support
+
+### Clone Repository
+- **One-Click Cloning** — Clone repositories directly into a scope's default folder
+- **SSH Alias Support** — Automatically transform URLs to use your configured SSH aliases
+- **Clone Options** — Specify branch, shallow clone for large repos
+- **Progress Streaming** — Real-time clone progress with detailed log output
+- **Auto-Registration** — Cloned projects are automatically added to the scope
+
+### Max Integrations (Optional)
+Enable deeper integration features per scope:
+
+- **Max SSH Integration** — Configure SSH aliases per scope for seamless Git authentication across multiple accounts
+- **Max Git Integration** — Set up per-scope Git identity (name, email, GPG signing) that automatically applies to cloned/created projects
+- **Folder Warnings** — Detect projects in scope folders that aren't registered and offer to add or move them
+
+### Temp Projects
+- **Quick Prototyping** — Create temporary project folders with auto-generated names
+- **Auto-Cleanup** — Temp projects are marked for easy identification and cleanup
+- **Scope-Aware** — Created in the scope's default folder when configured
 
 ## Tech Stack
 
