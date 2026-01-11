@@ -32,10 +32,12 @@ interface ProjectListItemProps {
   editors?: Editor[];
   scopes?: ScopeWithLinks[];
   currentScopeId?: string;
+  currentScopeHasDefaultFolder?: boolean;
   isSelected?: boolean;
   onOpen: () => void;
   onOpenWithEditor?: (editorId: string) => void;
   onDelete: () => void;
+  onDeleteWithFolder?: () => void;
   onRefreshGit: () => void;
   onPull: () => void;
   onPush: () => void;
@@ -51,10 +53,12 @@ export function ProjectListItem({
   editors = [],
   scopes = [],
   currentScopeId,
+  currentScopeHasDefaultFolder = false,
   isSelected = false,
   onOpen,
   onOpenWithEditor,
   onDelete,
+  onDeleteWithFolder,
   onRefreshGit,
   onPull,
   onPush,
@@ -356,13 +360,23 @@ export function ProjectListItem({
 
               <DropdownMenuSeparator />
 
-              <DropdownMenuItem
-                onClick={onDelete}
-                className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-2" />
-                Remove from Scope
-              </DropdownMenuItem>
+              {currentScopeHasDefaultFolder && onDeleteWithFolder ? (
+                <DropdownMenuItem
+                  onClick={onDeleteWithFolder}
+                  className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                  Remove
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                  Remove from Scope
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

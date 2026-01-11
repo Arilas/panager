@@ -20,6 +20,7 @@ interface ProjectsState {
     preferredEditorId?: string
   ) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
+  deleteProjectWithFolder: (id: string) => Promise<void>;
   moveProjectToScope: (projectId: string, newScopeId: string) => Promise<void>;
 
   // Tags
@@ -124,6 +125,19 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   deleteProject: async (id) => {
     try {
       await api.deleteProject(id);
+      set((state) => ({
+        projects: state.projects.filter((p) => p.project.id !== id),
+        allProjects: state.allProjects.filter((p) => p.project.id !== id),
+      }));
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  deleteProjectWithFolder: async (id) => {
+    try {
+      await api.deleteProjectWithFolder(id);
       set((state) => ({
         projects: state.projects.filter((p) => p.project.id !== id),
         allProjects: state.allProjects.filter((p) => p.project.id !== id),

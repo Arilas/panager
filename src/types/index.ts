@@ -220,3 +220,36 @@ export interface SshRemoteMismatch {
   expectedAlias: string;
   actualUrl: string;
 }
+
+// Clone Repository Types
+
+export interface ParsedGitUrl {
+  protocol: "ssh" | "http" | "https";
+  host: string;
+  port?: number;
+  user?: string;
+  hasHttpCredentials: boolean;
+  owner: string;
+  repo: string;
+  usesAlias?: string;
+  originalUrl: string;
+}
+
+export interface CloneOptions {
+  useSshAlias?: string;
+  branch?: string;
+  shallow: boolean;
+}
+
+export interface CloneProgress {
+  line: string;
+  isError: boolean;
+  status?: string;
+}
+
+export interface CloneResult {
+  success: boolean;
+  projectId?: string;
+  projectPath?: string;
+  error?: string;
+}

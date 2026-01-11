@@ -1,5 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  CloneOptions,
+  CloneProgress,
+  CloneResult,
   ConfigMismatch,
   CreateProjectRequest,
   CreateScopeLinkRequest,
@@ -11,6 +15,7 @@ import type {
   GitStatusCache,
   GpgSigningMethod,
   IgnoredFolderWarning,
+  ParsedGitUrl,
   Project,
   ProjectFolderWarning,
   ProjectWithStatus,
@@ -103,6 +108,10 @@ export async function updateProject(
 
 export async function deleteProject(id: string): Promise<void> {
   return invoke("delete_project", { id });
+}
+
+export async function deleteProjectWithFolder(id: string): Promise<void> {
+  return invoke("delete_project_with_folder", { id });
 }
 
 export async function updateProjectLastOpened(id: string): Promise<void> {
@@ -362,4 +371,42 @@ export async function verifyProjectSshRemote(
 
 export async function fixProjectSshRemote(projectId: string): Promise<string> {
   return invoke("fix_project_ssh_remote", { projectId });
+}
+
+// Git URL Parsing
+export async function parseGitUrl(
+  url: string,
+  knownAliases: string[]
+): Promise<ParsedGitUrl> {
+  return invoke("parse_git_url", { url, knownAliases });
+}
+
+// Clone Repository
+export async function checkFolderExists(
+  scopeId: string,
+  folderName: string
+): Promise<boolean> {
+  return invoke("check_folder_exists", { scopeId, folderName });
+}
+
+export async function cloneRepository(
+  scopeId: string,
+  url: string,
+  folderName: string,
+  options: CloneOptions
+): Promise<CloneResult> {
+  return invoke("clone_repository", {
+    scopeId,
+    url,
+    folderName,
+    options,
+  });
+}
+
+export function onCloneProgress(
+  callback: (progress: CloneProgress) => void
+): Promise<UnlistenFn> {
+  return listen<CloneProgress>("clone-progress", (event) => {
+    callback(event.payload);
+  });
 }

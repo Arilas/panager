@@ -8,6 +8,7 @@ import {
   Tag,
   X,
   FolderInput,
+  Download,
 } from "lucide-react";
 import { useScopesStore } from "../stores/scopes";
 import { useProjectsStore } from "../stores/projects";
@@ -23,6 +24,8 @@ import { DeleteScopeDialog } from "../components/scopes/DeleteScopeDialog";
 import { ScopeLinksDialog } from "../components/scopes/ScopeLinksDialog";
 import { ScopeFolderWarnings } from "../components/scopes/ScopeFolderWarnings";
 import { GitConfigDialog } from "../components/git/GitConfigDialog";
+import { CloneRepositoryDialog } from "../components/scopes/CloneRepositoryDialog";
+import { DeleteProjectDialog } from "../components/projects/DeleteProjectDialog";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -66,6 +69,8 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const [showScopeLinks, setShowScopeLinks] = useState(false);
   const [showFolderWarnings, setShowFolderWarnings] = useState(false);
   const [showGitConfig, setShowGitConfig] = useState(false);
+  const [showCloneRepo, setShowCloneRepo] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<ProjectWithStatus | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isDragOver, setIsDragOver] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -477,6 +482,19 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
               <Zap className="h-3 w-3" />
               Temp
             </button>
+            {currentScope?.scope.defaultFolder && (
+              <button
+                onClick={() => setShowCloneRepo(true)}
+                className={cn(
+                  "px-2.5 py-1 rounded-md text-[12px] font-medium",
+                  "bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15",
+                  "text-foreground/70 transition-colors flex items-center gap-1.5"
+                )}
+              >
+                <Download className="h-3 w-3" />
+                Clone
+              </button>
+            )}
             {!currentScope?.scope.defaultFolder && (
               <button
                 onClick={handleAddProject}
@@ -625,6 +643,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                     editors={editors}
                     scopes={scopes}
                     currentScopeId={currentScopeId}
+                    currentScopeHasDefaultFolder={!!currentScope?.scope.defaultFolder}
                     onOpen={() =>
                       handleOpenProject(
                         project.project.id,
@@ -640,6 +659,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                       )
                     }
                     onDelete={() => deleteProject(project.project.id)}
+                    onDeleteWithFolder={() => setProjectToDelete(project)}
                     onRefreshGit={() =>
                       refreshGitStatus(project.project.id, project.project.path)
                     }
@@ -728,6 +748,24 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           onOpenChange={setShowGitConfig}
         />
       )}
+      {currentScope && currentScope.scope.defaultFolder && (
+        <CloneRepositoryDialog
+          scope={currentScope}
+          open={showCloneRepo}
+          onOpenChange={setShowCloneRepo}
+          onCloned={async () => {
+            // Refresh projects after clone
+            if (currentScopeId) {
+              await fetchProjects(currentScopeId);
+            }
+          }}
+        />
+      )}
+      <DeleteProjectDialog
+        project={projectToDelete}
+        open={!!projectToDelete}
+        onOpenChange={(open) => !open && setProjectToDelete(null)}
+      />
     </div>
   );
 }

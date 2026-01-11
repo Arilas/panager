@@ -245,6 +245,33 @@ pub fn delete_project(db: State<Database>, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn delete_project_with_folder(db: State<Database>, id: String) -> Result<(), String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+    // Get the project path first
+    let path: String = conn
+        .query_row(
+            "SELECT path FROM projects WHERE id = ?1",
+            [&id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Project not found: {}", e))?;
+
+    // Delete from database
+    conn.execute("DELETE FROM projects WHERE id = ?1", [&id])
+        .map_err(|e| e.to_string())?;
+
+    // Delete the folder
+    let folder_path = std::path::Path::new(&path);
+    if folder_path.exists() && folder_path.is_dir() {
+        std::fs::remove_dir_all(folder_path)
+            .map_err(|e| format!("Failed to delete folder: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn update_project_last_opened(db: State<Database>, id: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = Utc::now();

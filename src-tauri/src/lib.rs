@@ -251,6 +251,7 @@ pub fn run() {
             commands::projects::create_project,
             commands::projects::update_project,
             commands::projects::delete_project,
+            commands::projects::delete_project_with_folder,
             commands::projects::update_project_last_opened,
             commands::projects::move_project_to_scope,
             commands::projects::add_project_tag,
@@ -261,6 +262,8 @@ pub fn run() {
             commands::git::refresh_git_status,
             commands::git::git_pull,
             commands::git::git_push,
+            commands::git::check_folder_exists,
+            commands::git::clone_repository,
             // Editors
             commands::editors::detect_editors,
             commands::editors::sync_editors,
@@ -300,6 +303,8 @@ pub fn run() {
             services::ssh_config::create_ssh_alias,
             services::ssh_config::verify_project_ssh_remote,
             services::ssh_config::fix_project_ssh_remote,
+            // Git URL
+            services::git_url::parse_git_url,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
