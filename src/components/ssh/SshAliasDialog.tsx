@@ -139,7 +139,8 @@ export function SshAliasDialog({
               />
             </div>
             <p className="text-[11px] text-muted-foreground">
-              The alias you'll use in git URLs (e.g., git@github-work:org/repo.git)
+              The alias you'll use in git URLs (e.g.,
+              git@github-work:org/repo.git)
             </p>
           </div>
 
@@ -192,15 +193,23 @@ export function SshAliasDialog({
                     : "border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20"
                 )}
               >
-                <FileKey className={cn(
-                  "h-4 w-4",
-                  keyMode === "private" ? "text-primary" : "text-muted-foreground"
-                )} />
+                <FileKey
+                  className={cn(
+                    "h-4 w-4",
+                    keyMode === "private"
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  )}
+                />
                 <div>
-                  <p className={cn(
-                    "text-[12px] font-medium",
-                    keyMode === "private" ? "text-foreground" : "text-foreground/70"
-                  )}>
+                  <p
+                    className={cn(
+                      "text-[12px] font-medium",
+                      keyMode === "private"
+                        ? "text-foreground"
+                        : "text-foreground/70"
+                    )}
+                  >
                     Private Key
                   </p>
                   <p className="text-[10px] text-muted-foreground">
@@ -218,15 +227,23 @@ export function SshAliasDialog({
                     : "border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20"
                 )}
               >
-                <Shield className={cn(
-                  "h-4 w-4",
-                  keyMode === "public" ? "text-primary" : "text-muted-foreground"
-                )} />
+                <Shield
+                  className={cn(
+                    "h-4 w-4",
+                    keyMode === "public"
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  )}
+                />
                 <div>
-                  <p className={cn(
-                    "text-[12px] font-medium",
-                    keyMode === "public" ? "text-foreground" : "text-foreground/70"
-                  )}>
+                  <p
+                    className={cn(
+                      "text-[12px] font-medium",
+                      keyMode === "public"
+                        ? "text-foreground"
+                        : "text-foreground/70"
+                    )}
+                  >
                     Password Manager
                   </p>
                   <p className="text-[10px] text-muted-foreground">
@@ -281,9 +298,9 @@ export function SshAliasDialog({
                   <div className="text-[11px] text-blue-600 dark:text-blue-400">
                     <p className="font-medium mb-1">Password Manager Mode</p>
                     <p>
-                      Your password manager (1Password, Bitwarden, etc.) will automatically
-                      provide the SSH key when connecting. No IdentityFile will be added
-                      to the SSH config.
+                      Your password manager (1Password, Bitwarden, etc.) will
+                      automatically provide the SSH key when connecting. No
+                      IdentityFile will be added to the SSH config.
                     </p>
                   </div>
                 </div>
@@ -292,7 +309,9 @@ export function SshAliasDialog({
               <div className="space-y-2">
                 <label className="text-[12px] font-medium text-foreground/70">
                   Public Key
-                  <span className="text-muted-foreground/60 font-normal ml-1">(optional, for reference)</span>
+                  <span className="text-muted-foreground/60 font-normal ml-1">
+                    (optional, for reference)
+                  </span>
                 </label>
                 <textarea
                   value={publicKey}
@@ -308,7 +327,8 @@ export function SshAliasDialog({
                   )}
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Saved to ~/.ssh/{host || "alias"}.pub for easy copying to services
+                  Saved to ~/.ssh/{host || "alias"}.pub for easy copying to
+                  services
                 </p>
               </div>
             </div>
@@ -319,7 +339,9 @@ export function SshAliasDialog({
             <div className="space-y-2">
               <label className="text-[12px] font-medium text-foreground/70">
                 Public Key
-                <span className="text-muted-foreground/60 font-normal ml-1">(optional)</span>
+                <span className="text-muted-foreground/60 font-normal ml-1">
+                  (optional)
+                </span>
               </label>
               <textarea
                 value={publicKey}
@@ -341,16 +363,14 @@ export function SshAliasDialog({
           )}
 
           <DialogFooter className="pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => handleClose(false)}
-            >
+            <Button variant="glass" onClick={() => handleClose(false)}>
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={!host.trim() || !hostName.trim()}
               loading={loading}
+              variant="glass-scope"
             >
               {loading ? "Creating..." : "Create Alias"}
             </Button>

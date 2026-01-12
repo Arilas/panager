@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Result};
 
 /// Current schema version - increment this when adding new migrations
-const CURRENT_VERSION: i32 = 3;
+const CURRENT_VERSION: i32 = 4;
 
 /// Run all pending migrations
 pub fn run_migrations(conn: &Connection) -> Result<()> {
@@ -31,6 +31,11 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     if current_version < 3 {
         migrate_v3(conn)?;
         set_version(conn, 3)?;
+    }
+
+    if current_version < 4 {
+        migrate_v4(conn)?;
+        set_version(conn, 4)?;
     }
 
     Ok(())
@@ -173,6 +178,69 @@ fn migrate_v3(conn: &Connection) -> Result<()> {
             "ALTER TABLE scopes ADD COLUMN temp_project_settings TEXT;",
         )?;
     }
+
+    Ok(())
+}
+
+/// Migration v4: Add diagnostics system tables
+fn migrate_v4(conn: &Connection) -> Result<()> {
+    // Create diagnostics table
+    conn.execute_batch(
+        r#"
+        -- Main diagnostics table for storing all diagnostic issues
+        CREATE TABLE IF NOT EXISTS diagnostics (
+            id TEXT PRIMARY KEY,
+            scope_id TEXT NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
+            project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+            rule_id TEXT NOT NULL,
+            severity TEXT NOT NULL CHECK (severity IN ('error', 'warning', 'info')),
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            expected_value TEXT,
+            actual_value TEXT,
+            metadata TEXT,
+            dismissed INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(scope_id, project_id, rule_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_diagnostics_scope ON diagnostics(scope_id);
+        CREATE INDEX IF NOT EXISTS idx_diagnostics_project ON diagnostics(project_id);
+        CREATE INDEX IF NOT EXISTS idx_diagnostics_rule ON diagnostics(rule_id);
+        CREATE INDEX IF NOT EXISTS idx_diagnostics_severity ON diagnostics(severity);
+
+        -- Disabled diagnostic rules (global when scope_id is NULL)
+        CREATE TABLE IF NOT EXISTS disabled_diagnostic_rules (
+            id TEXT PRIMARY KEY,
+            scope_id TEXT REFERENCES scopes(id) ON DELETE CASCADE,
+            rule_id TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(scope_id, rule_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_disabled_rules_scope ON disabled_diagnostic_rules(scope_id);
+        CREATE INDEX IF NOT EXISTS idx_disabled_rules_rule ON disabled_diagnostic_rules(rule_id);
+
+        -- Track diagnostic scan state per scope
+        CREATE TABLE IF NOT EXISTS diagnostics_scan_state (
+            scope_id TEXT PRIMARY KEY REFERENCES scopes(id) ON DELETE CASCADE,
+            last_scan_at TEXT,
+            scan_duration_ms INTEGER,
+            issues_found INTEGER NOT NULL DEFAULT 0
+        );
+        "#,
+    )?;
+
+    // Add new settings for diagnostics
+    conn.execute(
+        r#"
+        INSERT OR IGNORE INTO settings (key, value) VALUES
+            ('diagnostics_enabled', 'true'),
+            ('diagnostics_scan_interval', '300000')
+        "#,
+        [],
+    )?;
 
     Ok(())
 }

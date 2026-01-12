@@ -22,7 +22,6 @@ import { ProjectTagsDialog } from "../components/projects/ProjectTagsDialog";
 import { EditScopeDialog } from "../components/scopes/EditScopeDialog";
 import { DeleteScopeDialog } from "../components/scopes/DeleteScopeDialog";
 import { ScopeLinksDialog } from "../components/scopes/ScopeLinksDialog";
-import { ScopeFolderWarnings } from "../components/scopes/ScopeFolderWarnings";
 import { GitConfigDialog } from "../components/git/GitConfigDialog";
 import { CloneRepositoryDialog } from "../components/scopes/CloneRepositoryDialog";
 import { DeleteProjectDialog } from "../components/projects/DeleteProjectDialog";
@@ -71,7 +70,6 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const [showEditScope, setShowEditScope] = useState(false);
   const [showDeleteScope, setShowDeleteScope] = useState(false);
   const [showScopeLinks, setShowScopeLinks] = useState(false);
-  const [showFolderWarnings, setShowFolderWarnings] = useState(false);
   const [showGitConfig, setShowGitConfig] = useState(false);
   const [showCloneRepo, setShowCloneRepo] = useState(false);
   const [projectToDelete, setProjectToDelete] =
@@ -85,7 +83,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
   const currentScope = getCurrentScope();
-  const { folderWarnings, gitConfigs } = useScopesStore();
+  const { gitConfigs } = useScopesStore();
 
   // Handle dropped folders to add as projects
   const handleDroppedPaths = useCallback(
@@ -718,7 +716,6 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           defaultEditor={scopeDefaultEditor}
           onEditScope={() => setShowEditScope(true)}
           onManageLinks={() => setShowScopeLinks(true)}
-          onShowFolderWarnings={() => setShowFolderWarnings(true)}
           onSetupGitIdentity={() => setShowGitConfig(true)}
         />
       </div>
@@ -761,20 +758,6 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
         open={showScopeLinks}
         onOpenChange={setShowScopeLinks}
       />
-      {currentScope && (
-        <ScopeFolderWarnings
-          scope={currentScope}
-          warnings={folderWarnings.get(currentScope.scope.id) || []}
-          open={showFolderWarnings}
-          onOpenChange={setShowFolderWarnings}
-          onMoveToScope={(projectId, targetScopeId) => {
-            const project = projects.find((p) => p.project.id === projectId);
-            if (project) {
-              setProjectToMove({ project, targetScopeId });
-            }
-          }}
-        />
-      )}
       {currentScope && (
         <GitConfigDialog
           scope={currentScope}

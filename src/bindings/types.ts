@@ -123,3 +123,167 @@ export type CloneResult = { success: boolean; projectId: string | null; projectP
  */
 export type CloneProgress = { line: string; isError: boolean; status: string | null }
 
+/**
+ * Severity level for diagnostic issues.
+ */
+export type Severity = 
+/**
+ * Critical issues that prevent functionality (e.g., missing required config)
+ */
+"error" | 
+/**
+ * Issues that should be addressed but don't break functionality
+ */
+"warning" | 
+/**
+ * Informational notices and suggestions
+ */
+"info"
+
+/**
+ * Rule groups for organizing diagnostic rules.
+ */
+export type RuleGroup = 
+/**
+ * Git configuration and identity rules (git/*)
+ */
+"git" | 
+/**
+ * Repository health and state rules (repo/*)
+ */
+"repo" | 
+/**
+ * Project structure and organization rules (project/*)
+ */
+"project" | 
+/**
+ * Security-related rules (security/*)
+ */
+"security"
+
+/**
+ * Metadata about a diagnostic rule.
+ */
+export type RuleMetadata = { 
+/**
+ * Unique identifier (e.g., "git/identity-mismatch")
+ */
+id: string; 
+/**
+ * Rule group
+ */
+group: RuleGroup; 
+/**
+ * Human-readable name (e.g., "Identity Mismatch")
+ */
+name: string; 
+/**
+ * Description of what this rule checks
+ */
+description: string; 
+/**
+ * Whether this rule is enabled by default
+ */
+defaultEnabled: boolean; 
+/**
+ * Default severity level
+ */
+defaultSeverity: Severity; 
+/**
+ * Max feature this rule depends on (None = always active)
+ */
+requiredFeature: string | null; 
+/**
+ * Whether this rule applies at scope level (vs project level)
+ */
+isScopeLevel: boolean }
+
+/**
+ * A diagnostic issue found during scanning.
+ */
+export type DiagnosticIssue = { 
+/**
+ * Unique identifier for this issue instance
+ */
+id: string; 
+/**
+ * Scope this issue belongs to
+ */
+scopeId: string; 
+/**
+ * Project this issue relates to (None for scope-level issues)
+ */
+projectId: string | null; 
+/**
+ * Rule that generated this issue (e.g., "git/identity-mismatch")
+ */
+ruleId: string; 
+/**
+ * Severity level
+ */
+severity: Severity; 
+/**
+ * Short title describing the issue
+ */
+title: string; 
+/**
+ * Detailed description
+ */
+description: string; 
+/**
+ * Expected value (for mismatch issues)
+ */
+expectedValue: string | null; 
+/**
+ * Actual value found (for mismatch issues)
+ */
+actualValue: string | null; 
+/**
+ * Additional metadata as JSON
+ */
+metadata: JsonValue | null; 
+/**
+ * Whether this issue has been dismissed by the user
+ */
+dismissed: boolean; 
+/**
+ * When this issue was first detected
+ */
+createdAt: string; 
+/**
+ * When this issue was last updated
+ */
+updatedAt: string }
+
+/**
+ * Request to fix a diagnostic issue.
+ */
+export type DiagnosticFix = { issueId: string; ruleId: string; 
+/**
+ * Type of fix to apply (rule-specific)
+ */
+fixType: string; 
+/**
+ * Additional parameters for the fix
+ */
+params: JsonValue | null }
+
+/**
+ * A disabled diagnostic rule.
+ */
+export type DisabledRule = { id: string; 
+/**
+ * Scope this rule is disabled for (None = global)
+ */
+scopeId: string | null; ruleId: string; createdAt: string }
+
+/**
+ * Scan state for a scope.
+ */
+export type ScanState = { scopeId: string; lastScanAt: string | null; scanDurationMs: number | null; issuesFound: number }
+
+/**
+ * Summary of diagnostics for a scope.
+ */
+export type ScopeDiagnosticsSummary = { scopeId: string; errorCount: number; warningCount: number; infoCount: number; totalCount: number; lastScanAt: string | null }
+

@@ -157,7 +157,10 @@ export function CloneRepositoryDialog({
 
     const checkExists = async () => {
       try {
-        const exists = await checkFolderExists(scope.scope.id, folderName.trim());
+        const exists = await checkFolderExists(
+          scope.scope.id,
+          folderName.trim()
+        );
         setFolderExists(exists);
       } catch {
         setFolderExists(false);
@@ -198,7 +201,8 @@ export function CloneRepositoryDialog({
 
     try {
       const options: CloneOptions = {
-        useSshAlias: useSshAlias && scope.scope.sshAlias ? scope.scope.sshAlias : null,
+        useSshAlias:
+          useSshAlias && scope.scope.sshAlias ? scope.scope.sshAlias : null,
         branch: branch.trim() || null,
         shallow,
       };
@@ -250,7 +254,11 @@ export function CloneRepositoryDialog({
     parsedUrl.usesAlias !== scope.scope.sshAlias;
 
   const canClone =
-    parsedUrl && folderName.trim() && !cloning && !parsedUrl.hasHttpCredentials && !folderExists;
+    parsedUrl &&
+    folderName.trim() &&
+    !cloning &&
+    !parsedUrl.hasHttpCredentials &&
+    !folderExists;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -361,8 +369,8 @@ export function CloneRepositoryDialog({
                   </p>
                   {folderExists && (
                     <p className="text-[11px] text-red-600 dark:text-red-400 flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      A folder with this name already exists
+                      <AlertTriangle className="h-3 w-3" />A folder with this
+                      name already exists
                     </p>
                   )}
                 </div>
@@ -380,7 +388,9 @@ export function CloneRepositoryDialog({
                     />
                     <span className="text-[13px]">
                       Use SSH alias:{" "}
-                      <span className="font-medium">{scope.scope.sshAlias}</span>
+                      <span className="font-medium">
+                        {scope.scope.sshAlias}
+                      </span>
                     </span>
                   </label>
                   <p className="text-[11px] text-muted-foreground ml-6">
@@ -390,9 +400,12 @@ export function CloneRepositoryDialog({
                   </p>
                   {useSshAlias && (
                     <div className="ml-6 mt-2 p-2 rounded bg-black/5 dark:bg-white/5">
-                      <p className="text-[10px] text-muted-foreground mb-1">Final remote URL:</p>
+                      <p className="text-[10px] text-muted-foreground mb-1">
+                        Final remote URL:
+                      </p>
                       <code className="text-[11px] font-mono text-foreground/80 break-all">
-                        git@{scope.scope.sshAlias}:{parsedUrl.owner}/{parsedUrl.repo}.git
+                        git@{scope.scope.sshAlias}:{parsedUrl.owner}/
+                        {parsedUrl.repo}.git
                       </code>
                     </div>
                   )}
@@ -461,12 +474,8 @@ export function CloneRepositoryDialog({
                 {cloning && !success && !error && (
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 )}
-                {success && (
-                  <Check className="h-4 w-4 text-green-500" />
-                )}
-                {error && (
-                  <X className="h-4 w-4 text-red-500" />
-                )}
+                {success && <Check className="h-4 w-4 text-green-500" />}
+                {error && <X className="h-4 w-4 text-red-500" />}
                 <span
                   className={cn(
                     "text-[13px] font-medium",
@@ -518,10 +527,7 @@ export function CloneRepositoryDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="secondary"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="glass" onClick={() => onOpenChange(false)}>
             {success ? "Close" : "Cancel"}
           </Button>
           {!success && (
@@ -529,6 +535,7 @@ export function CloneRepositoryDialog({
               onClick={handleClone}
               disabled={!canClone}
               loading={cloning}
+              variant="glass-scope"
             >
               {cloning ? (
                 "Cloning..."

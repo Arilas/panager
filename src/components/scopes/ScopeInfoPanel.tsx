@@ -8,7 +8,6 @@ import {
   Code,
   FolderOpen,
   Calendar,
-  AlertTriangle,
   Key,
   RefreshCw,
   GitBranch,
@@ -33,6 +32,7 @@ import { Button } from "../ui/Button";
 import { LINK_TYPES } from "../../types";
 import { useScopesStore } from "../../stores/scopes";
 import { useSettingsStore } from "../../stores/settings";
+import { DiagnosticsBadge, DiagnosticsDialog } from "../diagnostics";
 
 interface ScopeInfoPanelProps {
   scope: ScopeWithLinks;
@@ -40,7 +40,6 @@ interface ScopeInfoPanelProps {
   defaultEditor?: Editor;
   onEditScope: () => void;
   onManageLinks: () => void;
-  onShowFolderWarnings?: () => void;
   onSetupGitIdentity?: () => void;
 }
 
@@ -50,37 +49,30 @@ export function ScopeInfoPanel({
   defaultEditor,
   onEditScope,
   onManageLinks,
-  onShowFolderWarnings,
   onSetupGitIdentity,
 }: ScopeInfoPanelProps) {
   const [scanning, setScanning] = useState(false);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
   const { settings } = useSettingsStore();
   const {
-    folderWarnings,
     gitConfigs,
-    fetchFolderWarnings,
     fetchGitConfig,
     scanScopeFolder
   } = useScopesStore();
 
-  const warnings = folderWarnings.get(scope.scope.id) || [];
   const gitConfig = gitConfigs.get(scope.scope.id);
 
   useEffect(() => {
-    if (scope.scope.defaultFolder) {
-      fetchFolderWarnings(scope.scope.id);
-    }
     if (scope.scope.defaultFolder && settings.max_git_integration) {
       fetchGitConfig(scope.scope.id);
     }
-  }, [scope.scope.id, scope.scope.defaultFolder, settings.max_git_integration, fetchFolderWarnings, fetchGitConfig]);
+  }, [scope.scope.id, scope.scope.defaultFolder, settings.max_git_integration, fetchGitConfig]);
 
   const handleScanNow = async () => {
     setScanning(true);
     try {
       await scanScopeFolder(scope.scope.id);
-      await fetchFolderWarnings(scope.scope.id);
     } finally {
       setScanning(false);
     }
@@ -109,9 +101,15 @@ export function ScopeInfoPanel({
             <FolderOpen className="h-5 w-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-[15px] font-semibold text-foreground/90 truncate">
-              {scope.scope.name}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-[15px] font-semibold text-foreground/90 truncate">
+                {scope.scope.name}
+              </h2>
+              <DiagnosticsBadge
+                scopeId={scope.scope.id}
+                onClick={() => setDiagnosticsOpen(true)}
+              />
+            </div>
             <p className="text-[12px] text-muted-foreground">
               {projectCount} project{projectCount !== 1 ? "s" : ""}
             </p>
@@ -156,30 +154,15 @@ export function ScopeInfoPanel({
               <FolderOpen className="h-3 w-3" />
               <span>Default Folder</span>
             </div>
-            <div className="flex items-center gap-1">
-              {warnings.length > 0 && onShowFolderWarnings && (
-                <button
-                  onClick={onShowFolderWarnings}
-                  className={cn(
-                    "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
-                    "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                    "hover:bg-amber-500/20 transition-colors"
-                  )}
-                >
-                  <AlertTriangle className="h-2.5 w-2.5" />
-                  {warnings.length}
-                </button>
-              )}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={handleScanNow}
-                disabled={scanning}
-                title="Scan Now"
-              >
-                <RefreshCw className={cn("h-3 w-3 text-muted-foreground", scanning && "animate-spin")} />
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleScanNow}
+              disabled={scanning}
+              title="Scan Now"
+            >
+              <RefreshCw className={cn("h-3 w-3 text-muted-foreground", scanning && "animate-spin")} />
+            </Button>
           </div>
           <p className="text-[11px] text-foreground/60 truncate">
             {scope.scope.defaultFolder.replace(/^\/Users\/[^/]+/, "~")}
@@ -303,6 +286,13 @@ export function ScopeInfoPanel({
         </div>
       </div>
 
+      {/* Diagnostics Dialog */}
+      <DiagnosticsDialog
+        scopeId={scope.scope.id}
+        scopeName={scope.scope.name}
+        open={diagnosticsOpen}
+        onOpenChange={setDiagnosticsOpen}
+      />
     </div>
   );
 }

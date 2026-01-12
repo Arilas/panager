@@ -729,3 +729,69 @@ pub fn validate_git_config_caches(db: &Database) -> Result<(), String> {
 
     Ok(())
 }
+
+// =========================================================================
+// Internal Functions (for use by diagnostics and other internal modules)
+// =========================================================================
+
+/// Internal function to get scope git identity without requiring State<Database>
+///
+/// Returns the cached git config for a scope from the database.
+/// Unlike get_scope_git_identity, this doesn't trigger auto-discovery.
+pub fn get_scope_git_identity_internal(db: &Database, scope_id: &str) -> Result<Option<ScopeGitConfig>, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+    let cached: Result<ScopeGitConfig, _> = conn.query_row(
+        r#"
+        SELECT scope_id, user_name, user_email, gpg_sign, gpg_signing_method, signing_key, raw_gpg_config, config_file_path, last_checked_at
+        FROM scope_git_config
+        WHERE scope_id = ?1
+        "#,
+        [scope_id],
+        |row| {
+            Ok(ScopeGitConfig {
+                scope_id: row.get(0)?,
+                user_name: row.get(1)?,
+                user_email: row.get(2)?,
+                gpg_sign: row.get::<_, i32>(3)? != 0,
+                gpg_signing_method: row.get(4)?,
+                signing_key: row.get(5)?,
+                raw_gpg_config: row.get(6)?,
+                config_file_path: row.get(7)?,
+                last_checked_at: row
+                    .get::<_, Option<String>>(8)?
+                    .and_then(|s| s.parse().ok()),
+            })
+        },
+    );
+
+    Ok(cached.ok())
+}
+
+/// Internal function to read project git config without requiring State<Database>
+///
+/// Reads the git identity from a project's .git/config file.
+pub fn read_project_git_config(project_path: &str) -> Result<ProjectGitConfig, String> {
+    let git_config_path = Path::new(project_path).join(".git").join("config");
+    if !git_config_path.exists() {
+        return Err("No .git/config found".to_string());
+    }
+
+    let identity = read_git_identity_from_file(git_config_path.to_str().unwrap_or(""))?;
+
+    Ok(ProjectGitConfig {
+        user_name: identity.0,
+        user_email: identity.1,
+        gpg_sign: identity.2,
+        signing_key: identity.3,
+    })
+}
+
+/// Project-level git configuration
+#[derive(Debug, Clone)]
+pub struct ProjectGitConfig {
+    pub user_name: Option<String>,
+    pub user_email: Option<String>,
+    pub gpg_sign: bool,
+    pub signing_key: Option<String>,
+}

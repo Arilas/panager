@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/Dialog";
 import { Button } from "../ui/Button";
 import { cn } from "../../lib/utils";
 import { useSettingsStore } from "../../stores/settings";
 import { useEditorsStore } from "../../stores/editors";
+import { useDiagnosticsStore } from "../../stores/diagnostics";
+import type { RuleGroup, RuleMetadata, Severity } from "../../types";
 import {
   Sun,
   Moon,
@@ -20,6 +22,12 @@ import {
   Droplet,
   Layers,
   Eye,
+  Activity,
+  Folder,
+  Shield,
+  AlertCircle,
+  AlertTriangle,
+  Info,
 } from "lucide-react";
 
 interface SettingsDialogProps {
@@ -34,43 +42,75 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] p-0">
-        <DialogHeader className="px-6 pt-6 pb-2">
-          <DialogTitle>Settings</DialogTitle>
-        </DialogHeader>
-
-        <Tabs.Root defaultValue="general" className="flex h-[400px]">
+        {!useLiquidGlass && (
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle>Settings</DialogTitle>
+          </DialogHeader>
+        )}
+        <Tabs.Root defaultValue="general" className="flex h-[460px]">
           <Tabs.List
             className={cn(
               "flex flex-col w-[160px] shrink-0",
               useLiquidGlass
-                ? "border-r border-white/10"
-                : "border-r border-black/5 dark:border-white/5",
-              "p-2"
+                ? "p-3 liquid-glass-sidebar gap-1 pt-10"
+                : "p-2 pt-6 border-r border-black/5 dark:border-white/5"
             )}
           >
-            <TabTrigger value="general">General</TabTrigger>
-            <TabTrigger value="appearance">Appearance</TabTrigger>
-            <TabTrigger value="editors">Editors</TabTrigger>
-            <TabTrigger value="shortcuts">Shortcuts</TabTrigger>
-            <TabTrigger value="max">Max</TabTrigger>
+            <TabTrigger value="general" icon={<Sun className="h-4 w-4" />}>
+              General
+            </TabTrigger>
+            <TabTrigger
+              value="appearance"
+              icon={<Droplet className="h-4 w-4" />}
+            >
+              Appearance
+            </TabTrigger>
+            <TabTrigger value="editors" icon={<Code className="h-4 w-4" />}>
+              Editors
+            </TabTrigger>
+            <TabTrigger
+              value="shortcuts"
+              icon={<Keyboard className="h-4 w-4" />}
+            >
+              Shortcuts
+            </TabTrigger>
+            <TabTrigger
+              value="diagnostics"
+              icon={<Activity className="h-4 w-4" />}
+            >
+              Diagnostics
+            </TabTrigger>
+            <TabTrigger value="max" icon={<Sparkles className="h-4 w-4" />}>
+              Max
+            </TabTrigger>
           </Tabs.List>
 
-          <div className="flex-1 overflow-y-auto">
-            <Tabs.Content value="general" className="px-6 pt-2 pb-6">
-              <GeneralSettings />
-            </Tabs.Content>
-            <Tabs.Content value="appearance" className="px-6 pt-2 pb-6">
-              <AppearanceSettings />
-            </Tabs.Content>
-            <Tabs.Content value="editors" className="px-6 pt-2 pb-6">
-              <EditorsSettings />
-            </Tabs.Content>
-            <Tabs.Content value="shortcuts" className="px-6 pt-2 pb-6">
-              <ShortcutsSettings />
-            </Tabs.Content>
-            <Tabs.Content value="max" className="px-6 pt-2 pb-6">
-              <MaxSettings />
-            </Tabs.Content>
+          <div className="flex-1 min-w-0 flex flex-col">
+            <div className="flex-1 overflow-y-auto">
+              {useLiquidGlass && (
+                <DialogHeader className="px-6 pt-4 pb-2 shrink-0 sticky top-0 z-50 backdrop-blur-sm">
+                  <DialogTitle>Settings</DialogTitle>
+                </DialogHeader>
+              )}
+              <Tabs.Content value="general" className="px-6 pt-2 pb-6">
+                <GeneralSettings />
+              </Tabs.Content>
+              <Tabs.Content value="appearance" className="px-6 pt-2 pb-6">
+                <AppearanceSettings />
+              </Tabs.Content>
+              <Tabs.Content value="editors" className="px-6 pt-2 pb-6">
+                <EditorsSettings />
+              </Tabs.Content>
+              <Tabs.Content value="shortcuts" className="px-6 pt-2 pb-6">
+                <ShortcutsSettings />
+              </Tabs.Content>
+              <Tabs.Content value="diagnostics" className="px-6 pt-2 pb-6">
+                <DiagnosticsSettings />
+              </Tabs.Content>
+              <Tabs.Content value="max" className="px-6 pt-2 pb-6">
+                <MaxSettings />
+              </Tabs.Content>
+            </div>
           </div>
         </Tabs.Root>
       </DialogContent>
@@ -81,21 +121,43 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 function TabTrigger({
   value,
   children,
+  icon,
 }: {
   value: string;
   children: React.ReactNode;
+  icon?: React.ReactNode;
 }) {
+  const { settings } = useSettingsStore();
+
+  const useLiquidGlass = settings.liquid_glass_enabled;
+  if (useLiquidGlass) {
+    return (
+      <Tabs.Trigger
+        value={value}
+        className={cn(
+          "flex items-center gap-2 px-3 py-1.5 text-[13px] rounded-md text-left font-medium",
+          "text-foreground/70 transition-colors",
+          "hover:bg-black/5 dark:hover:bg-white/5",
+          "data-[state=active]:bg-[color-mix(in_srgb,_var(--scope-color)_10%,_transparent)] data-[state=active]:text-[var(--scope-color)]"
+        )}
+      >
+        {icon && <span className="shrink-0">{icon}</span>}
+        {children}
+      </Tabs.Trigger>
+    );
+  }
   return (
     <Tabs.Trigger
       value={value}
       className={cn(
-        "px-3 py-2 text-[13px] rounded-md text-left",
+        "flex items-center gap-2 px-3 py-2 text-[13px] rounded-md text-left",
         "text-foreground/70 transition-colors",
         "hover:bg-black/5 dark:hover:bg-white/5",
         "data-[state=active]:bg-primary/10 data-[state=active]:text-primary",
         "data-[state=active]:font-medium"
       )}
     >
+      {icon && <span className="shrink-0">{icon}</span>}
       {children}
     </Tabs.Trigger>
   );
@@ -481,12 +543,210 @@ function ShortcutsSettings() {
   );
 }
 
+// Rule group metadata
+const RULE_GROUP_INFO: Record<
+  RuleGroup,
+  { name: string; description: string; icon: typeof GitBranch }
+> = {
+  git: {
+    name: "Git Configuration",
+    description: "Identity, signing, and remote configuration",
+    icon: GitBranch,
+  },
+  repo: {
+    name: "Repository Health",
+    description: "Branch state, conflicts, and sync status",
+    icon: Activity,
+  },
+  project: {
+    name: "Project Structure",
+    description: "File structure and organization",
+    icon: Folder,
+  },
+  security: {
+    name: "Security",
+    description: "Secrets, credentials, and access",
+    icon: Shield,
+  },
+};
+
+const SEVERITY_STYLES: Record<
+  Severity,
+  { icon: typeof AlertCircle; className: string }
+> = {
+  error: { icon: AlertCircle, className: "text-red-500" },
+  warning: { icon: AlertTriangle, className: "text-amber-500" },
+  info: { icon: Info, className: "text-blue-500" },
+};
+
+function DiagnosticsSettings() {
+  const { settings, updateSetting } = useSettingsStore();
+  const {
+    ruleMetadata,
+    fetchRuleMetadata,
+    fetchDisabledRules,
+    disableRule,
+    enableRule,
+    isRuleDisabled,
+  } = useDiagnosticsStore();
+
+  useEffect(() => {
+    fetchRuleMetadata();
+    fetchDisabledRules();
+  }, [fetchRuleMetadata, fetchDisabledRules]);
+
+  const getRulesInGroup = (group: RuleGroup): RuleMetadata[] => {
+    return ruleMetadata.filter((rule) => rule.group === group);
+  };
+
+  const getEnabledCount = (group: RuleGroup): [number, number] => {
+    const rules = getRulesInGroup(group);
+    const enabled = rules.filter((rule) => !isRuleDisabled(rule.id)).length;
+    return [enabled, rules.length];
+  };
+
+  const isMaxFeatureEnabled = (feature: string | null): boolean => {
+    if (!feature) return true;
+    if (feature === "max_git_integration") return settings.max_git_integration;
+    if (feature === "max_ssh_integration") return settings.max_ssh_integration;
+    return true;
+  };
+
+  const handleRuleToggle = async (ruleId: string) => {
+    if (isRuleDisabled(ruleId)) {
+      await enableRule(ruleId);
+    } else {
+      await disableRule(ruleId);
+    }
+  };
+
+  const diagnosticsEnabled = settings.diagnostics_enabled !== false;
+
+  return (
+    <div className="space-y-6">
+      {/* Header Banner */}
+      <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+        <div className="flex items-center gap-2 mb-1">
+          <Activity className="h-4 w-4 text-primary" />
+          <span className="text-[13px] font-medium">Diagnostics</span>
+        </div>
+        <p className="text-[12px] text-muted-foreground">
+          Automatically scan projects for configuration issues, security
+          problems, and best practices.
+        </p>
+      </div>
+
+      {/* Master Toggle */}
+      <Section
+        title="Background Scanning"
+        icon={<Activity className="h-4 w-4" />}
+      >
+        <ToggleRow
+          label="Enable Diagnostics"
+          description="Automatically scan projects for issues on a regular interval."
+          checked={diagnosticsEnabled}
+          onChange={(checked) => updateSetting("diagnostics_enabled", checked)}
+        />
+
+        {diagnosticsEnabled && (
+          <div className="mt-3 pl-3 border-l-2 border-primary/20">
+            <label className="block text-[12px] text-muted-foreground mb-2">
+              Scan Interval
+            </label>
+            <select
+              value={settings.diagnostics_scan_interval || 300000}
+              onChange={(e) =>
+                updateSetting(
+                  "diagnostics_scan_interval",
+                  Number(e.target.value)
+                )
+              }
+              className={cn(
+                "h-9 px-3 rounded-md text-[13px]",
+                "bg-white/60 dark:bg-white/5",
+                "border border-black/10 dark:border-white/10",
+                "focus:outline-none focus:ring-2 focus:ring-primary/30"
+              )}
+            >
+              <option value={60000}>1 minute</option>
+              <option value={300000}>5 minutes</option>
+              <option value={900000}>15 minutes</option>
+              <option value={3600000}>1 hour</option>
+            </select>
+          </div>
+        )}
+      </Section>
+
+      {/* Rule Groups */}
+      {diagnosticsEnabled && (
+        <>
+          {(Object.keys(RULE_GROUP_INFO) as RuleGroup[]).map((group) => {
+            const groupInfo = RULE_GROUP_INFO[group];
+            const rules = getRulesInGroup(group);
+            const [enabled, total] = getEnabledCount(group);
+            const GroupIcon = groupInfo.icon;
+
+            if (rules.length === 0) return null;
+
+            return (
+              <Section
+                key={group}
+                title={groupInfo.name}
+                subtitle={`${enabled}/${total} enabled`}
+                icon={<GroupIcon className="h-4 w-4" />}
+              >
+                <div className="space-y-2">
+                  {rules.map((rule) => {
+                    const isEnabled = !isRuleDisabled(rule.id);
+                    const featureDisabled = !isMaxFeatureEnabled(
+                      rule.requiredFeature
+                    );
+                    const SeverityIcon =
+                      SEVERITY_STYLES[rule.defaultSeverity].icon;
+                    const severityClass =
+                      SEVERITY_STYLES[rule.defaultSeverity].className;
+
+                    return (
+                      <RuleToggleRow
+                        key={rule.id}
+                        ruleId={rule.id}
+                        description={rule.description}
+                        checked={isEnabled && !featureDisabled}
+                        disabled={featureDisabled}
+                        disabledReason={
+                          featureDisabled && rule.requiredFeature
+                            ? `Requires ${rule.requiredFeature
+                                .replace("max_", "")
+                                .replace("_", " ")} in Max settings`
+                            : undefined
+                        }
+                        severityIcon={
+                          <SeverityIcon
+                            className={cn("h-3 w-3", severityClass)}
+                          />
+                        }
+                        onChange={() => handleRuleToggle(rule.id)}
+                      />
+                    );
+                  })}
+                </div>
+              </Section>
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
+}
+
 function Section({
   title,
+  subtitle,
   icon,
   children,
 }: {
   title: string;
+  subtitle?: string;
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -495,6 +755,9 @@ function Section({
       <div className="flex items-center gap-2 mb-3">
         <span className="text-muted-foreground">{icon}</span>
         <h3 className="text-[13px] font-medium">{title}</h3>
+        {subtitle && (
+          <span className="text-[11px] text-muted-foreground">{subtitle}</span>
+        )}
       </div>
       {children}
     </div>
@@ -623,6 +886,69 @@ function ToggleRow({
         <div className="text-[11px] text-muted-foreground mt-0.5">
           {description}
         </div>
+      </div>
+    </button>
+  );
+}
+
+function RuleToggleRow({
+  ruleId,
+  description,
+  checked,
+  disabled,
+  disabledReason,
+  severityIcon,
+  onChange,
+}: {
+  ruleId: string;
+  description: string;
+  checked: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
+  severityIcon: React.ReactNode;
+  onChange: () => void;
+}) {
+  return (
+    <button
+      onClick={onChange}
+      disabled={disabled}
+      className={cn(
+        "w-full flex items-start gap-3 p-3 rounded-lg text-left",
+        "transition-colors",
+        disabled && "opacity-50 cursor-not-allowed",
+        checked && !disabled
+          ? "bg-primary/10 border border-primary/20"
+          : "bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+      )}
+    >
+      <div
+        className={cn(
+          "w-10 h-6 rounded-full p-0.5 transition-colors shrink-0 mt-0.5",
+          checked && !disabled ? "bg-primary" : "bg-black/20 dark:bg-white/20"
+        )}
+      >
+        <div
+          className={cn(
+            "w-5 h-5 rounded-full bg-white shadow transition-transform",
+            checked && !disabled ? "translate-x-4" : "translate-x-0"
+          )}
+        />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <code className="text-[11px] bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded font-mono">
+            {ruleId}
+          </code>
+          {severityIcon}
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-1">
+          {description}
+        </div>
+        {disabledReason && (
+          <div className="text-[10px] text-amber-500 mt-1">
+            {disabledReason}
+          </div>
+        )}
       </div>
     </button>
   );

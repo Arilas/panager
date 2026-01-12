@@ -6,10 +6,11 @@ mod app;
 mod commands;
 pub mod db;
 pub mod error;
+pub mod events;
 pub mod git;
 pub mod logging;
 mod platform;
-mod services;
+pub mod services;
 pub mod ssh;
 pub mod utils;
 
@@ -84,17 +85,11 @@ pub fn run() {
             services::cleanup::cleanup_temp_projects_now,
             services::cleanup::get_cleanup_candidates,
             // Folder Scanner
-            services::folder_scanner::get_projects_outside_folder,
-            services::folder_scanner::ignore_folder_warning,
-            services::folder_scanner::remove_ignored_warning,
-            services::folder_scanner::get_ignored_warnings,
             services::folder_scanner::scan_scope_folder,
             services::folder_scanner::move_project_to_scope_folder,
             // Git Config
             git::config::read_git_include_ifs,
             git::config::get_scope_git_identity,
-            git::config::verify_project_git_config,
-            git::config::fix_project_git_config,
             git::config::create_git_include_if,
             git::config::create_scope_git_config_file,
             git::config::refresh_scope_git_identity,
@@ -103,14 +98,24 @@ pub fn run() {
             ssh::config::read_ssh_aliases,
             ssh::config::get_ssh_alias_details,
             ssh::config::create_ssh_alias,
-            ssh::config::verify_project_ssh_remote,
-            ssh::config::fix_project_ssh_remote,
             // Git URL
             git::url::parse_git_url,
             // Liquid Glass
             commands::liquid_glass::is_liquid_glass_available,
             commands::liquid_glass::is_full_liquid_glass_available,
             commands::liquid_glass::get_macos_version,
+            // Diagnostics
+            services::diagnostics::get_scope_diagnostics,
+            services::diagnostics::get_diagnostics_summaries,
+            services::diagnostics::get_scope_diagnostics_summary,
+            services::diagnostics::scan_scope_diagnostics,
+            services::diagnostics::dismiss_diagnostic,
+            services::diagnostics::undismiss_diagnostic,
+            services::diagnostics::disable_diagnostic_rule,
+            services::diagnostics::enable_diagnostic_rule,
+            services::diagnostics::get_disabled_diagnostic_rules,
+            services::diagnostics::get_diagnostic_rule_metadata,
+            services::diagnostics::fix_diagnostic_issue,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -14,6 +14,7 @@ export interface ButtonProps
     | "link"
     | "glass"
     | "glass-scope"
+    | "glass-destructive"
     | "warning"
     | "scope";
   size?: "default" | "sm" | "lg" | "icon" | "icon-sm";
@@ -50,6 +51,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       scope: "scope-accent scope-accent-text",
       glass: "liquid-glass-button",
       "glass-scope": "liquid-glass-button-scope",
+      "glass-destructive": "liquid-glass-button-destructive",
     };
 
     const variantStyles = !useLiquidGlass
@@ -57,6 +59,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ? standardVariants.secondary
         : variant === "glass-scope"
         ? standardVariants.default
+        : variant === "glass-destructive"
+        ? standardVariants.destructive
         : variant
       : standardVariants[variant] || standardVariants.default;
 

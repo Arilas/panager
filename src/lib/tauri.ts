@@ -4,7 +4,6 @@ import type {
   CloneOptions,
   CloneProgress,
   CloneResult,
-  ConfigMismatch,
   CreateProjectRequest,
   CreateScopeLinkRequest,
   CreateScopeRequest,
@@ -14,17 +13,14 @@ import type {
   GitIncludeIf,
   GitStatusCache,
   GpgSigningMethod,
-  IgnoredFolderWarning,
   ParsedGitUrl,
   Project,
-  ProjectFolderWarning,
   ProjectWithStatus,
   Scope,
   ScopeGitConfig,
   ScopeLink,
   ScopeWithLinks,
   SshAlias,
-  SshRemoteMismatch,
   TempProjectSettings,
   TempProjectRequest,
   TempProjectProgress,
@@ -271,29 +267,6 @@ export async function checkTempFolderExists(
 }
 
 // Folder Scanner
-export async function getProjectsOutsideFolder(
-  scopeId: string
-): Promise<ProjectFolderWarning[]> {
-  return invoke("get_projects_outside_folder", { scopeId });
-}
-
-export async function ignoreFolderWarning(
-  scopeId: string,
-  projectPath: string
-): Promise<void> {
-  return invoke("ignore_folder_warning", { scopeId, projectPath });
-}
-
-export async function removeIgnoredWarning(id: string): Promise<void> {
-  return invoke("remove_ignored_warning", { id });
-}
-
-export async function getIgnoredWarnings(
-  scopeId: string
-): Promise<IgnoredFolderWarning[]> {
-  return invoke("get_ignored_warnings", { scopeId });
-}
-
 export async function scanScopeFolder(scopeId: string): Promise<string[]> {
   return invoke("scan_scope_folder", { scopeId });
 }
@@ -313,20 +286,6 @@ export async function getScopeGitIdentity(
   scopeId: string
 ): Promise<ScopeGitConfig | null> {
   return invoke("get_scope_git_identity", { scopeId });
-}
-
-export async function verifyProjectGitConfig(
-  projectId: string
-): Promise<ConfigMismatch[]> {
-  return invoke("verify_project_git_config", { projectId });
-}
-
-export async function fixProjectGitConfig(
-  projectId: string,
-  configKey: string,
-  value: string
-): Promise<void> {
-  return invoke("fix_project_git_config", { projectId, configKey, value });
 }
 
 export async function createGitIncludeIf(
@@ -381,16 +340,6 @@ export async function createSshAlias(
   return invoke("create_ssh_alias", { request });
 }
 
-export async function verifyProjectSshRemote(
-  projectId: string
-): Promise<SshRemoteMismatch | null> {
-  return invoke("verify_project_ssh_remote", { projectId });
-}
-
-export async function fixProjectSshRemote(projectId: string): Promise<string> {
-  return invoke("fix_project_ssh_remote", { projectId });
-}
-
 // Git URL Parsing
 export async function parseGitUrl(
   url: string,
@@ -427,4 +376,69 @@ export function onCloneProgress(
   return listen<CloneProgress>("clone-progress", (event) => {
     callback(event.payload);
   });
+}
+
+// Diagnostics
+import type {
+  DiagnosticIssue,
+  DiagnosticFix,
+  DisabledRule,
+  RuleMetadata,
+  ScanState,
+  ScopeDiagnosticsSummary,
+} from "../types";
+
+export async function getScopeDiagnostics(
+  scopeId: string,
+  includeDismissed: boolean = false
+): Promise<DiagnosticIssue[]> {
+  return invoke("get_scope_diagnostics", { scopeId, includeDismissed });
+}
+
+export async function getDiagnosticsSummaries(): Promise<ScopeDiagnosticsSummary[]> {
+  return invoke("get_diagnostics_summaries");
+}
+
+export async function getScopeDiagnosticsSummary(
+  scopeId: string
+): Promise<ScopeDiagnosticsSummary> {
+  return invoke("get_scope_diagnostics_summary", { scopeId });
+}
+
+export async function scanScopeDiagnostics(scopeId: string): Promise<ScanState> {
+  return invoke("scan_scope_diagnostics", { scopeId });
+}
+
+export async function dismissDiagnostic(issueId: string): Promise<void> {
+  return invoke("dismiss_diagnostic", { issueId });
+}
+
+export async function undismissDiagnostic(issueId: string): Promise<void> {
+  return invoke("undismiss_diagnostic", { issueId });
+}
+
+export async function disableDiagnosticRule(
+  ruleId: string,
+  scopeId?: string
+): Promise<void> {
+  return invoke("disable_diagnostic_rule", { ruleId, scopeId });
+}
+
+export async function enableDiagnosticRule(
+  ruleId: string,
+  scopeId?: string
+): Promise<void> {
+  return invoke("enable_diagnostic_rule", { ruleId, scopeId });
+}
+
+export async function getDisabledDiagnosticRules(): Promise<DisabledRule[]> {
+  return invoke("get_disabled_diagnostic_rules");
+}
+
+export async function getDiagnosticRuleMetadata(): Promise<RuleMetadata[]> {
+  return invoke("get_diagnostic_rule_metadata");
+}
+
+export async function fixDiagnosticIssue(fix: DiagnosticFix): Promise<void> {
+  return invoke("fix_diagnostic_issue", { fix });
 }

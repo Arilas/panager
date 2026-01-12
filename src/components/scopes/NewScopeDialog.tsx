@@ -118,16 +118,14 @@ export function NewScopeDialog({ open, onOpenChange }: NewScopeDialogProps) {
           )}
 
           <DialogFooter className="pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button variant="glass" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={!name.trim()}
               loading={loading}
+              variant="glass-scope"
             >
               {loading ? "Creating..." : "Create Scope"}
             </Button>

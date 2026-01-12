@@ -1,6 +1,5 @@
 //! Background folder scanner service implementation
 
-use crate::db::models::IgnoredFolderWarning;
 use crate::db::Database;
 use chrono::Utc;
 use std::collections::HashSet;
@@ -169,159 +168,6 @@ fn scan_folder_for_git_repos(folder: &str) -> Result<Vec<String>, String> {
     Ok(repos)
 }
 
-/// Check which projects are outside their scope's default folder
-#[tauri::command]
-#[specta::specta]
-pub fn get_projects_outside_folder(
-    db: State<Database>,
-    scope_id: String,
-) -> Result<Vec<ProjectFolderWarning>, String> {
-    let conn = db.conn.lock().map_err(|e| e.to_string())?;
-
-    // Get the scope's default folder
-    let default_folder: Option<String> = conn
-        .query_row(
-            "SELECT default_folder FROM scopes WHERE id = ?1",
-            [&scope_id],
-            |row| row.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-
-    let default_folder = match default_folder {
-        Some(f) if !f.is_empty() => f,
-        _ => return Ok(vec![]),
-    };
-
-    // Get ignored warnings
-    let mut stmt = conn
-        .prepare("SELECT project_path FROM ignored_folder_warnings WHERE scope_id = ?1")
-        .map_err(|e| e.to_string())?;
-
-    let ignored: HashSet<String> = stmt
-        .query_map([&scope_id], |row| row.get(0))
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    drop(stmt);
-
-    // Get all projects in scope
-    let mut stmt = conn
-        .prepare(
-            r#"
-            SELECT id, name, path
-            FROM projects
-            WHERE scope_id = ?1
-            "#,
-        )
-        .map_err(|e| e.to_string())?;
-
-    let warnings: Vec<ProjectFolderWarning> = stmt
-        .query_map([&scope_id], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-            ))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .filter(|(_, _, path)| {
-            // Check if path is outside the default folder
-            !path.starts_with(&default_folder) && !ignored.contains(path)
-        })
-        .map(|(id, name, path)| ProjectFolderWarning {
-            project_id: id,
-            project_name: name,
-            project_path: path,
-        })
-        .collect();
-
-    Ok(warnings)
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProjectFolderWarning {
-    pub project_id: String,
-    pub project_name: String,
-    pub project_path: String,
-}
-
-/// Ignore a folder warning for a project
-#[tauri::command]
-#[specta::specta]
-pub fn ignore_folder_warning(
-    db: State<Database>,
-    scope_id: String,
-    project_path: String,
-) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    let id = Uuid::new_v4().to_string();
-    let now = Utc::now();
-
-    conn.execute(
-        r#"
-        INSERT OR REPLACE INTO ignored_folder_warnings (id, scope_id, project_path, created_at)
-        VALUES (?1, ?2, ?3, ?4)
-        "#,
-        (&id, &scope_id, &project_path, now.to_rfc3339()),
-    )
-    .map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
-/// Remove an ignored folder warning
-#[tauri::command]
-#[specta::specta]
-pub fn remove_ignored_warning(db: State<Database>, id: String) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| e.to_string())?;
-
-    conn.execute("DELETE FROM ignored_folder_warnings WHERE id = ?1", [&id])
-        .map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
-/// Get all ignored folder warnings for a scope
-#[tauri::command]
-#[specta::specta]
-pub fn get_ignored_warnings(
-    db: State<Database>,
-    scope_id: String,
-) -> Result<Vec<IgnoredFolderWarning>, String> {
-    let conn = db.conn.lock().map_err(|e| e.to_string())?;
-
-    let mut stmt = conn
-        .prepare(
-            r#"
-            SELECT id, scope_id, project_path, created_at
-            FROM ignored_folder_warnings
-            WHERE scope_id = ?1
-            "#,
-        )
-        .map_err(|e| e.to_string())?;
-
-    let warnings = stmt
-        .query_map([&scope_id], |row| {
-            Ok(IgnoredFolderWarning {
-                id: row.get(0)?,
-                scope_id: row.get(1)?,
-                project_path: row.get(2)?,
-                created_at: row
-                    .get::<_, String>(3)?
-                    .parse()
-                    .unwrap_or_else(|_| Utc::now()),
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    Ok(warnings)
-}
-
 /// Manually trigger a folder scan for a scope
 #[tauri::command]
 #[specta::specta]
@@ -350,13 +196,18 @@ pub fn scan_scope_folder(app_handle: AppHandle, scope_id: String) -> Result<Vec<
 #[tauri::command]
 #[specta::specta]
 pub fn move_project_to_scope_folder(db: State<Database>, project_id: String) -> Result<String, String> {
+    move_project_to_scope_folder_internal(&db, &project_id)
+}
+
+/// Internal version of move_project_to_scope_folder for use without State wrapper
+pub fn move_project_to_scope_folder_internal(db: &Database, project_id: &str) -> Result<String, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     // Get project and scope info
     let (project_path, scope_id): (String, String) = conn
         .query_row(
             "SELECT path, scope_id FROM projects WHERE id = ?1",
-            [&project_id],
+            [project_id],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|e| e.to_string())?;
@@ -395,7 +246,7 @@ pub fn move_project_to_scope_folder(db: State<Database>, project_id: String) -> 
     let now = Utc::now();
     conn.execute(
         "UPDATE projects SET path = ?1, updated_at = ?2 WHERE id = ?3",
-        (new_path_str, now.to_rfc3339(), &project_id),
+        (new_path_str, now.to_rfc3339(), project_id),
     )
     .map_err(|e| e.to_string())?;
 

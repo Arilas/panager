@@ -9,6 +9,9 @@ interface Settings {
   // Max features
   max_git_integration: boolean;
   max_ssh_integration: boolean;
+  // Diagnostics
+  diagnostics_enabled: boolean;
+  diagnostics_scan_interval: number;
   // Liquid Glass
   liquid_glass_enabled: boolean;
   liquid_glass_intensity: "subtle" | "medium" | "strong";
@@ -22,6 +25,9 @@ const defaultSettings: Settings = {
   // Max features - disabled by default
   max_git_integration: false,
   max_ssh_integration: false,
+  // Diagnostics - enabled by default
+  diagnostics_enabled: true,
+  diagnostics_scan_interval: 300000, // 5 minutes
   // Liquid Glass - enabled by default
   liquid_glass_enabled: true,
   liquid_glass_intensity: "medium",
@@ -69,6 +75,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         max_ssh_integration:
           (allSettings.max_ssh_integration as boolean) ??
           defaultSettings.max_ssh_integration,
+        diagnostics_enabled:
+          (allSettings.diagnostics_enabled as boolean) ??
+          defaultSettings.diagnostics_enabled,
+        diagnostics_scan_interval:
+          (allSettings.diagnostics_scan_interval as number) ??
+          defaultSettings.diagnostics_scan_interval,
         liquid_glass_enabled:
           (allSettings.liquid_glass_enabled as boolean) ??
           defaultSettings.liquid_glass_enabled,

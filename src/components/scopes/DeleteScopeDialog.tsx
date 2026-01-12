@@ -63,20 +63,17 @@ export function DeleteScopeDialog({
             <span className="font-semibold">{scope?.scope.name}</span>?
           </p>
           <p className="text-[12px] text-muted-foreground mt-2">
-            All projects in this scope will also be removed from Panager.
-            The actual project files on disk will not be deleted.
+            All projects in this scope will also be removed from Panager. The
+            actual project files on disk will not be deleted.
           </p>
         </div>
 
         <DialogFooter>
-          <Button
-            variant="secondary"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="glass" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
-            variant="destructive"
+            variant="glass-destructive"
             onClick={handleDelete}
             loading={loading}
           >

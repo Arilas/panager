@@ -10,7 +10,6 @@ export type {
   ProjectWithStatus,
   Editor,
   SshAlias,
-  IgnoredFolderWarning,
   GitIncludeIf,
   // DTOs
   CreateScopeRequest,
@@ -27,6 +26,15 @@ export type {
   CloneProgress,
   // JSON value
   JsonValue,
+  // Diagnostics
+  Severity,
+  RuleGroup,
+  RuleMetadata,
+  DiagnosticIssue,
+  DiagnosticFix,
+  DisabledRule,
+  ScanState,
+  ScopeDiagnosticsSummary,
 } from "../bindings/types";
 
 // Override TempProjectSettings to use strict PackageManager union type
@@ -74,24 +82,6 @@ export interface CreateGitConfigRequest {
   gpgSigningMethod: GpgSigningMethod;
   signingKey?: string | null;
   rawGpgConfig?: string | null;
-}
-
-export interface ProjectFolderWarning {
-  projectId: string;
-  projectName: string;
-  projectPath: string;
-}
-
-export interface ConfigMismatch {
-  issueType: string;
-  expectedValue: string | null;
-  actualValue: string | null;
-}
-
-export interface SshRemoteMismatch {
-  projectId: string;
-  expectedAlias: string;
-  actualUrl: string;
 }
 
 export interface ParsedGitUrl {

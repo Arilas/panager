@@ -4,4 +4,5 @@
 //! of user interactions.
 
 pub mod cleanup;
+pub mod diagnostics;
 pub mod folder_scanner;

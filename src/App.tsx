@@ -11,6 +11,7 @@ import { useEditorsStore } from "./stores/editors";
 import { useScopesStore } from "./stores/scopes";
 import { useUIStore } from "./stores/ui";
 import { useGlobalShortcut } from "./hooks/useGlobalShortcut";
+import { setupAppEventListener } from "./stores/events";
 
 function App() {
   const { fetchSettings } = useSettingsStore();
@@ -30,6 +31,14 @@ function App() {
     fetchSettings();
     fetchEditors();
   }, [fetchSettings, fetchEditors]);
+
+  // Set up centralized app event listener
+  useEffect(() => {
+    const unlistenPromise = setupAppEventListener();
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, []);
 
   // Set scope color CSS variable on document body so dialogs (portals) can access it
   const scopeColor = currentScope?.scope.color || "#6b7280";
@@ -58,20 +67,14 @@ function App() {
 
   // Listen for menu bar events from Tauri
   useEffect(() => {
-    const unlistenAbout = listen("menu-about", () => {
-      setShowAbout(true);
-    });
-    const unlistenSettings = listen("menu-settings", () => {
-      setShowSettings(true);
-    });
-    const unlistenSidebar = listen("menu-toggle-sidebar", () => {
-      toggleRightPanel();
-    });
+    const listeners = [
+      listen("menu-about", () => setShowAbout(true)),
+      listen("menu-settings", () => setShowSettings(true)),
+      listen("menu-toggle-sidebar", () => toggleRightPanel()),
+    ];
 
     return () => {
-      unlistenAbout.then((unlisten) => unlisten());
-      unlistenSettings.then((unlisten) => unlisten());
-      unlistenSidebar.then((unlisten) => unlisten());
+      listeners.forEach((promise) => promise.then((unlisten) => unlisten()));
     };
   }, [toggleRightPanel]);
 

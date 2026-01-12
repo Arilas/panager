@@ -11,9 +11,21 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { cn } from "../../lib/utils";
 import { useScopesStore } from "../../stores/scopes";
-import type { ScopeWithLinks, ScopeGitConfig, GpgSigningMethod } from "../../types";
+import type {
+  ScopeWithLinks,
+  ScopeGitConfig,
+  GpgSigningMethod,
+} from "../../types";
 import * as api from "../../lib/tauri";
-import { GitBranch, User, Mail, Key, Shield, Info, FileKey } from "lucide-react";
+import {
+  GitBranch,
+  User,
+  Mail,
+  Key,
+  Shield,
+  Info,
+  FileKey,
+} from "lucide-react";
 
 interface GitConfigDialogProps {
   scope: ScopeWithLinks;
@@ -42,7 +54,10 @@ export function GitConfigDialog({
     if (open && existingConfig) {
       setUserName(existingConfig.userName || "");
       setUserEmail(existingConfig.userEmail || "");
-      setSigningMethod((existingConfig.gpgSigningMethod as GpgSigningMethod) || (existingConfig.gpgSign ? "manual" : "none"));
+      setSigningMethod(
+        (existingConfig.gpgSigningMethod as GpgSigningMethod) ||
+          (existingConfig.gpgSign ? "manual" : "none")
+      );
       setSigningKey(existingConfig.signingKey || "");
       setRawGpgConfig(existingConfig.rawGpgConfig || "");
     }
@@ -72,7 +87,9 @@ export function GitConfigDialog({
         userEmail.trim(),
         signingMethod,
         signingMethod === "manual" ? signingKey.trim() || null : null,
-        signingMethod === "password_manager" ? rawGpgConfig.trim() || null : null
+        signingMethod === "password_manager"
+          ? rawGpgConfig.trim() || null
+          : null
       );
 
       // If scope has a default folder, also create the includeIf entry
@@ -104,7 +121,7 @@ export function GitConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitBranch className="h-4 w-4" />
@@ -115,7 +132,10 @@ export function GitConfigDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 flex-1 overflow-y-auto"
+        >
           {error && (
             <div className="p-3 rounded-md bg-red-500/10 border border-red-500/20">
               <p className="text-[12px] text-red-500">{error}</p>
@@ -128,9 +148,9 @@ export function GitConfigDialog({
               <div className="text-[11px] text-blue-600 dark:text-blue-400">
                 <p className="font-medium mb-1">How this works:</p>
                 <p>
-                  This creates a .gitconfig file in your scope folder and adds an
-                  includeIf rule to your global ~/.gitconfig. All repos inside
-                  the scope folder will automatically use this identity.
+                  This creates a .gitconfig file in your scope folder and adds
+                  an includeIf rule to your global ~/.gitconfig. All repos
+                  inside the scope folder will automatically use this identity.
                 </p>
               </div>
             </div>
@@ -184,14 +204,22 @@ export function GitConfigDialog({
                     : "border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20"
                 )}
               >
-                <Shield className={cn(
-                  "h-4 w-4",
-                  signingMethod === "none" ? "text-primary" : "text-muted-foreground"
-                )} />
-                <p className={cn(
-                  "text-[11px] font-medium",
-                  signingMethod === "none" ? "text-foreground" : "text-foreground/70"
-                )}>
+                <Shield
+                  className={cn(
+                    "h-4 w-4",
+                    signingMethod === "none"
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  )}
+                />
+                <p
+                  className={cn(
+                    "text-[11px] font-medium",
+                    signingMethod === "none"
+                      ? "text-foreground"
+                      : "text-foreground/70"
+                  )}
+                >
                   None
                 </p>
               </button>
@@ -205,14 +233,22 @@ export function GitConfigDialog({
                     : "border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20"
                 )}
               >
-                <Key className={cn(
-                  "h-4 w-4",
-                  signingMethod === "manual" ? "text-primary" : "text-muted-foreground"
-                )} />
-                <p className={cn(
-                  "text-[11px] font-medium",
-                  signingMethod === "manual" ? "text-foreground" : "text-foreground/70"
-                )}>
+                <Key
+                  className={cn(
+                    "h-4 w-4",
+                    signingMethod === "manual"
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  )}
+                />
+                <p
+                  className={cn(
+                    "text-[11px] font-medium",
+                    signingMethod === "manual"
+                      ? "text-foreground"
+                      : "text-foreground/70"
+                  )}
+                >
                   GPG Key
                 </p>
               </button>
@@ -226,14 +262,22 @@ export function GitConfigDialog({
                     : "border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20"
                 )}
               >
-                <FileKey className={cn(
-                  "h-4 w-4",
-                  signingMethod === "password_manager" ? "text-primary" : "text-muted-foreground"
-                )} />
-                <p className={cn(
-                  "text-[11px] font-medium",
-                  signingMethod === "password_manager" ? "text-foreground" : "text-foreground/70"
-                )}>
+                <FileKey
+                  className={cn(
+                    "h-4 w-4",
+                    signingMethod === "password_manager"
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  )}
+                />
+                <p
+                  className={cn(
+                    "text-[11px] font-medium",
+                    signingMethod === "password_manager"
+                      ? "text-foreground"
+                      : "text-foreground/70"
+                  )}
+                >
                   1Password
                 </p>
               </button>
@@ -245,7 +289,9 @@ export function GitConfigDialog({
             <div className="space-y-2">
               <label className="text-[12px] font-medium text-foreground/70">
                 Signing Key ID
-                <span className="text-muted-foreground/60 font-normal ml-1">(optional)</span>
+                <span className="text-muted-foreground/60 font-normal ml-1">
+                  (optional)
+                </span>
               </label>
               <div className="relative">
                 <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -271,8 +317,9 @@ export function GitConfigDialog({
                   <div className="text-[11px] text-blue-600 dark:text-blue-400">
                     <p className="font-medium mb-1">Password Manager Mode</p>
                     <p>
-                      Paste the gitconfig snippet from your password manager (1Password, Bitwarden, etc.).
-                      This will be appended to the scope's .gitconfig file.
+                      Paste the gitconfig snippet from your password manager
+                      (1Password, Bitwarden, etc.). This will be appended to the
+                      scope's .gitconfig file.
                     </p>
                   </div>
                 </div>
@@ -306,7 +353,8 @@ export function GitConfigDialog({
                   )}
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  The complete gitconfig snippet for commit signing from your password manager.
+                  The complete gitconfig snippet for commit signing from your
+                  password manager.
                 </p>
               </div>
             </div>
@@ -321,19 +369,21 @@ export function GitConfigDialog({
             </div>
           )}
 
-          <DialogFooter className="pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => handleClose(false)}
-            >
+          <DialogFooter className="pt-4 sticky bottom-0 backdrop-blur-sm">
+            <Button variant="glass" onClick={() => handleClose(false)}>
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={!userName.trim() || !userEmail.trim()}
               loading={loading}
+              variant="glass-scope"
             >
-              {loading ? "Saving..." : isEditing ? "Save Changes" : "Create Config"}
+              {loading
+                ? "Saving..."
+                : isEditing
+                ? "Save Changes"
+                : "Create Config"}
             </Button>
           </DialogFooter>
         </form>

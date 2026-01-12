@@ -64,16 +64,31 @@ const DialogContent = React.forwardRef<
         {children}
         <DialogPrimitive.Close
           className={cn(
-            "absolute right-4 top-4 rounded-md p-1",
-            "opacity-70 transition-opacity hover:opacity-100",
+            "absolute z-50  transition-all",
             useLiquidGlass
-              ? "hover:bg-white/20 dark:hover:bg-white/10"
-              : "hover:bg-black/5 dark:hover:bg-white/10",
-            "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+              ? [
+                  "left-5 top-5 w-3.5 h-3.5 rounded-full",
+                  "bg-[#FF5F57] hover:bg-[#FF5F57]",
+                  "shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.12)]",
+                  "flex items-center justify-center",
+                  "group",
+                ]
+              : [
+                  "top-4 right-4 p-1 rounded-md",
+                  "opacity-70 hover:opacity-100",
+                  "hover:bg-black/5 dark:hover:bg-white/10",
+                ],
+            "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             "disabled:pointer-events-none"
           )}
         >
-          <X className="h-4 w-4" />
+          <X
+            className={cn(
+              useLiquidGlass
+                ? "h-2 w-2 text-[#4D0000] opacity-0 group-hover:opacity-100 transition-opacity stroke-[2.5]"
+                : "h-4 w-4"
+            )}
+          />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
@@ -85,15 +100,21 @@ DialogContent.displayName = DialogPrimitive.Content.displayName;
 const DialogHeader = ({
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-  <div
-    className={cn(
-      "flex flex-col space-y-1.5 text-center sm:text-left",
-      className
-    )}
-    {...props}
-  />
-);
+}: React.HTMLAttributes<HTMLDivElement>) => {
+  const { settings } = useSettingsStore();
+  const useLiquidGlass = settings.liquid_glass_enabled;
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col space-y-2 text-center sm:text-left",
+        useLiquidGlass && "pl-6 -mt-2",
+        className
+      )}
+      {...props}
+    />
+  );
+};
 DialogHeader.displayName = "DialogHeader";
 
 const DialogFooter = ({

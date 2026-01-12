@@ -4,7 +4,9 @@
 //! including the database and background service states.
 
 use crate::db::Database;
+use crate::events::EventBus;
 use crate::services::cleanup::CleanupServiceState;
+use crate::services::diagnostics::DiagnosticsServiceState;
 use crate::services::folder_scanner::FolderScanServiceState;
 use tauri::{App, Manager};
 
@@ -14,11 +16,17 @@ pub fn init_state(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     let database = Database::new().expect("Failed to initialize database");
     app.manage(database);
 
+    // Initialize event bus
+    app.manage(EventBus::new());
+
     // Initialize cleanup service state
     app.manage(CleanupServiceState::default());
 
     // Initialize folder scan service state
     app.manage(FolderScanServiceState::default());
+
+    // Initialize diagnostics service state
+    app.manage(DiagnosticsServiceState::default());
 
     Ok(())
 }
@@ -38,6 +46,9 @@ pub fn run_startup_tasks(app: &App) {
 
 /// Start background services
 pub fn start_background_services(app: &App) {
+    // Start event handlers (must be started before other services that emit events)
+    crate::events::start_event_handlers(app.handle().clone());
+
     // Start cleanup service
     let app_handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {
@@ -48,5 +59,11 @@ pub fn start_background_services(app: &App) {
     let app_handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {
         crate::services::folder_scanner::start_folder_scan_service(app_handle).await;
+    });
+
+    // Start diagnostics service
+    let app_handle = app.handle().clone();
+    tauri::async_runtime::spawn(async move {
+        crate::services::diagnostics::start_diagnostics_service(app_handle).await;
     });
 }

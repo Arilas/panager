@@ -2,8 +2,6 @@ import { create } from "zustand";
 import type {
   CreateScopeLinkRequest,
   CreateScopeRequest,
-  IgnoredFolderWarning,
-  ProjectFolderWarning,
   ScopeGitConfig,
   ScopeWithLinks,
   TempProjectSettings,
@@ -17,8 +15,6 @@ interface ScopesState {
   error: string | null;
 
   // Max features state
-  folderWarnings: Map<string, ProjectFolderWarning[]>;
-  ignoredWarnings: Map<string, IgnoredFolderWarning[]>;
   gitConfigs: Map<string, ScopeGitConfig>;
 
   // Actions
@@ -43,9 +39,7 @@ interface ScopesState {
   createScopeLink: (request: CreateScopeLinkRequest) => Promise<void>;
   deleteScopeLink: (id: string) => Promise<void>;
 
-  // Folder Warnings
-  fetchFolderWarnings: (scopeId: string) => Promise<void>;
-  ignoreFolderWarning: (scopeId: string, projectPath: string) => Promise<void>;
+  // Folder Scanner
   scanScopeFolder: (scopeId: string) => Promise<string[]>;
   moveProjectToScopeFolder: (projectId: string) => Promise<string>;
 
@@ -62,8 +56,6 @@ export const useScopesStore = create<ScopesState>((set, get) => ({
   currentScopeId: null,
   loading: false,
   error: null,
-  folderWarnings: new Map(),
-  ignoredWarnings: new Map(),
   gitConfigs: new Map(),
 
   fetchScopes: async () => {
@@ -216,44 +208,10 @@ export const useScopesStore = create<ScopesState>((set, get) => ({
     }
   },
 
-  // Folder Warnings
-  fetchFolderWarnings: async (scopeId) => {
-    try {
-      const warnings = await api.getProjectsOutsideFolder(scopeId);
-      const ignored = await api.getIgnoredWarnings(scopeId);
-      set((state) => ({
-        folderWarnings: new Map(state.folderWarnings).set(scopeId, warnings),
-        ignoredWarnings: new Map(state.ignoredWarnings).set(scopeId, ignored),
-      }));
-    } catch (error) {
-      console.error("Failed to fetch folder warnings:", error);
-    }
-  },
-
-  ignoreFolderWarning: async (scopeId, projectPath) => {
-    try {
-      await api.ignoreFolderWarning(scopeId, projectPath);
-      // Remove from warnings list
-      set((state) => {
-        const warnings = state.folderWarnings.get(scopeId) ?? [];
-        return {
-          folderWarnings: new Map(state.folderWarnings).set(
-            scopeId,
-            warnings.filter((w) => w.projectPath !== projectPath)
-          ),
-        };
-      });
-    } catch (error) {
-      set({ error: String(error) });
-      throw error;
-    }
-  },
-
+  // Folder Scanner
   scanScopeFolder: async (scopeId) => {
     try {
       const added = await api.scanScopeFolder(scopeId);
-      // Refresh folder warnings after scan
-      await get().fetchFolderWarnings(scopeId);
       return added;
     } catch (error) {
       set({ error: String(error) });

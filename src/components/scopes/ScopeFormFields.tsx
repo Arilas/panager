@@ -61,7 +61,7 @@ export function ColorField({ value, onChange }: ColorFieldProps) {
   return (
     <div className="space-y-2">
       <FieldLabel>Color</FieldLabel>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-3 p-2">
         {SCOPE_COLORS.map((c) => (
           <button
             key={c.id}
@@ -100,7 +100,10 @@ export function FolderField({
 }: FolderFieldProps) {
   return (
     <div className="space-y-2">
-      <FieldLabel icon={<FolderOpen className="h-3.5 w-3.5" />} optional={optional}>
+      <FieldLabel
+        icon={<FolderOpen className="h-3.5 w-3.5" />}
+        optional={optional}
+      >
         Default Folder
       </FieldLabel>
       <div className="flex gap-2">
@@ -209,4 +212,3 @@ export function Section({
     </div>
   );
 }
-

@@ -22,6 +22,10 @@ use panager_lib::db::models::{
     CreateScopeRequest, CreateSshAliasRequest, TempProjectProgress, TempProjectRequest,
     TempProjectResult,
 };
+use panager_lib::services::diagnostics::{
+    DiagnosticFix, DiagnosticIssue, DisabledRule, RuleGroup, RuleMetadata, ScanState, Severity,
+    ScopeDiagnosticsSummary,
+};
 
 fn main() {
     // Determine output path - go up from src-tauri to project root, then to src/bindings
@@ -95,7 +99,16 @@ fn main() {
         TempProjectProgress,
         CloneOptions,
         CloneResult,
-        CloneProgress
+        CloneProgress,
+        // Diagnostics
+        Severity,
+        RuleGroup,
+        RuleMetadata,
+        DiagnosticIssue,
+        DiagnosticFix,
+        DisabledRule,
+        ScanState,
+        ScopeDiagnosticsSummary
     );
 
     // Write to file
@@ -107,4 +120,5 @@ fn main() {
     println!("  - Project models: Project, GitStatusCache, ProjectWithStatus");
     println!("  - Editor models: Editor, SshAlias");
     println!("  - DTOs: CreateScopeRequest, CreateSshAliasRequest, CreateProjectRequest, CreateScopeLinkRequest, TempProjectRequest, TempProjectResult, TempProjectProgress, CloneOptions, CloneResult, CloneProgress");
+    println!("  - Diagnostics: Severity, RuleGroup, RuleMetadata, DiagnosticIssue, DiagnosticFix, DisabledRule, ScanState, ScopeDiagnosticsSummary");
 }

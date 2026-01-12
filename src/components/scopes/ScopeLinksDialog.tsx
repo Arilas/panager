@@ -159,9 +159,7 @@ export function ScopeLinksContent({ scope, compact }: ScopeLinksContentProps) {
             </label>
             <Input
               value={newLink.url}
-              onChange={(e) =>
-                setNewLink({ ...newLink, url: e.target.value })
-              }
+              onChange={(e) => setNewLink({ ...newLink, url: e.target.value })}
               placeholder="https://github.com/..."
               type="url"
               autoFocus
@@ -226,7 +224,7 @@ export function ScopeLinksContent({ scope, compact }: ScopeLinksContentProps) {
 
           <div className="flex justify-end gap-2 pt-2">
             <Button
-              variant="secondary"
+              variant="glass"
               size="sm"
               onClick={() => {
                 setAdding(false);
@@ -242,6 +240,7 @@ export function ScopeLinksContent({ scope, compact }: ScopeLinksContentProps) {
               size="sm"
               disabled={!newLink.label.trim() || !newLink.url.trim()}
               loading={loading}
+              variant="glass-scope"
             >
               {loading ? "Adding..." : "Add Link"}
             </Button>
