@@ -97,8 +97,7 @@ pub fn create_ssh_alias(request: CreateSshAliasRequest) -> Result<SshAlias, Stri
         fs::create_dir_all(&ssh_dir).map_err(|e| format!("Failed to create .ssh directory: {}", e))?;
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(&ssh_dir, fs::Permissions::from_mode(0o700))
+            crate::platform::posix::set_secure_directory_permissions(&ssh_dir)
                 .map_err(|e| format!("Failed to set .ssh permissions: {}", e))?;
         }
     }
@@ -117,8 +116,7 @@ pub fn create_ssh_alias(request: CreateSshAliasRequest) -> Result<SshAlias, Stri
 
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(&key_path, fs::Permissions::from_mode(0o644))
+            crate::platform::posix::set_public_file_permissions(&key_path)
                 .map_err(|e| format!("Failed to set key permissions: {}", e))?;
         }
     }
@@ -150,8 +148,7 @@ pub fn create_ssh_alias(request: CreateSshAliasRequest) -> Result<SshAlias, Stri
 
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&ssh_config_path, fs::Permissions::from_mode(0o600))
+        crate::platform::posix::set_secure_file_permissions(&ssh_config_path)
             .map_err(|e| format!("Failed to set config permissions: {}", e))?;
     }
 

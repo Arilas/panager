@@ -26,14 +26,15 @@ pub fn expand_tilde(path: &str) -> String {
 
 /// Get the user's home directory
 ///
-/// Uses the `home` crate on macOS, falls back to directories crate otherwise
+/// Uses platform-specific resolution via the platform module.
 fn home_dir() -> Option<PathBuf> {
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     {
-        home::home_dir()
+        crate::platform::posix::home_dir()
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(unix))]
     {
+        // Windows: use directories crate
         directories::BaseDirs::new().map(|dirs| dirs.home_dir().to_path_buf())
     }
 }

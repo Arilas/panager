@@ -1,31 +1,33 @@
 //! Application lifecycle event handling
 //!
 //! This module handles window events and application run events.
+//! Platform-specific behavior is delegated to the platform modules.
 
 use tauri::{AppHandle, RunEvent, WindowEvent};
 
-#[cfg(target_os = "macos")]
-use tauri::Manager;
-
 /// Handle window events
-pub fn handle_window_event(_window: &tauri::Window, _event: &WindowEvent) {
-    // On macOS, hide the window instead of closing to keep the app running
-    // This allows the global shortcut to still work
+///
+/// On macOS, windows are hidden instead of closed to keep the app in the dock.
+/// On Linux and Windows, the default close behavior (quit app) is used.
+#[allow(unused_variables)]
+pub fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
     #[cfg(target_os = "macos")]
-    if let WindowEvent::CloseRequested { api, .. } = _event {
-        let _ = _window.hide();
-        api.prevent_close();
+    if let WindowEvent::CloseRequested { api, .. } = event {
+        use crate::platform::macos::lifecycle;
+        if lifecycle::should_prevent_close() {
+            lifecycle::handle_close(window);
+            api.prevent_close();
+        }
     }
 }
 
 /// Handle application run events
-pub fn handle_run_event(_app: &AppHandle, _event: RunEvent) {
-    // Handle dock click on macOS to reopen the window
+///
+/// On macOS, clicking the dock icon reopens the main window.
+#[allow(unused_variables)]
+pub fn handle_run_event(app: &AppHandle, event: RunEvent) {
     #[cfg(target_os = "macos")]
-    if let RunEvent::Reopen { .. } = _event {
-        if let Some(window) = _app.get_webview_window("main") {
-            let _ = window.show();
-            let _ = window.set_focus();
-        }
+    if let RunEvent::Reopen { .. } = event {
+        crate::platform::macos::lifecycle::handle_reopen(app);
     }
 }

@@ -32,20 +32,8 @@ pub fn run() {
             // Start background services
             app::start_background_services(app);
 
-            // Platform-specific setup
-            #[cfg(target_os = "macos")]
-            {
-                platform::macos::apply_vibrancy_effect(app);
-                platform::macos::setup_menu(app)?;
-                platform::macos::setup_tray(app)?;
-                platform::macos::setup_global_shortcut(app)?;
-            }
-
-            #[cfg(target_os = "linux")]
-            {
-                platform::linux::setup_tray(app)?;
-                platform::linux::setup_global_shortcut(app)?;
-            }
+            // Platform-specific setup (tray, shortcuts, vibrancy, menus)
+            platform::setup(app)?;
 
             Ok(())
         })
