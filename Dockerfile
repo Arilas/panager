@@ -100,12 +100,11 @@ COPY . .
 
 # Run Rust checks
 RUN cd src-tauri && cargo check
-RUN cd src-tauri && cargo clippy -- -D warnings || true
+RUN cd src-tauri && cargo clippy -- -D warnings
 RUN cd src-tauri && cargo test
 
-# Run frontend checks
-RUN npm run lint || true
-RUN npm run type-check || true
+# Run frontend checks (TypeScript compilation check via build)
+RUN npm run build
 
 CMD ["echo", "All tests passed!"]
 

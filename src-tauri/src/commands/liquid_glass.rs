@@ -280,6 +280,7 @@ unsafe fn find_wkwebview(view: *mut AnyObject) -> Result<*mut AnyObject, String>
 
 /// Non-macOS stub
 #[cfg(not(target_os = "macos"))]
+#[allow(dead_code)]
 pub fn enable_liquid_glass_for_window(_window: &tauri::WebviewWindow) -> Result<(), String> {
     Ok(()) // No-op on non-macOS platforms
 }

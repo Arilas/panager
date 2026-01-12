@@ -1,10 +1,44 @@
 use crate::db::models::Editor;
 use crate::db::Database;
 use chrono::Utc;
+use std::collections::HashSet;
 use std::process::Command;
 use tauri::State;
 use uuid::Uuid;
 use which::which;
+
+/// Extract the base command name from a command string or path.
+/// For example:
+/// - "/snap/bin/code" -> "code"
+/// - "flatpak run com.visualstudio.code" -> "code" (via base_cmd parameter)
+/// - "/home/user/.local/share/JetBrains/Toolbox/scripts/idea" -> "idea"
+#[allow(dead_code)]
+fn get_base_command_name(command: &str) -> &str {
+    // For paths, extract the filename
+    if command.contains('/') {
+        command.rsplit('/').next().unwrap_or(command)
+    } else {
+        command
+    }
+}
+
+/// Validate Flatpak app ID format.
+/// Valid format: reverse domain notation like "com.visualstudio.code"
+fn is_valid_flatpak_app_id(app_id: &str) -> bool {
+    // Must have at least two dots (three parts)
+    let parts: Vec<&str> = app_id.split('.').collect();
+    if parts.len() < 2 {
+        return false;
+    }
+
+    // Each part must be non-empty and contain only alphanumeric, underscore, or hyphen
+    parts.iter().all(|part| {
+        !part.is_empty()
+            && part
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+    })
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct EditorInfo {
@@ -40,6 +74,8 @@ const KNOWN_EDITORS: &[KnownEditor] = &[
 #[specta::specta]
 pub fn detect_editors() -> Vec<EditorInfo> {
     let mut detected = Vec::new();
+    // Track detected base commands to prevent duplicates across installation methods
+    let mut detected_base_cmds: HashSet<String> = HashSet::new();
 
     for editor in KNOWN_EDITORS {
         if which(editor.command).is_ok() {
@@ -48,6 +84,7 @@ pub fn detect_editors() -> Vec<EditorInfo> {
                 command: editor.command.to_string(),
                 icon: None,
             });
+            detected_base_cmds.insert(editor.command.to_string());
         }
     }
 
@@ -67,12 +104,13 @@ pub fn detect_editors() -> Vec<EditorInfo> {
         ];
 
         for (path, name, cmd) in macos_apps {
-            if Path::new(path).exists() && !detected.iter().any(|e| e.command == cmd) {
+            if Path::new(path).exists() && !detected_base_cmds.contains(cmd) {
                 detected.push(EditorInfo {
                     name: name.to_string(),
                     command: cmd.to_string(),
                     icon: None,
                 });
+                detected_base_cmds.insert(cmd.to_string());
             }
         }
     }
@@ -102,19 +140,30 @@ pub fn detect_editors() -> Vec<EditorInfo> {
         ];
 
         for (app_id, name, base_cmd) in flatpak_apps {
+            // Validate app_id format to prevent command injection
+            if !is_valid_flatpak_app_id(app_id) {
+                continue;
+            }
+
+            // Skip if we already detected this editor via another method
+            if detected_base_cmds.contains(base_cmd) {
+                continue;
+            }
+
             // Check if flatpak app is installed
             let flatpak_check = Command::new("flatpak")
                 .args(["info", app_id])
                 .output();
 
             if let Ok(output) = flatpak_check {
-                if output.status.success() && !detected.iter().any(|e| e.command == base_cmd) {
+                if output.status.success() {
                     // Use flatpak run command for launching
                     detected.push(EditorInfo {
                         name: format!("{} (Flatpak)", name),
                         command: format!("flatpak run {}", app_id),
                         icon: None,
                     });
+                    detected_base_cmds.insert(base_cmd.to_string());
                 }
             }
         }
@@ -139,12 +188,18 @@ pub fn detect_editors() -> Vec<EditorInfo> {
         ];
 
         for (path, name, base_cmd) in snap_apps {
-            if Path::new(path).exists() && !detected.iter().any(|e| e.command == base_cmd) {
+            // Skip if we already detected this editor via another method
+            if detected_base_cmds.contains(base_cmd) {
+                continue;
+            }
+
+            if Path::new(path).exists() {
                 detected.push(EditorInfo {
                     name: format!("{} (Snap)", name),
                     command: path.to_string(),
                     icon: None,
                 });
+                detected_base_cmds.insert(base_cmd.to_string());
             }
         }
 
@@ -167,13 +222,19 @@ pub fn detect_editors() -> Vec<EditorInfo> {
                 ];
 
                 for (cmd, name) in jetbrains_editors {
+                    // Skip if we already detected this editor via another method
+                    if detected_base_cmds.contains(cmd) {
+                        continue;
+                    }
+
                     let script_path = toolbox_dir.join(cmd);
-                    if script_path.exists() && !detected.iter().any(|e| e.command == cmd) {
+                    if script_path.exists() {
                         detected.push(EditorInfo {
                             name: format!("{} (Toolbox)", name),
                             command: script_path.to_string_lossy().to_string(),
                             icon: None,
                         });
+                        detected_base_cmds.insert(cmd.to_string());
                     }
                 }
             }
@@ -189,10 +250,10 @@ pub fn detect_editors() -> Vec<EditorInfo> {
 
             // Common AppImage patterns (lowercase for matching)
             let appimage_patterns = [
-                ("cursor", "Cursor"),
-                ("zed", "Zed"),
-                ("code", "VS Code"),
-                ("neovim", "Neovim"),
+                ("cursor", "Cursor", "cursor"),
+                ("zed", "Zed", "zed"),
+                ("code", "VS Code", "code"),
+                ("neovim", "Neovim", "nvim"),
             ];
 
             for dir in &appimage_dirs {
@@ -207,16 +268,20 @@ pub fn detect_editors() -> Vec<EditorInfo> {
                                 continue;
                             }
 
-                            for (pattern, name) in &appimage_patterns {
+                            for (pattern, name, base_cmd) in &appimage_patterns {
                                 if filename.contains(pattern) {
-                                    let path_str = path.to_string_lossy().to_string();
-                                    if !detected.iter().any(|e| e.command == path_str) {
-                                        detected.push(EditorInfo {
-                                            name: format!("{} (AppImage)", name),
-                                            command: path_str,
-                                            icon: None,
-                                        });
+                                    // Skip if we already detected this editor via another method
+                                    if detected_base_cmds.contains(*base_cmd) {
+                                        break;
                                     }
+
+                                    let path_str = path.to_string_lossy().to_string();
+                                    detected.push(EditorInfo {
+                                        name: format!("{} (AppImage)", name),
+                                        command: path_str,
+                                        icon: None,
+                                    });
+                                    detected_base_cmds.insert(base_cmd.to_string());
                                     break;
                                 }
                             }
@@ -339,13 +404,20 @@ pub fn open_in_editor(editor_command: String, project_path: String) -> Result<()
     if editor_command.starts_with("flatpak run ") {
         let parts: Vec<&str> = editor_command.splitn(3, ' ').collect();
         if parts.len() >= 3 {
+            let app_id = parts[2];
+
+            // Validate app_id format to prevent command injection
+            if !is_valid_flatpak_app_id(app_id) {
+                return Err(format!("Invalid Flatpak app ID format: {}", app_id));
+            }
+
             let result = Command::new("flatpak")
-                .args(["run", parts[2], &project_path])
+                .args(["run", app_id, &project_path])
                 .spawn();
 
             return match result {
                 Ok(_) => Ok(()),
-                Err(e) => Err(format!("Failed to open Flatpak editor '{}': {}", parts[2], e)),
+                Err(e) => Err(format!("Failed to open Flatpak editor '{}': {}", app_id, e)),
             };
         }
     }

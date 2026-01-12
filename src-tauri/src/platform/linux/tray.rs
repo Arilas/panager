@@ -27,9 +27,15 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
 
     let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
-    let _tray = TrayIconBuilder::new()
-        .icon(app.default_window_icon().unwrap().clone())
-        .menu(&menu)
+    let mut tray_builder = TrayIconBuilder::new()
+        .menu(&menu);
+
+    // Handle missing window icon gracefully
+    if let Some(icon) = app.default_window_icon() {
+        tray_builder = tray_builder.icon(icon.clone());
+    }
+
+    let _tray = tray_builder
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
@@ -67,7 +73,9 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
 /// Registers Ctrl+Shift+O as a global shortcut to show/focus the main window.
 /// This works on most Linux desktop environments via X11 or Wayland protocols.
 pub fn setup_global_shortcut(app: &App) -> Result<(), Box<dyn std::error::Error>> {
-    let shortcut: Shortcut = "CommandOrControl+Shift+O".parse().unwrap();
+    let shortcut: Shortcut = "CommandOrControl+Shift+O"
+        .parse()
+        .map_err(|e| -> Box<dyn std::error::Error> { Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, e)) })?;
     app.global_shortcut()
         .on_shortcut(shortcut, |app, _shortcut, _event| {
             if let Some(window) = app.get_webview_window("main") {

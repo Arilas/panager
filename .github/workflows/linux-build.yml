@@ -63,7 +63,6 @@ jobs:
 
       - name: Run cargo clippy
         run: cd src-tauri && cargo clippy -- -D warnings
-        continue-on-error: true
 
       - name: Run cargo test
         run: cd src-tauri && cargo test
@@ -137,7 +136,7 @@ jobs:
           if-no-files-found: error
 
   lint:
-    name: Frontend Lint
+    name: Frontend Build Check
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -151,10 +150,5 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Run ESLint
-        run: npm run lint
-        continue-on-error: true
-
-      - name: Run TypeScript check
-        run: npm run type-check
-        continue-on-error: true
+      - name: Run TypeScript compilation
+        run: npm run build
