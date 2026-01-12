@@ -1,24 +1,30 @@
-name: Linux Check
+name: Linux Release Build
 
 on:
-  push:
-    branches: [main, 'claude/**']
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to build (branch, tag, or SHA)'
+        required: false
+        default: ''
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  check:
-    name: Cargo Check (Linux)
+  build:
+    name: Build Linux Binaries
     runs-on: ubuntu-22.04
+    environment:
+      name: linux-build
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: Install system dependencies
         run: |
@@ -49,8 +55,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             src-tauri/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
+            ${{ runner.os }}-cargo-build-
             ${{ runner.os }}-cargo-
 
       - name: Setup Node.js
@@ -62,29 +69,17 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Run cargo check
-        run: cd src-tauri && cargo check
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --locked || true
 
-      - name: Run cargo clippy
-        run: cd src-tauri && cargo clippy -- -D warnings
+      - name: Build Tauri app
+        run: npm run tauri build
 
-      - name: Run cargo test
-        run: cd src-tauri && cargo test
-
-  lint:
-    name: Frontend Build Check
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Run TypeScript compilation
-        run: npm run build
+          name: linux-binaries
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
