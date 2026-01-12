@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -71,6 +75,8 @@ jobs:
     name: Build Linux Binaries
     runs-on: ubuntu-22.04
     needs: check
+    environment:
+      name: linux-build
     steps:
       - uses: actions/checkout@v4
 
