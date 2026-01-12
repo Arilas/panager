@@ -23,7 +23,14 @@ import type {
   TempProjectOptions,
   JsonValue,
 } from "../../types";
-import { Package, Check, X, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
+import {
+  Package,
+  Check,
+  X,
+  ChevronDown,
+  ChevronRight,
+  AlertCircle,
+} from "lucide-react";
 
 interface TempProjectDialogProps {
   scope: ScopeWithLinks;
@@ -44,16 +51,34 @@ const TEMPLATES = [
   { id: "vite-react", label: "Vite + React", category: "Vite" },
   { id: "vite-vue-ts", label: "Vite + Vue + TypeScript", category: "Vite" },
   { id: "vite-vue", label: "Vite + Vue", category: "Vite" },
-  { id: "vite-svelte-ts", label: "Vite + Svelte + TypeScript", category: "Vite" },
+  {
+    id: "vite-svelte-ts",
+    label: "Vite + Svelte + TypeScript",
+    category: "Vite",
+  },
   { id: "vite-svelte", label: "Vite + Svelte", category: "Vite" },
-  { id: "vite-vanilla-ts", label: "Vite + Vanilla + TypeScript", category: "Vite" },
+  {
+    id: "vite-vanilla-ts",
+    label: "Vite + Vanilla + TypeScript",
+    category: "Vite",
+  },
   { id: "vite-vanilla", label: "Vite + Vanilla", category: "Vite" },
   { id: "nextjs", label: "Next.js", category: "Frameworks", hasOptions: true },
   { id: "remix", label: "Remix", category: "Frameworks", hasOptions: true },
   { id: "astro", label: "Astro", category: "Frameworks", hasOptions: true },
   { id: "nuxt", label: "Nuxt", category: "Frameworks" },
-  { id: "sveltekit", label: "SvelteKit", category: "Frameworks", hasOptions: true },
-  { id: "solid", label: "SolidStart", category: "Frameworks", hasOptions: true },
+  {
+    id: "sveltekit",
+    label: "SvelteKit",
+    category: "Frameworks",
+    hasOptions: true,
+  },
+  {
+    id: "solid",
+    label: "SolidStart",
+    category: "Frameworks",
+    hasOptions: true,
+  },
   { id: "nest", label: "NestJS", category: "Backend", hasOptions: true },
   { id: "hono", label: "Hono", category: "Backend" },
 ];
@@ -91,7 +116,9 @@ export function TempProjectDialog({
   useEffect(() => {
     if (open) {
       setName("");
-      setPackageManager((tempSettings?.preferredPackageManager as PackageManager) ?? "npm");
+      setPackageManager(
+        (tempSettings?.preferredPackageManager as PackageManager) ?? "npm"
+      );
       setTemplate("vite-react-ts");
       setStatus("idle");
       setError(null);
@@ -157,7 +184,10 @@ export function TempProjectDialog({
         name: name.trim(),
         packageManager,
         template,
-        options: Object.keys(options).length > 0 ? (options as unknown as JsonValue) : null,
+        options:
+          Object.keys(options).length > 0
+            ? (options as unknown as JsonValue)
+            : null,
       };
 
       const result = await createTempProject(request);
@@ -178,14 +208,11 @@ export function TempProjectDialog({
     }
   };
 
-  const groupedTemplates = TEMPLATES.reduce(
-    (acc, t) => {
-      if (!acc[t.category]) acc[t.category] = [];
-      acc[t.category].push(t);
-      return acc;
-    },
-    {} as Record<string, typeof TEMPLATES>
-  );
+  const groupedTemplates = TEMPLATES.reduce((acc, t) => {
+    if (!acc[t.category]) acc[t.category] = [];
+    acc[t.category].push(t);
+    return acc;
+  }, {} as Record<string, typeof TEMPLATES>);
 
   const selectedTemplate = TEMPLATES.find((t) => t.id === template);
   const isCreating = status === "creating";
@@ -207,8 +234,8 @@ export function TempProjectDialog({
             {isSuccess
               ? "Project Created"
               : isError
-                ? "Creation Failed"
-                : "New Temp Project"}
+              ? "Creation Failed"
+              : "New Temp Project"}
           </DialogTitle>
           <DialogDescription>
             {isCreating || isSuccess || isError ? (
@@ -237,14 +264,13 @@ export function TempProjectDialog({
               autoFocus
               disabled={isCreating || isSuccess}
               className={cn(
-                folderConflict &&
-                  "border-red-500/50 focus:ring-red-500/30"
+                folderConflict && "border-red-500/50 focus:ring-red-500/30"
               )}
             />
             {folderConflict && (
               <div className="flex items-center gap-1.5 text-[11px] text-red-500">
-                <AlertCircle className="h-3 w-3" />
-                A folder with this name already exists
+                <AlertCircle className="h-3 w-3" />A folder with this name
+                already exists
               </div>
             )}
           </div>
@@ -391,7 +417,7 @@ export function TempProjectDialog({
           <DialogFooter className="pt-4">
             {!isSuccess && (
               <Button
-                variant="secondary"
+                variant="glass"
                 onClick={() => onOpenChange(false)}
                 disabled={isCreating}
               >
@@ -399,14 +425,19 @@ export function TempProjectDialog({
               </Button>
             )}
             {isSuccess ? (
-              <Button onClick={() => onOpenChange(false)}>Done</Button>
+              <Button variant="glass-scope" onClick={() => onOpenChange(false)}>
+                Done
+              </Button>
             ) : isError ? (
-              <Button onClick={() => setStatus("idle")}>Try Again</Button>
+              <Button variant="glass-scope" onClick={() => setStatus("idle")}>
+                Try Again
+              </Button>
             ) : (
               <Button
                 type="submit"
                 disabled={!name.trim() || folderConflict}
                 loading={isCreating}
+                variant="glass-scope"
               >
                 {isCreating ? "Creating..." : "Create Project"}
               </Button>
@@ -425,7 +456,11 @@ interface AdvancedOptionsProps {
   setOptions: (options: TempProjectOptions) => void;
 }
 
-function AdvancedOptions({ template, options, setOptions }: AdvancedOptionsProps) {
+function AdvancedOptions({
+  template,
+  options,
+  setOptions,
+}: AdvancedOptionsProps) {
   switch (template) {
     case "nextjs":
       return (
@@ -436,7 +471,14 @@ function AdvancedOptions({ template, options, setOptions }: AdvancedOptionsProps
             onChange={(v) =>
               setOptions({
                 ...options,
-                nextjs: { ...options.nextjs, typescript: v, router: options.nextjs?.router ?? "app", tailwind: options.nextjs?.tailwind ?? true, eslint: options.nextjs?.eslint ?? true, srcDir: options.nextjs?.srcDir ?? true },
+                nextjs: {
+                  ...options.nextjs,
+                  typescript: v,
+                  router: options.nextjs?.router ?? "app",
+                  tailwind: options.nextjs?.tailwind ?? true,
+                  eslint: options.nextjs?.eslint ?? true,
+                  srcDir: options.nextjs?.srcDir ?? true,
+                },
               })
             }
           />
@@ -446,7 +488,14 @@ function AdvancedOptions({ template, options, setOptions }: AdvancedOptionsProps
             onChange={(v) =>
               setOptions({
                 ...options,
-                nextjs: { ...options.nextjs, tailwind: v, router: options.nextjs?.router ?? "app", typescript: options.nextjs?.typescript ?? true, eslint: options.nextjs?.eslint ?? true, srcDir: options.nextjs?.srcDir ?? true },
+                nextjs: {
+                  ...options.nextjs,
+                  tailwind: v,
+                  router: options.nextjs?.router ?? "app",
+                  typescript: options.nextjs?.typescript ?? true,
+                  eslint: options.nextjs?.eslint ?? true,
+                  srcDir: options.nextjs?.srcDir ?? true,
+                },
               })
             }
           />
@@ -456,7 +505,14 @@ function AdvancedOptions({ template, options, setOptions }: AdvancedOptionsProps
             onChange={(v) =>
               setOptions({
                 ...options,
-                nextjs: { ...options.nextjs, eslint: v, router: options.nextjs?.router ?? "app", typescript: options.nextjs?.typescript ?? true, tailwind: options.nextjs?.tailwind ?? true, srcDir: options.nextjs?.srcDir ?? true },
+                nextjs: {
+                  ...options.nextjs,
+                  eslint: v,
+                  router: options.nextjs?.router ?? "app",
+                  typescript: options.nextjs?.typescript ?? true,
+                  tailwind: options.nextjs?.tailwind ?? true,
+                  srcDir: options.nextjs?.srcDir ?? true,
+                },
               })
             }
           />
@@ -466,7 +522,14 @@ function AdvancedOptions({ template, options, setOptions }: AdvancedOptionsProps
             onChange={(v) =>
               setOptions({
                 ...options,
-                nextjs: { ...options.nextjs, router: v as "app" | "pages", typescript: options.nextjs?.typescript ?? true, tailwind: options.nextjs?.tailwind ?? true, eslint: options.nextjs?.eslint ?? true, srcDir: options.nextjs?.srcDir ?? true },
+                nextjs: {
+                  ...options.nextjs,
+                  router: v as "app" | "pages",
+                  typescript: options.nextjs?.typescript ?? true,
+                  tailwind: options.nextjs?.tailwind ?? true,
+                  eslint: options.nextjs?.eslint ?? true,
+                  srcDir: options.nextjs?.srcDir ?? true,
+                },
               })
             }
             options={[
@@ -486,7 +549,10 @@ function AdvancedOptions({ template, options, setOptions }: AdvancedOptionsProps
             onChange={(v) =>
               setOptions({
                 ...options,
-                astro: { template: v as "basics" | "blog" | "minimal", typescript: options.astro?.typescript ?? "strict" },
+                astro: {
+                  template: v as "basics" | "blog" | "minimal",
+                  typescript: options.astro?.typescript ?? "strict",
+                },
               })
             }
             options={[
@@ -501,7 +567,10 @@ function AdvancedOptions({ template, options, setOptions }: AdvancedOptionsProps
             onChange={(v) =>
               setOptions({
                 ...options,
-                astro: { typescript: v as "strict" | "strictest" | "relaxed", template: options.astro?.template ?? "basics" },
+                astro: {
+                  typescript: v as "strict" | "strictest" | "relaxed",
+                  template: options.astro?.template ?? "basics",
+                },
               })
             }
             options={[
@@ -522,7 +591,14 @@ function AdvancedOptions({ template, options, setOptions }: AdvancedOptionsProps
             onChange={(v) =>
               setOptions({
                 ...options,
-                sveltekit: { ...options.sveltekit, typescript: v, eslint: options.sveltekit?.eslint ?? true, prettier: options.sveltekit?.prettier ?? true, playwright: options.sveltekit?.playwright ?? false, vitest: options.sveltekit?.vitest ?? false },
+                sveltekit: {
+                  ...options.sveltekit,
+                  typescript: v,
+                  eslint: options.sveltekit?.eslint ?? true,
+                  prettier: options.sveltekit?.prettier ?? true,
+                  playwright: options.sveltekit?.playwright ?? false,
+                  vitest: options.sveltekit?.vitest ?? false,
+                },
               })
             }
           />
@@ -532,7 +608,14 @@ function AdvancedOptions({ template, options, setOptions }: AdvancedOptionsProps
             onChange={(v) =>
               setOptions({
                 ...options,
-                sveltekit: { ...options.sveltekit, eslint: v, typescript: options.sveltekit?.typescript ?? true, prettier: options.sveltekit?.prettier ?? true, playwright: options.sveltekit?.playwright ?? false, vitest: options.sveltekit?.vitest ?? false },
+                sveltekit: {
+                  ...options.sveltekit,
+                  eslint: v,
+                  typescript: options.sveltekit?.typescript ?? true,
+                  prettier: options.sveltekit?.prettier ?? true,
+                  playwright: options.sveltekit?.playwright ?? false,
+                  vitest: options.sveltekit?.vitest ?? false,
+                },
               })
             }
           />
@@ -542,7 +625,14 @@ function AdvancedOptions({ template, options, setOptions }: AdvancedOptionsProps
             onChange={(v) =>
               setOptions({
                 ...options,
-                sveltekit: { ...options.sveltekit, prettier: v, typescript: options.sveltekit?.typescript ?? true, eslint: options.sveltekit?.eslint ?? true, playwright: options.sveltekit?.playwright ?? false, vitest: options.sveltekit?.vitest ?? false },
+                sveltekit: {
+                  ...options.sveltekit,
+                  prettier: v,
+                  typescript: options.sveltekit?.typescript ?? true,
+                  eslint: options.sveltekit?.eslint ?? true,
+                  playwright: options.sveltekit?.playwright ?? false,
+                  vitest: options.sveltekit?.vitest ?? false,
+                },
               })
             }
           />
@@ -552,7 +642,14 @@ function AdvancedOptions({ template, options, setOptions }: AdvancedOptionsProps
             onChange={(v) =>
               setOptions({
                 ...options,
-                sveltekit: { ...options.sveltekit, vitest: v, typescript: options.sveltekit?.typescript ?? true, eslint: options.sveltekit?.eslint ?? true, prettier: options.sveltekit?.prettier ?? true, playwright: options.sveltekit?.playwright ?? false },
+                sveltekit: {
+                  ...options.sveltekit,
+                  vitest: v,
+                  typescript: options.sveltekit?.typescript ?? true,
+                  eslint: options.sveltekit?.eslint ?? true,
+                  prettier: options.sveltekit?.prettier ?? true,
+                  playwright: options.sveltekit?.playwright ?? false,
+                },
               })
             }
           />

@@ -438,14 +438,14 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
       <div
         className={cn(
           "flex-1 flex flex-col min-w-0 relative overflow-hidden",
-          useLiquidGlass
-            ? "liquid-glass-scope rounded-xl"
-            : [
-                "bg-white/70 dark:bg-neutral-900/70",
-                "backdrop-blur-xl",
-                "rounded-xl",
-                "border border-black/[0.08] dark:border-white/[0.08]",
-              ],
+          // useLiquidGlass
+          //   ? "liquid-glass-scope rounded-xl"
+          //   : [
+          "bg-white/70 dark:bg-neutral-900/70",
+          "backdrop-blur-xl",
+          "rounded-xl",
+          "border border-black/[0.08] dark:border-white/[0.08]",
+          // ],
           isDragOver && "border-primary border-2"
         )}
       >

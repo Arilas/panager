@@ -106,7 +106,7 @@ export function SshAliasDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-4 w-4" />
@@ -117,7 +117,10 @@ export function SshAliasDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 flex-1 overflow-y-auto"
+        >
           {error && (
             <div className="p-3 rounded-md bg-red-500/10 border border-red-500/20">
               <p className="text-[12px] text-red-500">{error}</p>
@@ -362,7 +365,7 @@ export function SshAliasDialog({
             </div>
           )}
 
-          <DialogFooter className="pt-4">
+          <DialogFooter className="pt-4 shrink-0 sticky bottom-0 backdrop-blur-sm">
             <Button variant="glass" onClick={() => handleClose(false)}>
               Cancel
             </Button>

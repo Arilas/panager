@@ -360,11 +360,6 @@
     -apple-visual-effect: -apple-system-sidebar-material;
   }
 
-  .apple-glass-titlebar {
-    background: transparent !important;
-    -apple-visual-effect: -apple-system-titlebar-material;
-  }
-
   /* Apply native glass to liquid-glass classes when supported */
   .liquid-glass,
   .liquid-glass-strong {
@@ -394,10 +389,16 @@
   }
 
   .liquid-glass-titlebar {
-    background: transparent !important;
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--scope-color, #6b7280) 20%, transparent),
+      transparent
+    ) !important;
     -apple-visual-effect: -apple-system-titlebar-material;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   .liquid-glass-dialog {
