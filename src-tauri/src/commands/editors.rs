@@ -27,7 +27,7 @@ fn get_base_command_name(command: &str) -> &str {
 fn is_valid_flatpak_app_id(app_id: &str) -> bool {
     // Must have at least two dots (three parts)
     let parts: Vec<&str> = app_id.split('.').collect();
-    if parts.len() < 2 {
+    if parts.len() < 3 {
         return false;
     }
 
