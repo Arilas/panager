@@ -1,0 +1,81 @@
+# Docker Compose for Panager Linux build and testing
+#
+# Usage (Docker Compose v2 - recommended):
+#   docker compose run --rm test      # Run all tests
+#   docker compose run --rm build     # Build production binaries
+#   docker compose run --rm check     # Quick cargo check
+#   docker compose run --rm dev       # Interactive development shell
+#
+# Usage (Docker Compose v1 - legacy):
+#   docker-compose run --rm test
+#   docker-compose run --rm build
+#
+# Or use the helper script:
+#   ./scripts/docker-build.sh check
+#   ./scripts/docker-build.sh build
+#
+# Build artifacts will be in ./build-output/
+
+services:
+  # Run cargo check, clippy, and tests
+  test:
+    build:
+      context: .
+      target: test
+    volumes:
+      # Cache cargo registry for faster rebuilds
+      - cargo-registry:/root/.cargo/registry
+      - cargo-git:/root/.cargo/git
+
+  # Build production binaries (deb, AppImage)
+  build:
+    build:
+      context: .
+      target: builder
+    volumes:
+      - cargo-registry:/root/.cargo/registry
+      - cargo-git:/root/.cargo/git
+      - ./build-output:/app/build-output
+    command: >
+      sh -c "
+        npm run tauri build &&
+        mkdir -p /app/build-output &&
+        cp -r src-tauri/target/release/bundle/* /app/build-output/ 2>/dev/null || true &&
+        echo 'Build artifacts copied to ./build-output/'
+      "
+
+  # Interactive development shell
+  dev:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/app
+      - cargo-registry:/root/.cargo/registry
+      - cargo-git:/root/.cargo/git
+      - node-modules:/app/node_modules
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+  # Quick cargo check only
+  check:
+    build:
+      context: .
+      target: base
+    volumes:
+      - .:/app
+      - cargo-registry:/root/.cargo/registry
+      - cargo-git:/root/.cargo/git
+    working_dir: /app
+    command: >
+      sh -c "
+        npm ci &&
+        cd src-tauri &&
+        cargo check
+      "
+
+volumes:
+  cargo-registry:
+  cargo-git:
+  node-modules:

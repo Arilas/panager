@@ -58,9 +58,11 @@ tauri-specta = { version = "2.0.0-rc.21", features = ["typescript"] }
 specta = { version = "2.0.0-rc.22", features = ["derive", "chrono", "serde_json"] }
 specta-typescript = "0.0.9"
 
-# macOS Liquid Glass support
-[target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6"
+# Cross-platform SSH config support
 ssh2-config = "0.6"
 home = "0.5"
 regex = "1"
+
+# macOS Liquid Glass support
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
