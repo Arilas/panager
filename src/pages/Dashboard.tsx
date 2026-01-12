@@ -519,7 +519,11 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
               </Button>
             )}
             {!currentScope?.scope.defaultFolder && (
-              <Button variant="scope" size="sm" onClick={handleAddProject}>
+              <Button
+                variant="glass-scope"
+                size="sm"
+                onClick={handleAddProject}
+              >
                 <Plus className="h-3 w-3 mr-1.5" />
                 Add
               </Button>
