@@ -2,7 +2,7 @@
 //!
 //! This module handles applying visual effects to the window.
 
-use tauri::{App, Manager};
+use tauri::{App, Emitter, Manager};
 
 /// Apply vibrancy effect to the main window
 pub fn apply_vibrancy_effect(app: &App) {
@@ -20,8 +20,17 @@ pub fn apply_vibrancy_effect(app: &App) {
         std::thread::spawn(move || {
             // Wait for WebView to be fully initialized
             std::thread::sleep(std::time::Duration::from_millis(500));
-            if let Err(e) = crate::commands::liquid_glass::enable_liquid_glass_for_window(&window_clone) {
+            if let Err(e) =
+                crate::commands::liquid_glass::enable_liquid_glass_for_window(&window_clone)
+            {
                 eprintln!("Warning: Failed to enable Liquid Glass: {}", e);
+            } else {
+                // Emit event to frontend to trigger CSS re-evaluation
+                // This is needed because the @supports query is evaluated before
+                // _setUseSystemAppearance is enabled
+                if let Err(e) = window_clone.emit("liquid-glass-ready", ()) {
+                    eprintln!("Warning: Failed to emit liquid-glass-ready event: {}", e);
+                }
             }
         });
     }

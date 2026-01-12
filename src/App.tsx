@@ -78,6 +78,29 @@ function App() {
     };
   }, [toggleRightPanel]);
 
+  // Listen for liquid-glass-ready event from Tauri backend
+  // This event is emitted after _setUseSystemAppearance is enabled,
+  // which is needed for the CSS @supports (-apple-visual-effect) query to work.
+  // We force a stylesheet reload to re-evaluate @supports queries.
+  useEffect(() => {
+    const unlistenPromise = listen("liquid-glass-ready", () => {
+      // Force CSS re-evaluation by cloning and replacing all stylesheets
+      // This makes the browser re-parse the CSS and re-evaluate @supports queries
+      const styleSheets = document.querySelectorAll(
+        'link[rel="stylesheet"], style'
+      );
+      styleSheets.forEach((sheet) => {
+        const clone = sheet.cloneNode(true) as HTMLElement;
+        sheet.parentNode?.insertBefore(clone, sheet.nextSibling);
+        sheet.remove();
+      });
+    });
+
+    return () => {
+      unlistenPromise.then((fn) => fn());
+    };
+  }, []);
+
   const handleSettingsClick = useCallback(() => {
     setShowSettings(true);
   }, []);
