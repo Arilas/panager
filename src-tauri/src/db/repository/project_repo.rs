@@ -23,23 +23,27 @@ pub fn fetch_projects_with_status(
     let sql = if scope_id.is_some() {
         r#"
         SELECT p.id, p.scope_id, p.name, p.path, p.preferred_editor_id,
-               p.default_branch, p.workspace_file, p.is_temp, p.last_opened_at, p.created_at, p.updated_at,
+               p.default_branch, p.workspace_file, p.is_temp, p.is_pinned, p.group_id,
+               p.notes, p.description, p.last_opened_at, 
+               p.created_at, p.updated_at,
                g.branch, g.ahead, g.behind, g.has_uncommitted, g.has_untracked,
                g.last_checked_at, g.remote_url
         FROM projects p
         LEFT JOIN git_status_cache g ON p.id = g.project_id
         WHERE p.scope_id = ?1
-        ORDER BY p.is_temp DESC, p.last_opened_at DESC NULLS LAST, p.name ASC
+        ORDER BY p.is_pinned DESC, p.is_temp DESC, p.last_opened_at DESC NULLS LAST, p.name ASC
         "#
     } else {
         r#"
         SELECT p.id, p.scope_id, p.name, p.path, p.preferred_editor_id,
-               p.default_branch, p.workspace_file, p.is_temp, p.last_opened_at, p.created_at, p.updated_at,
+               p.default_branch, p.workspace_file, p.is_temp, p.is_pinned, p.group_id,
+               p.notes, p.description, p.last_opened_at, 
+               p.created_at, p.updated_at,
                g.branch, g.ahead, g.behind, g.has_uncommitted, g.has_untracked,
                g.last_checked_at, g.remote_url
         FROM projects p
         LEFT JOIN git_status_cache g ON p.id = g.project_id
-        ORDER BY p.is_temp DESC, p.last_opened_at DESC NULLS LAST, p.name ASC
+        ORDER BY p.is_pinned DESC, p.is_temp DESC, p.last_opened_at DESC NULLS LAST, p.name ASC
         "#
     };
 
@@ -55,25 +59,29 @@ pub fn fetch_projects_with_status(
             default_branch: row.get(5)?,
             workspace_file: row.get(6)?,
             is_temp: row.get(7)?,
-            last_opened_at: row.get::<_, Option<String>>(8)?.map(|s| {
+            is_pinned: row.get::<_, i32>(8).unwrap_or(0) != 0,
+            group_id: row.get(9).ok().flatten(),
+            notes: row.get(10).ok().flatten(),
+            description: row.get(11).ok().flatten(),
+            last_opened_at: row.get::<_, Option<String>>(12)?.map(|s| {
                 s.parse::<DateTime<Utc>>().unwrap_or_else(|_| Utc::now())
             }),
-            created_at: row.get::<_, String>(9)?.parse().unwrap_or_else(|_| Utc::now()),
-            updated_at: row.get::<_, String>(10)?.parse().unwrap_or_else(|_| Utc::now()),
+            created_at: row.get::<_, String>(13)?.parse().unwrap_or_else(|_| Utc::now()),
+            updated_at: row.get::<_, String>(14)?.parse().unwrap_or_else(|_| Utc::now()),
         };
 
-        let git_status = row.get::<_, Option<String>>(11)?.map(|branch| {
+        let git_status = row.get::<_, Option<String>>(15)?.map(|branch| {
             GitStatusCache {
                 project_id: project.id.clone(),
                 branch: Some(branch),
-                ahead: row.get(12).unwrap_or(0),
-                behind: row.get(13).unwrap_or(0),
-                has_uncommitted: row.get(14).unwrap_or(false),
-                has_untracked: row.get(15).unwrap_or(false),
-                last_checked_at: row.get::<_, Option<String>>(16).ok().flatten().map(|s| {
+                ahead: row.get(16).unwrap_or(0),
+                behind: row.get(17).unwrap_or(0),
+                has_uncommitted: row.get(18).unwrap_or(false),
+                has_untracked: row.get(19).unwrap_or(false),
+                last_checked_at: row.get::<_, Option<String>>(20).ok().flatten().map(|s| {
                     s.parse::<DateTime<Utc>>().unwrap_or_else(|_| Utc::now())
                 }),
-                remote_url: row.get(17).ok().flatten(),
+                remote_url: row.get(21).ok().flatten(),
             }
         });
 
@@ -92,14 +100,18 @@ pub fn fetch_projects_with_status(
             .collect()
     };
 
-    // Fetch tags for each project
+    // Fetch tags, links, and group for each project
     let mut result = Vec::with_capacity(projects.len());
     for (project, git_status) in projects {
         let tags = fetch_project_tags(conn, &project.id)?;
+        // Note: Links and group will be loaded separately when needed
         result.push(ProjectWithStatus {
             project,
             tags,
             git_status,
+            links: Vec::new(),
+            group: None,
+            statistics: None,
         });
     }
 
@@ -139,7 +151,8 @@ pub fn fetch_project_tags(conn: &Connection, project_id: &str) -> Result<Vec<Str
 pub fn find_project_by_id(conn: &Connection, project_id: &str) -> Result<Option<Project>> {
     let sql = r#"
         SELECT id, scope_id, name, path, preferred_editor_id,
-               default_branch, workspace_file, is_temp, last_opened_at, created_at, updated_at
+               default_branch, workspace_file, is_temp, is_pinned, group_id,
+               notes, description, last_opened_at, created_at, updated_at
         FROM projects
         WHERE id = ?1
     "#;
@@ -154,11 +167,15 @@ pub fn find_project_by_id(conn: &Connection, project_id: &str) -> Result<Option<
             default_branch: row.get(5)?,
             workspace_file: row.get(6)?,
             is_temp: row.get(7)?,
-            last_opened_at: row.get::<_, Option<String>>(8)?.map(|s| {
+            is_pinned: row.get::<_, i32>(8).unwrap_or(0) != 0,
+            group_id: row.get(9).ok().flatten(),
+            notes: row.get(10).ok().flatten(),
+            description: row.get(11).ok().flatten(),
+            last_opened_at: row.get::<_, Option<String>>(12)?.map(|s| {
                 s.parse::<DateTime<Utc>>().unwrap_or_else(|_| Utc::now())
             }),
-            created_at: row.get::<_, String>(9)?.parse().unwrap_or_else(|_| Utc::now()),
-            updated_at: row.get::<_, String>(10)?.parse().unwrap_or_else(|_| Utc::now()),
+            created_at: row.get::<_, String>(13)?.parse().unwrap_or_else(|_| Utc::now()),
+            updated_at: row.get::<_, String>(14)?.parse().unwrap_or_else(|_| Utc::now()),
         })
     })
     .optional()
@@ -176,7 +193,8 @@ pub fn find_project_by_id(conn: &Connection, project_id: &str) -> Result<Option<
 pub fn find_project_by_path(conn: &Connection, path: &str) -> Result<Option<Project>> {
     let sql = r#"
         SELECT id, scope_id, name, path, preferred_editor_id,
-               default_branch, workspace_file, is_temp, last_opened_at, created_at, updated_at
+               default_branch, workspace_file, is_temp, is_pinned, group_id,
+               notes, description, last_opened_at, created_at, updated_at
         FROM projects
         WHERE path = ?1
     "#;
@@ -191,11 +209,15 @@ pub fn find_project_by_path(conn: &Connection, path: &str) -> Result<Option<Proj
             default_branch: row.get(5)?,
             workspace_file: row.get(6)?,
             is_temp: row.get(7)?,
-            last_opened_at: row.get::<_, Option<String>>(8)?.map(|s| {
+            is_pinned: row.get::<_, i32>(8).unwrap_or(0) != 0,
+            group_id: row.get(9).ok().flatten(),
+            notes: row.get(10).ok().flatten(),
+            description: row.get(11).ok().flatten(),
+            last_opened_at: row.get::<_, Option<String>>(12)?.map(|s| {
                 s.parse::<DateTime<Utc>>().unwrap_or_else(|_| Utc::now())
             }),
-            created_at: row.get::<_, String>(9)?.parse().unwrap_or_else(|_| Utc::now()),
-            updated_at: row.get::<_, String>(10)?.parse().unwrap_or_else(|_| Utc::now()),
+            created_at: row.get::<_, String>(13)?.parse().unwrap_or_else(|_| Utc::now()),
+            updated_at: row.get::<_, String>(14)?.parse().unwrap_or_else(|_| Utc::now()),
         })
     })
     .optional()
@@ -245,7 +267,8 @@ pub fn delete_project_cascade(conn: &Connection, project_id: &str) -> Result<()>
 pub fn get_temp_projects_for_cleanup(conn: &Connection, days: i64) -> Result<Vec<Project>> {
     let sql = r#"
         SELECT id, scope_id, name, path, preferred_editor_id,
-               default_branch, workspace_file, is_temp, last_opened_at, created_at, updated_at
+               default_branch, workspace_file, is_temp, is_pinned, group_id,
+               notes, description, last_opened_at, created_at, updated_at
         FROM projects
         WHERE is_temp = 1
         AND datetime(created_at) < datetime('now', ?1)
@@ -265,11 +288,15 @@ pub fn get_temp_projects_for_cleanup(conn: &Connection, days: i64) -> Result<Vec
                 default_branch: row.get(5)?,
                 workspace_file: row.get(6)?,
                 is_temp: row.get(7)?,
-                last_opened_at: row.get::<_, Option<String>>(8)?.map(|s| {
+                is_pinned: row.get::<_, i32>(8).unwrap_or(0) != 0,
+                group_id: row.get(9).ok().flatten(),
+                notes: row.get(10).ok().flatten(),
+                description: row.get(11).ok().flatten(),
+                last_opened_at: row.get::<_, Option<String>>(12)?.map(|s| {
                     s.parse::<DateTime<Utc>>().unwrap_or_else(|_| Utc::now())
                 }),
-                created_at: row.get::<_, String>(9)?.parse().unwrap_or_else(|_| Utc::now()),
-                updated_at: row.get::<_, String>(10)?.parse().unwrap_or_else(|_| Utc::now()),
+                created_at: row.get::<_, String>(13)?.parse().unwrap_or_else(|_| Utc::now()),
+                updated_at: row.get::<_, String>(14)?.parse().unwrap_or_else(|_| Utc::now()),
             })
         })
         .map_err(PanagerError::Database)?

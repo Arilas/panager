@@ -14,13 +14,15 @@ use panager_lib::db::models::{
     GitIncludeIf, IgnoredFolderWarning, Scope, ScopeGitConfig, ScopeLink, ScopeWithLinks,
     TempProjectSettings,
     // Project models
-    GitStatusCache, Project, ProjectWithStatus,
+    GitStatusCache, Project, ProjectWithStatus, ProjectLink, ProjectGroup, ProjectCommand,
+    ProjectStatistics,
     // Editor models
     Editor, SshAlias,
     // DTOs
     CloneOptions, CloneProgress, CloneResult, CreateProjectRequest, CreateScopeLinkRequest,
+    CreateProjectLinkRequest, CreateProjectGroupRequest, CreateProjectCommandRequest,
     CreateScopeRequest, CreateSshAliasRequest, TempProjectProgress, TempProjectRequest,
-    TempProjectResult,
+    TempProjectResult, CommandResult,
 };
 use panager_lib::services::diagnostics::{
     DiagnosticFix, DiagnosticIssue, DisabledRule, RuleGroup, RuleMetadata, ScanState, Severity,
@@ -86,6 +88,10 @@ fn main() {
         Project,
         GitStatusCache,
         ProjectWithStatus,
+        ProjectLink,
+        ProjectGroup,
+        ProjectCommand,
+        ProjectStatistics,
         // Editor models
         Editor,
         SshAlias,
@@ -94,7 +100,11 @@ fn main() {
         CreateSshAliasRequest,
         CreateProjectRequest,
         CreateScopeLinkRequest,
+        CreateProjectLinkRequest,
+        CreateProjectGroupRequest,
+        CreateProjectCommandRequest,
         TempProjectRequest,
+        CommandResult,
         TempProjectResult,
         TempProjectProgress,
         CloneOptions,

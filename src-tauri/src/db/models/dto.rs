@@ -133,3 +133,43 @@ pub struct ProjectUpdates {
     pub preferred_editor_id: Option<String>,
     pub scope_id: Option<String>,
 }
+
+/// Request to create a new project link
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateProjectLinkRequest {
+    pub project_id: String,
+    pub link_type: String,
+    pub label: String,
+    pub url: String,
+}
+
+/// Request to create a new project group
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateProjectGroupRequest {
+    pub scope_id: String,
+    pub name: String,
+    pub color: Option<String>,
+}
+
+/// Request to create a new project command
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateProjectCommandRequest {
+    pub project_id: String,
+    pub name: String,
+    pub command: String,
+    pub description: Option<String>,
+    pub working_directory: Option<String>,
+}
+
+/// Result of executing a project command
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CommandResult {
+    pub success: bool,
+    pub output: String,
+    pub error: Option<String>,
+    pub exit_code: Option<i32>,
+}

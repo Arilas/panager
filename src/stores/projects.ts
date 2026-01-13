@@ -1,5 +1,15 @@
 import { create } from "zustand";
-import type { CreateProjectRequest, ProjectWithStatus } from "../types";
+import type {
+  CreateProjectCommandRequest,
+  CreateProjectGroupRequest,
+  CreateProjectLinkRequest,
+  CreateProjectRequest,
+  ProjectCommand,
+  ProjectGroup,
+  ProjectLink,
+  ProjectStatistics,
+  ProjectWithStatus,
+} from "../types";
 import * as api from "../lib/tauri";
 
 interface ProjectsState {
@@ -52,6 +62,58 @@ interface ProjectsState {
   setSelectedTags: (tags: string[]) => void;
   getFilteredProjects: () => ProjectWithStatus[];
   getAllTags: () => string[];
+
+  // Project Links
+  createProjectLink: (request: CreateProjectLinkRequest) => Promise<void>;
+  deleteProjectLink: (linkId: string) => Promise<void>;
+  getProjectLinks: (projectId: string) => Promise<ProjectLink[]>;
+
+  // Project Groups
+  createProjectGroup: (request: CreateProjectGroupRequest) => Promise<ProjectGroup>;
+  updateProjectGroup: (
+    groupId: string,
+    name?: string,
+    color?: string
+  ) => Promise<void>;
+  deleteProjectGroup: (groupId: string) => Promise<void>;
+  getProjectGroups: (scopeId: string) => Promise<ProjectGroup[]>;
+  assignProjectToGroup: (
+    projectId: string,
+    groupId: string | null
+  ) => Promise<void>;
+
+  // Project Commands
+  createProjectCommand: (
+    request: CreateProjectCommandRequest
+  ) => Promise<ProjectCommand>;
+  updateProjectCommand: (
+    commandId: string,
+    name?: string,
+    command?: string,
+    description?: string,
+    workingDirectory?: string
+  ) => Promise<void>;
+  deleteProjectCommand: (commandId: string) => Promise<void>;
+  getProjectCommands: (projectId: string) => Promise<ProjectCommand[]>;
+  executeProjectCommand: (
+    commandId: string,
+    projectPath: string
+  ) => Promise<string>;
+
+  // Project Metadata
+  updateProjectNotes: (projectId: string, notes: string | null) => Promise<void>;
+  updateProjectDescription: (
+    projectId: string,
+    description: string | null
+  ) => Promise<void>;
+  pinProject: (projectId: string) => Promise<void>;
+  unpinProject: (projectId: string) => Promise<void>;
+
+  // Project Statistics
+  fetchProjectStatistics: (
+    projectId: string,
+    projectPath: string
+  ) => Promise<ProjectStatistics>;
 }
 
 export const useProjectsStore = create<ProjectsState>((set, get) => ({
@@ -92,6 +154,9 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         project,
         tags: [],
         gitStatus: null,
+        links: [],
+        group: null,
+        statistics: null,
       };
       set((state) => ({
         projects: [newProjectWithStatus, ...state.projects],
@@ -338,5 +403,214 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     const tags = new Set<string>();
     projects.forEach((p) => p.tags.forEach((t) => tags.add(t)));
     return Array.from(tags).sort();
+  },
+
+  // Project Links
+  createProjectLink: async (request) => {
+    try {
+      await api.createProjectLink(request);
+      // Refresh projects to get updated links
+      const { projects } = get();
+      const project = projects.find((p) => p.project.id === request.projectId);
+      if (project) {
+        await get().refreshGitStatus(project.project.id, project.project.path);
+      }
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  deleteProjectLink: async (linkId) => {
+    try {
+      await api.deleteProjectLink(linkId);
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  getProjectLinks: async (projectId) => {
+    return api.getProjectLinks(projectId);
+  },
+
+  // Project Groups
+  createProjectGroup: async (request) => {
+    try {
+      return await api.createProjectGroup(request);
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  updateProjectGroup: async (groupId, name, color) => {
+    try {
+      await api.updateProjectGroup(groupId, name, color);
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  deleteProjectGroup: async (groupId) => {
+    try {
+      await api.deleteProjectGroup(groupId);
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  getProjectGroups: async (scopeId) => {
+    return api.getProjectGroups(scopeId);
+  },
+
+  assignProjectToGroup: async (projectId, groupId) => {
+    try {
+      await api.assignProjectToGroup(projectId, groupId);
+      const updateFn = (p: ProjectWithStatus) =>
+        p.project.id === projectId
+          ? {
+              ...p,
+              project: { ...p.project, groupId: groupId || undefined },
+            }
+          : p;
+
+      set((state) => ({
+        projects: state.projects.map(updateFn),
+        allProjects: state.allProjects.map(updateFn),
+      }));
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  // Project Commands
+  createProjectCommand: async (request) => {
+    try {
+      return await api.createProjectCommand(request);
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  updateProjectCommand: async (commandId, name, command, description, workingDirectory) => {
+    try {
+      await api.updateProjectCommand(commandId, name, command, description, workingDirectory);
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  deleteProjectCommand: async (commandId) => {
+    try {
+      await api.deleteProjectCommand(commandId);
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  getProjectCommands: async (projectId) => {
+    return api.getProjectCommands(projectId);
+  },
+
+  executeProjectCommand: async (commandId, projectPath) => {
+    try {
+      return await api.executeProjectCommand(commandId, projectPath);
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  // Project Metadata
+  updateProjectNotes: async (projectId, notes) => {
+    try {
+      await api.updateProjectNotes(projectId, notes);
+      const updateFn = (p: ProjectWithStatus) =>
+        p.project.id === projectId
+          ? { ...p, project: { ...p.project, notes: notes || undefined } }
+          : p;
+
+      set((state) => ({
+        projects: state.projects.map(updateFn),
+        allProjects: state.allProjects.map(updateFn),
+      }));
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  updateProjectDescription: async (projectId, description) => {
+    try {
+      await api.updateProjectDescription(projectId, description);
+      const updateFn = (p: ProjectWithStatus) =>
+        p.project.id === projectId
+          ? {
+              ...p,
+              project: { ...p.project, description: description || undefined },
+            }
+          : p;
+
+      set((state) => ({
+        projects: state.projects.map(updateFn),
+        allProjects: state.allProjects.map(updateFn),
+      }));
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  pinProject: async (projectId) => {
+    try {
+      await api.pinProject(projectId);
+      const updateFn = (p: ProjectWithStatus) =>
+        p.project.id === projectId
+          ? { ...p, project: { ...p.project, isPinned: true } }
+          : p;
+
+      set((state) => ({
+        projects: state.projects.map(updateFn),
+        allProjects: state.allProjects.map(updateFn),
+      }));
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  unpinProject: async (projectId) => {
+    try {
+      await api.unpinProject(projectId);
+      const updateFn = (p: ProjectWithStatus) =>
+        p.project.id === projectId
+          ? { ...p, project: { ...p.project, isPinned: false } }
+          : p;
+
+      set((state) => ({
+        projects: state.projects.map(updateFn),
+        allProjects: state.allProjects.map(updateFn),
+      }));
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  // Project Statistics
+  fetchProjectStatistics: async (projectId, projectPath) => {
+    try {
+      return await api.getProjectStatistics(projectPath);
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
   },
 }));

@@ -8,6 +8,10 @@ export type {
   Project,
   GitStatusCache,
   ProjectWithStatus,
+  ProjectLink,
+  ProjectGroup,
+  ProjectCommand,
+  ProjectStatistics,
   Editor,
   SshAlias,
   GitIncludeIf,
@@ -15,7 +19,11 @@ export type {
   CreateScopeRequest,
   CreateProjectRequest,
   CreateScopeLinkRequest,
+  CreateProjectLinkRequest,
+  CreateProjectGroupRequest,
+  CreateProjectCommandRequest,
   CreateSshAliasRequest,
+  CommandResult,
   // Temp project types
   TempProjectRequest,
   TempProjectResult,
@@ -35,6 +43,9 @@ export type {
   DisabledRule,
   ScanState,
   ScopeDiagnosticsSummary,
+  LastCommitInfo,
+  LanguageInfo,
+  ContributorInfo,
 } from "../bindings/types";
 
 // Override TempProjectSettings to use strict PackageManager union type

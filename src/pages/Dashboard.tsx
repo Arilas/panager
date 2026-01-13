@@ -9,6 +9,9 @@ import {
   X,
   FolderInput,
   Download,
+  ChevronDown,
+  ChevronRight,
+  FolderTree,
 } from "lucide-react";
 import { useScopesStore } from "../stores/scopes";
 import { useProjectsStore } from "../stores/projects";
@@ -26,6 +29,7 @@ import { GitConfigDialog } from "../components/git/GitConfigDialog";
 import { CloneRepositoryDialog } from "../components/scopes/CloneRepositoryDialog";
 import { DeleteProjectDialog } from "../components/projects/DeleteProjectDialog";
 import { MoveProjectDialog } from "../components/projects/MoveProjectDialog";
+import { ProjectGroupDialog } from "../components/projects/ProjectGroupDialog";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -33,6 +37,7 @@ import { cn } from "../lib/utils";
 import { Button } from "../components/ui/Button";
 import { useSettingsStore } from "../stores/settings";
 import type { ProjectWithStatus } from "../types";
+import { openTerminal } from "../lib/tauri";
 
 interface DashboardProps {
   onNewScopeClick: () => void;
@@ -53,6 +58,9 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
     openInEditor,
     updateLastOpened,
     scanFolder,
+    pinProject,
+    unpinProject,
+    getProjectGroups,
   } = useProjectsStore();
   const { editors, syncEditors, getDefaultEditor } = useEditorsStore();
   const { rightPanelVisible, searchQuery } = useUIStore();
@@ -60,9 +68,8 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const useLiquidGlass = settings.liquid_glass_enabled;
   const [refreshing, setRefreshing] = useState(false);
   const [showTempProject, setShowTempProject] = useState(false);
-  const [settingsProject, setSettingsProject] = useState<ProjectWithStatus | null>(
-    null
-  );
+  const [settingsProject, setSettingsProject] =
+    useState<ProjectWithStatus | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"name" | "lastOpened" | "dateAdded">(
     "lastOpened"
@@ -81,6 +88,13 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isDragOver, setIsDragOver] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const [projectGroups, setProjectGroups] = useState<
+    Array<{ id: string; name: string; color: string | null }>
+  >([]);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    new Set()
+  );
+  const [showGroupDialog, setShowGroupDialog] = useState(false);
 
   const currentScope = getCurrentScope();
   const { gitConfigs } = useScopesStore();
@@ -157,6 +171,11 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
 
     // Sort
     result.sort((a, b) => {
+      // Always sort pinned projects first
+      if (a.project.isPinned !== b.project.isPinned) {
+        return a.project.isPinned ? -1 : 1;
+      }
+
       switch (sortBy) {
         case "name":
           return a.project.name.localeCompare(b.project.name);
@@ -177,6 +196,24 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
     return result;
   }, [projects, selectedTags, sortBy, searchQuery]);
 
+  // Group projects by group_id
+  const groupedProjects = useMemo(() => {
+    const grouped = new Map<string, ProjectWithStatus[]>();
+    const ungrouped: ProjectWithStatus[] = [];
+
+    filteredProjects.forEach((project) => {
+      if (project.project.groupId) {
+        const groupProjects = grouped.get(project.project.groupId) || [];
+        groupProjects.push(project);
+        grouped.set(project.project.groupId, groupProjects);
+      } else {
+        ungrouped.push(project);
+      }
+    });
+
+    return { grouped, ungrouped };
+  }, [filteredProjects]);
+
   useEffect(() => {
     fetchScopes();
     syncEditors();
@@ -188,8 +225,12 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
       fetchProjects(currentScopeId).then(() => {
         console.log("Projects fetched:", projects.length);
       });
+      // Load project groups
+      getProjectGroups(currentScopeId)
+        .then(setProjectGroups)
+        .catch(console.error);
     }
-  }, [currentScopeId, fetchProjects]);
+  }, [currentScopeId, fetchProjects, getProjectGroups]);
 
   // Refresh git status for all projects periodically
   useEffect(() => {
@@ -334,7 +375,11 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
       : getDefaultEditor();
 
     if (editor) {
-      await openInEditor(editor.command, projectPath, workspaceFile || undefined);
+      await openInEditor(
+        editor.command,
+        projectPath,
+        workspaceFile || undefined
+      );
       await updateLastOpened(projectId);
     }
   };
@@ -365,7 +410,11 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   ) => {
     const editor = editors.find((e) => e.id === editorId);
     if (editor) {
-      await openInEditor(editor.command, projectPath, workspaceFile || undefined);
+      await openInEditor(
+        editor.command,
+        projectPath,
+        workspaceFile || undefined
+      );
       await updateLastOpened(projectId);
     }
   };
@@ -380,6 +429,15 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
 
   const handleCopyPath = (projectPath: string) => {
     navigator.clipboard.writeText(projectPath);
+  };
+
+  const handleOpenTerminal = async (projectPath: string) => {
+    try {
+      // Open terminal in the project directory using Tauri command
+      await openTerminal(projectPath);
+    } catch (e) {
+      console.error("Failed to open terminal:", e);
+    }
   };
 
   const handleMoveToScope = (project: ProjectWithStatus, scopeId: string) => {
@@ -497,6 +555,17 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
               />
               Refresh
             </Button>
+            {currentScopeId && (
+              <Button
+                variant="glass"
+                size="sm"
+                onClick={() => setShowGroupDialog(true)}
+                title="Manage project groups"
+              >
+                <FolderTree className="h-3 w-3 mr-1.5" />
+                Groups
+              </Button>
+            )}
             <Button
               variant="glass-scope"
               size="sm"
@@ -651,62 +720,222 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
             </div>
           ) : (
             <div className="space-y-1">
-              {filteredProjects.map((project, index) => (
-                <div key={project.project.id} data-project-item>
-                  <ProjectListItem
-                    project={project}
-                    isSelected={index === selectedIndex}
-                    editor={
-                      project.project.preferredEditorId
-                        ? editors.find(
-                            (e) => e.id === project.project.preferredEditorId
-                          )
-                        : scopeDefaultEditor
-                    }
-                    editors={editors}
-                    scopes={scopes}
-                    currentScopeId={currentScopeId}
-                    currentScopeHasDefaultFolder={
-                      !!currentScope?.scope.defaultFolder
-                    }
-                  onOpen={() =>
-                    handleOpenProject(
-                      project.project.id,
-                      project.project.path,
-                      project.project.preferredEditorId,
-                      project.project.workspaceFile
-                    )
-                  }
-                  onOpenWithEditor={(editorId) =>
-                    handleOpenWithEditor(
-                      project.project.id,
-                      project.project.path,
-                      editorId,
-                      project.project.workspaceFile
-                    )
-                  }
-                    onDelete={() => deleteProject(project.project.id)}
-                    onDeleteWithFolder={() => setProjectToDelete(project)}
-                    onRefreshGit={() =>
-                      refreshGitStatus(project.project.id, project.project.path)
-                    }
-                    onPull={() =>
-                      handlePull(project.project.path, project.project.id)
-                    }
-                    onPush={() =>
-                      handlePush(project.project.path, project.project.id)
-                    }
-                    onRevealInFinder={() =>
-                      handleRevealInFinder(project.project.path)
-                    }
-                    onCopyPath={() => handleCopyPath(project.project.path)}
-                    onMoveToScope={(scopeId) =>
-                      handleMoveToScope(project, scopeId)
-                    }
-                    onSettings={() => setSettingsProject(project)}
-                  />
+              {/* Grouped Projects */}
+              {Array.from(groupedProjects.grouped.entries()).map(
+                ([groupId, groupProjects]) => {
+                  const group = projectGroups.find((g) => g.id === groupId);
+                  const isCollapsed = collapsedGroups.has(groupId);
+
+                  return (
+                    <div key={groupId} className="space-y-1">
+                      <button
+                        onClick={() => {
+                          setCollapsedGroups((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(groupId)) {
+                              next.delete(groupId);
+                            } else {
+                              next.add(groupId);
+                            }
+                            return next;
+                          });
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-2 px-2 py-1.5 rounded-md",
+                          "hover:bg-black/5 dark:hover:bg-white/10",
+                          "transition-colors text-left"
+                        )}
+                        title={isCollapsed ? "Expand group" : "Collapse group"}
+                      >
+                        {isCollapsed ? (
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                        <div
+                          className="h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{
+                            backgroundColor: group?.color || "#6b7280",
+                          }}
+                        />
+                        <span className="text-[12px] font-medium text-foreground/80">
+                          {group?.name || "Unknown Group"}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          ({groupProjects.length})
+                        </span>
+                      </button>
+                      {!isCollapsed &&
+                        groupProjects.map((project) => (
+                          <div
+                            key={project.project.id}
+                            data-project-item
+                            className="ml-6"
+                          >
+                            <ProjectListItem
+                              project={project}
+                              isSelected={
+                                filteredProjects.indexOf(project) ===
+                                selectedIndex
+                              }
+                              editor={
+                                project.project.preferredEditorId
+                                  ? editors.find(
+                                      (e) =>
+                                        e.id ===
+                                        project.project.preferredEditorId
+                                    )
+                                  : scopeDefaultEditor
+                              }
+                              editors={editors}
+                              scopes={scopes}
+                              currentScopeId={currentScopeId}
+                              currentScopeHasDefaultFolder={
+                                !!currentScope?.scope.defaultFolder
+                              }
+                              onOpen={() =>
+                                handleOpenProject(
+                                  project.project.id,
+                                  project.project.path,
+                                  project.project.preferredEditorId,
+                                  project.project.workspaceFile
+                                )
+                              }
+                              onOpenWithEditor={(editorId) =>
+                                handleOpenWithEditor(
+                                  project.project.id,
+                                  project.project.path,
+                                  editorId,
+                                  project.project.workspaceFile
+                                )
+                              }
+                              onDelete={() => deleteProject(project.project.id)}
+                              onDeleteWithFolder={() =>
+                                setProjectToDelete(project)
+                              }
+                              onRefreshGit={() =>
+                                refreshGitStatus(
+                                  project.project.id,
+                                  project.project.path
+                                )
+                              }
+                              onPull={() =>
+                                handlePull(
+                                  project.project.path,
+                                  project.project.id
+                                )
+                              }
+                              onPush={() =>
+                                handlePush(
+                                  project.project.path,
+                                  project.project.id
+                                )
+                              }
+                              onRevealInFinder={() =>
+                                handleRevealInFinder(project.project.path)
+                              }
+                              onCopyPath={() =>
+                                handleCopyPath(project.project.path)
+                              }
+                              onOpenTerminal={() =>
+                                handleOpenTerminal(project.project.path)
+                              }
+                              onMoveToScope={(scopeId) =>
+                                handleMoveToScope(project, scopeId)
+                              }
+                              onSettings={() => setSettingsProject(project)}
+                              onPin={() => pinProject(project.project.id)}
+                              onUnpin={() => unpinProject(project.project.id)}
+                            />
+                          </div>
+                        ))}
+                    </div>
+                  );
+                }
+              )}
+
+              {/* Ungrouped Projects */}
+              {groupedProjects.ungrouped.length > 0 && (
+                <div className="space-y-1">
+                  {groupedProjects.grouped.size > 0 && (
+                    <div className="px-2 py-1.5">
+                      <span className="text-[12px] font-medium text-foreground/60">
+                        Ungrouped
+                      </span>
+                    </div>
+                  )}
+                  {groupedProjects.ungrouped.map((project) => {
+                    const globalIndex = filteredProjects.indexOf(project);
+                    return (
+                      <div key={project.project.id} data-project-item>
+                        <ProjectListItem
+                          project={project}
+                          isSelected={globalIndex === selectedIndex}
+                          editor={
+                            project.project.preferredEditorId
+                              ? editors.find(
+                                  (e) =>
+                                    e.id === project.project.preferredEditorId
+                                )
+                              : scopeDefaultEditor
+                          }
+                          editors={editors}
+                          scopes={scopes}
+                          currentScopeId={currentScopeId}
+                          currentScopeHasDefaultFolder={
+                            !!currentScope?.scope.defaultFolder
+                          }
+                          onOpen={() =>
+                            handleOpenProject(
+                              project.project.id,
+                              project.project.path,
+                              project.project.preferredEditorId,
+                              project.project.workspaceFile
+                            )
+                          }
+                          onOpenWithEditor={(editorId) =>
+                            handleOpenWithEditor(
+                              project.project.id,
+                              project.project.path,
+                              editorId,
+                              project.project.workspaceFile
+                            )
+                          }
+                          onDelete={() => deleteProject(project.project.id)}
+                          onDeleteWithFolder={() => setProjectToDelete(project)}
+                          onRefreshGit={() =>
+                            refreshGitStatus(
+                              project.project.id,
+                              project.project.path
+                            )
+                          }
+                          onPull={() =>
+                            handlePull(project.project.path, project.project.id)
+                          }
+                          onPush={() =>
+                            handlePush(project.project.path, project.project.id)
+                          }
+                          onRevealInFinder={() =>
+                            handleRevealInFinder(project.project.path)
+                          }
+                          onCopyPath={() =>
+                            handleCopyPath(project.project.path)
+                          }
+                          onOpenTerminal={() =>
+                            handleOpenTerminal(project.project.path)
+                          }
+                          onMoveToScope={(scopeId) =>
+                            handleMoveToScope(project, scopeId)
+                          }
+                          onSettings={() => setSettingsProject(project)}
+                          onPin={() => pinProject(project.project.id)}
+                          onUnpin={() => unpinProject(project.project.id)}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
@@ -726,6 +955,14 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           onEditScope={() => setShowEditScope(true)}
           onManageLinks={() => setShowScopeLinks(true)}
           onSetupGitIdentity={() => setShowGitConfig(true)}
+          selectedProject={
+            selectedIndex >= 0 && selectedIndex < filteredProjects.length
+              ? {
+                  id: filteredProjects[selectedIndex].project.id,
+                  links: filteredProjects[selectedIndex].links || [],
+                }
+              : null
+          }
         />
       </div>
 
@@ -801,6 +1038,22 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
         open={!!projectToDelete}
         onOpenChange={(open) => !open && setProjectToDelete(null)}
       />
+      {currentScopeId && (
+        <ProjectGroupDialog
+          scopeId={currentScopeId}
+          open={showGroupDialog}
+          onOpenChange={setShowGroupDialog}
+          onGroupsChanged={async () => {
+            // Refresh groups after changes
+            const updatedGroups = await getProjectGroups(currentScopeId);
+            setProjectGroups(updatedGroups);
+            // Also refresh projects to get updated group assignments
+            if (currentScopeId) {
+              await fetchProjects(currentScopeId);
+            }
+          }}
+        />
+      )}
       <MoveProjectDialog
         project={projectToMove?.project ?? null}
         sourceScope={currentScope}

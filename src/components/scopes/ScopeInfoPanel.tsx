@@ -41,6 +41,7 @@ interface ScopeInfoPanelProps {
   onEditScope: () => void;
   onManageLinks: () => void;
   onSetupGitIdentity?: () => void;
+  selectedProject?: { id: string; links: Array<{ id: string; linkType: string; label: string; url: string }> } | null;
 }
 
 export function ScopeInfoPanel({
@@ -50,6 +51,7 @@ export function ScopeInfoPanel({
   onEditScope,
   onManageLinks,
   onSetupGitIdentity,
+  selectedProject,
 }: ScopeInfoPanelProps) {
   const [scanning, setScanning] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
@@ -247,9 +249,10 @@ export function ScopeInfoPanel({
       {/* Links Section */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-2">
+          {/* Scope Links */}
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[12px] font-medium text-foreground/70 uppercase tracking-wider">
-              Quick Links
+              Scope Links
             </h3>
             <Button
               variant="ghost"
@@ -262,26 +265,42 @@ export function ScopeInfoPanel({
           </div>
 
           {scope.links.length === 0 ? (
-            <div className="text-center py-6">
-              <div className="h-10 w-10 rounded-lg bg-black/5 dark:bg-white/10 flex items-center justify-center mx-auto mb-2">
-                <LinkIcon className="h-5 w-5 text-muted-foreground/50" />
+            <div className="text-center py-4">
+              <div className="h-8 w-8 rounded-lg bg-black/5 dark:bg-white/10 flex items-center justify-center mx-auto mb-2">
+                <LinkIcon className="h-4 w-4 text-muted-foreground/50" />
               </div>
-              <p className="text-[12px] text-muted-foreground mb-2">
-                No links added
+              <p className="text-[11px] text-muted-foreground mb-2">
+                No scope links
               </p>
               <button
                 onClick={onManageLinks}
-                className={cn("text-[12px] text-primary hover:underline")}
+                className={cn("text-[11px] text-primary hover:underline")}
               >
-                Add your first link
+                Add link
               </button>
             </div>
           ) : (
-            <div className="-mx-2 space-y-0.5">
+            <div className="-mx-2 space-y-0.5 mb-4">
               {scope.links.map((link) => (
                 <LinkCard key={link.id} link={link} />
               ))}
             </div>
+          )}
+
+          {/* Project Links */}
+          {selectedProject && selectedProject.links.length > 0 && (
+            <>
+              <div className="flex items-center justify-between mb-3 mt-4 pt-4 border-t border-black/5 dark:border-white/5">
+                <h3 className="text-[12px] font-medium text-foreground/70 uppercase tracking-wider">
+                  Project Links
+                </h3>
+              </div>
+              <div className="-mx-2 space-y-0.5">
+                {selectedProject.links.map((link) => (
+                  <LinkCard key={link.id} link={link} />
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>

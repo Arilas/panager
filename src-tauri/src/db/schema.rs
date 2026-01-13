@@ -78,10 +78,48 @@ pub fn init_database(conn: &Connection) -> Result<()> {
             remote_url TEXT
         );
 
+        -- Project Links
+        CREATE TABLE IF NOT EXISTS project_links (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            link_type TEXT NOT NULL,
+            label TEXT NOT NULL,
+            url TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        -- Project Groups
+        CREATE TABLE IF NOT EXISTS project_groups (
+            id TEXT PRIMARY KEY,
+            scope_id TEXT NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            color TEXT,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        -- Project Commands
+        CREATE TABLE IF NOT EXISTS project_commands (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            command TEXT NOT NULL,
+            description TEXT,
+            working_directory TEXT,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
         -- Indexes
         CREATE INDEX IF NOT EXISTS idx_projects_scope ON projects(scope_id);
         CREATE INDEX IF NOT EXISTS idx_project_tags_project ON project_tags(project_id);
         CREATE INDEX IF NOT EXISTS idx_scope_links_scope ON scope_links(scope_id);
+        CREATE INDEX IF NOT EXISTS idx_project_links_project ON project_links(project_id);
+        CREATE INDEX IF NOT EXISTS idx_project_groups_scope ON project_groups(scope_id);
+        CREATE INDEX IF NOT EXISTS idx_project_commands_project ON project_commands(project_id);
+        -- Note: idx_projects_group and idx_projects_pinned are created in migration v6
+        -- after the columns are added
         "#,
     )?;
 

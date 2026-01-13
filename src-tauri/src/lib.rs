@@ -62,6 +62,29 @@ pub fn run() {
             commands::projects::add_project_tag,
             commands::projects::remove_project_tag,
             commands::projects::scan_folder_for_projects,
+            // Project Links
+            commands::projects::create_project_link,
+            commands::projects::delete_project_link,
+            commands::projects::get_project_links,
+            // Project Groups
+            commands::projects::create_project_group,
+            commands::projects::update_project_group,
+            commands::projects::delete_project_group,
+            commands::projects::get_project_groups,
+            commands::projects::assign_project_to_group,
+            // Project Commands
+            commands::projects::create_project_command,
+            commands::projects::update_project_command,
+            commands::projects::delete_project_command,
+            commands::projects::get_project_commands,
+            commands::projects::execute_project_command,
+            // Project Metadata
+            commands::projects::update_project_notes,
+            commands::projects::update_project_description,
+            commands::projects::pin_project,
+            commands::projects::unpin_project,
+            // Project Statistics
+            commands::projects::get_project_statistics,
             // Git
             commands::git::get_git_status,
             commands::git::refresh_git_status,
@@ -122,6 +145,8 @@ pub fn run() {
             services::diagnostics::get_disabled_diagnostic_rules,
             services::diagnostics::get_diagnostic_rule_metadata,
             services::diagnostics::fix_diagnostic_issue,
+            // Terminal
+            commands::terminal::open_terminal,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

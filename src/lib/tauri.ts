@@ -4,6 +4,10 @@ import type {
   CloneOptions,
   CloneProgress,
   CloneResult,
+  CommandResult,
+  CreateProjectCommandRequest,
+  CreateProjectGroupRequest,
+  CreateProjectLinkRequest,
   CreateProjectRequest,
   CreateScopeLinkRequest,
   CreateScopeRequest,
@@ -15,6 +19,10 @@ import type {
   GpgSigningMethod,
   ParsedGitUrl,
   Project,
+  ProjectCommand,
+  ProjectGroup,
+  ProjectLink,
+  ProjectStatistics,
   ProjectWithStatus,
   Scope,
   ScopeGitConfig,
@@ -172,6 +180,128 @@ export async function scanFolderForProjects(
   folderPath: string
 ): Promise<string[]> {
   return invoke("scan_folder_for_projects", { folderPath });
+}
+
+// Project Links
+export async function createProjectLink(
+  request: CreateProjectLinkRequest
+): Promise<ProjectLink> {
+  return invoke("create_project_link", { request });
+}
+
+export async function deleteProjectLink(id: string): Promise<void> {
+  return invoke("delete_project_link", { id });
+}
+
+export async function getProjectLinks(
+  projectId: string
+): Promise<ProjectLink[]> {
+  return invoke("get_project_links", { projectId });
+}
+
+// Project Groups
+export async function createProjectGroup(
+  request: CreateProjectGroupRequest
+): Promise<ProjectGroup> {
+  return invoke("create_project_group", { request });
+}
+
+export async function updateProjectGroup(
+  groupId: string,
+  name?: string,
+  color?: string
+): Promise<void> {
+  return invoke("update_project_group", { groupId, name, color });
+}
+
+export async function deleteProjectGroup(groupId: string): Promise<void> {
+  return invoke("delete_project_group", { groupId });
+}
+
+export async function getProjectGroups(scopeId: string): Promise<ProjectGroup[]> {
+  return invoke("get_project_groups", { scopeId });
+}
+
+export async function assignProjectToGroup(
+  projectId: string,
+  groupId: string | null
+): Promise<void> {
+  return invoke("assign_project_to_group", { projectId, groupId });
+}
+
+// Project Commands
+export async function createProjectCommand(
+  request: CreateProjectCommandRequest
+): Promise<ProjectCommand> {
+  return invoke("create_project_command", { request });
+}
+
+export async function updateProjectCommand(
+  commandId: string,
+  name?: string,
+  command?: string,
+  description?: string,
+  workingDirectory?: string
+): Promise<void> {
+  return invoke("update_project_command", {
+    commandId,
+    name,
+    command,
+    description,
+    workingDirectory,
+  });
+}
+
+export async function deleteProjectCommand(commandId: string): Promise<void> {
+  return invoke("delete_project_command", { commandId });
+}
+
+export async function getProjectCommands(
+  projectId: string
+): Promise<ProjectCommand[]> {
+  return invoke("get_project_commands", { projectId });
+}
+
+export async function executeProjectCommand(
+  commandId: string,
+  projectPath: string
+): Promise<string> {
+  return invoke("execute_project_command", { commandId, projectPath });
+}
+
+// Project Metadata
+export async function updateProjectNotes(
+  projectId: string,
+  notes: string | null
+): Promise<void> {
+  return invoke("update_project_notes", { projectId, notes });
+}
+
+export async function updateProjectDescription(
+  projectId: string,
+  description: string | null
+): Promise<void> {
+  return invoke("update_project_description", { projectId, description });
+}
+
+export async function pinProject(projectId: string): Promise<void> {
+  return invoke("pin_project", { projectId });
+}
+
+export async function unpinProject(projectId: string): Promise<void> {
+  return invoke("unpin_project", { projectId });
+}
+
+// Project Statistics
+export async function getProjectStatistics(
+  projectPath: string
+): Promise<ProjectStatistics> {
+  return invoke("get_project_statistics", { projectPath });
+}
+
+// Terminal
+export async function openTerminal(projectPath: string): Promise<void> {
+  return invoke("open_terminal", { projectPath });
 }
 
 // Git

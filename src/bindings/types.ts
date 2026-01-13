@@ -45,7 +45,7 @@ export type GitIncludeIf = { condition: string; path: string }
 /**
  * A project represents a code repository or folder
  */
-export type Project = { id: string; scopeId: string; name: string; path: string; preferredEditorId: string | null; defaultBranch: string | null; workspaceFile: string | null; isTemp: boolean; lastOpenedAt: string | null; createdAt: string; updatedAt: string }
+export type Project = { id: string; scopeId: string; name: string; path: string; preferredEditorId: string | null; defaultBranch: string | null; workspaceFile: string | null; isTemp: boolean; isPinned: boolean; groupId: string | null; notes: string | null; description: string | null; lastOpenedAt: string | null; createdAt: string; updatedAt: string }
 
 /**
  * Cached git status information for a project
@@ -55,7 +55,27 @@ export type GitStatusCache = { projectId: string; branch: string | null; ahead: 
 /**
  * A project with its tags and cached git status
  */
-export type ProjectWithStatus = { project: Project; tags: string[]; gitStatus: GitStatusCache | null }
+export type ProjectWithStatus = { project: Project; tags: string[]; gitStatus: GitStatusCache | null; links: ProjectLink[]; group: ProjectGroup | null; statistics: ProjectStatistics | null }
+
+/**
+ * A link associated with a project (e.g., documentation, CI/CD)
+ */
+export type ProjectLink = { id: string; projectId: string; linkType: string; label: string; url: string; sortOrder: number; createdAt: string }
+
+/**
+ * A group for organizing projects within a scope
+ */
+export type ProjectGroup = { id: string; scopeId: string; name: string; color: string | null; sortOrder: number; createdAt: string }
+
+/**
+ * A custom command/script for a project
+ */
+export type ProjectCommand = { id: string; projectId: string; name: string; command: string; description: string | null; workingDirectory: string | null; sortOrder: number; createdAt: string }
+
+/**
+ * Statistics about a project
+ */
+export type ProjectStatistics = { fileCount: number | null; repoSizeBytes: number | null; commitCount: number | null; lastCommit: LastCommitInfo | null; languages: LanguageInfo[]; contributors: ContributorInfo[] }
 
 /**
  * An editor that can be used to open projects
@@ -88,11 +108,31 @@ export type CreateProjectRequest = { scopeId: string; name: string; path: string
 export type CreateScopeLinkRequest = { scopeId: string; linkType: string; label: string; url: string }
 
 /**
+ * Request to create a new project link
+ */
+export type CreateProjectLinkRequest = { projectId: string; linkType: string; label: string; url: string }
+
+/**
+ * Request to create a new project group
+ */
+export type CreateProjectGroupRequest = { scopeId: string; name: string; color: string | null }
+
+/**
+ * Request to create a new project command
+ */
+export type CreateProjectCommandRequest = { projectId: string; name: string; command: string; description: string | null; workingDirectory: string | null }
+
+/**
  * Request for creating a temporary project
  * 
  * Matches the request format used by the create_temp_project command
  */
 export type TempProjectRequest = { scopeId: string; name: string; packageManager: string; template: string; options: JsonValue | null }
+
+/**
+ * Result of executing a project command
+ */
+export type CommandResult = { success: boolean; output: string; error: string | null; exitCode: number | null }
 
 /**
  * Result of creating a temporary project

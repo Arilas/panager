@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Result};
 
 /// Current schema version - increment this when adding new migrations
-const CURRENT_VERSION: i32 = 5;
+const CURRENT_VERSION: i32 = 6;
 
 /// Run all pending migrations
 pub fn run_migrations(conn: &Connection) -> Result<()> {
@@ -41,6 +41,11 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     if current_version < 5 {
         migrate_v5(conn)?;
         set_version(conn, 5)?;
+    }
+
+    if current_version < 6 {
+        migrate_v6(conn)?;
+        set_version(conn, 6)?;
     }
 
     Ok(())
@@ -283,6 +288,78 @@ fn migrate_v5(conn: &Connection) -> Result<()> {
         r#"
         UPDATE editors SET supports_workspaces = 1 
         WHERE command IN ('code', 'cursor') AND supports_workspaces = 0;
+        "#,
+    )?;
+
+    Ok(())
+}
+
+/// Migration v6: Add project management enhancements
+fn migrate_v6(conn: &Connection) -> Result<()> {
+    // Check if columns already exist in projects table
+    let project_columns: Vec<String> = conn
+        .prepare("PRAGMA table_info(projects)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if !project_columns.contains(&"is_pinned".to_string()) {
+        conn.execute_batch("ALTER TABLE projects ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0;")?;
+    }
+
+    if !project_columns.contains(&"group_id".to_string()) {
+        conn.execute_batch("ALTER TABLE projects ADD COLUMN group_id TEXT REFERENCES project_groups(id) ON DELETE SET NULL;")?;
+    }
+
+    if !project_columns.contains(&"notes".to_string()) {
+        conn.execute_batch("ALTER TABLE projects ADD COLUMN notes TEXT;")?;
+    }
+
+    if !project_columns.contains(&"description".to_string()) {
+        conn.execute_batch("ALTER TABLE projects ADD COLUMN description TEXT;")?;
+    }
+
+    // Create new tables for project management features
+    conn.execute_batch(
+        r#"
+        -- Project Links
+        CREATE TABLE IF NOT EXISTS project_links (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            link_type TEXT NOT NULL,
+            label TEXT NOT NULL,
+            url TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        -- Project Groups
+        CREATE TABLE IF NOT EXISTS project_groups (
+            id TEXT PRIMARY KEY,
+            scope_id TEXT NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            color TEXT,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        -- Project Commands
+        CREATE TABLE IF NOT EXISTS project_commands (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            command TEXT NOT NULL,
+            description TEXT,
+            working_directory TEXT,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        -- Indexes
+        CREATE INDEX IF NOT EXISTS idx_project_links_project ON project_links(project_id);
+        CREATE INDEX IF NOT EXISTS idx_project_groups_scope ON project_groups(scope_id);
+        CREATE INDEX IF NOT EXISTS idx_project_commands_project ON project_commands(project_id);
+        CREATE INDEX IF NOT EXISTS idx_projects_group ON projects(group_id);
+        CREATE INDEX IF NOT EXISTS idx_projects_pinned ON projects(is_pinned);
         "#,
     )?;
 
