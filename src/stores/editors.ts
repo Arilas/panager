@@ -12,7 +12,6 @@ interface EditorsState {
   fetchEditors: () => Promise<void>;
   syncEditors: () => Promise<void>;
   addEditor: (name: string, command: string, icon?: string) => Promise<void>;
-  deleteEditor: (id: string) => Promise<void>;
 
   // Helpers
   getEditorById: (id: string) => Editor | undefined;
@@ -48,18 +47,6 @@ export const useEditorsStore = create<EditorsState>((set, get) => ({
     try {
       const editor = await api.addEditor(name, command, icon);
       set((state) => ({ editors: [...state.editors, editor] }));
-    } catch (error) {
-      set({ error: String(error) });
-      throw error;
-    }
-  },
-
-  deleteEditor: async (id) => {
-    try {
-      await api.deleteEditor(id);
-      set((state) => ({
-        editors: state.editors.filter((e) => e.id !== id),
-      }));
     } catch (error) {
       set({ error: String(error) });
       throw error;

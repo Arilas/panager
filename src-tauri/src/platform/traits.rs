@@ -12,3 +12,11 @@ pub struct EditorInfo {
     pub command: String,
     pub icon: Option<String>,
 }
+
+/// Terminal information returned by detection
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TerminalInfo {
+    pub name: String,
+    pub command: String,
+    pub exec_template: String,
+}

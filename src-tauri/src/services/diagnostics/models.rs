@@ -28,7 +28,7 @@ impl Severity {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "error" => Some(Severity::Error),
             "warning" => Some(Severity::Warning),

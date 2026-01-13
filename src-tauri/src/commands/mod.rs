@@ -11,6 +11,7 @@ pub mod scopes;
 pub mod settings;
 pub mod temp_projects;
 pub mod terminal;
+pub mod terminals;
 
 // Re-export for convenience
 pub use temp_projects as temp;

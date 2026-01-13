@@ -25,6 +25,7 @@
 - **Default Folders** — Assign a default folder to each scope; new projects are automatically organized
 - **Git Integration** — Real-time git status tracking, branch info, ahead/behind status, and one-click pull/push
 - **Editor Integration** — Open projects in your preferred editor with one click; auto-detects installed editors
+- **Terminal Integration** — Open terminal in project directory with your preferred terminal emulator
 - **Smart Search** — Filter projects by name, path, or tags with keyboard navigation
 - **Command Palette** — Quick actions and project switching via `Cmd+K` (macOS) / `Ctrl+K` (Windows/Linux)
 - **Drag & Drop** — Add projects by dragging folders into the app
@@ -35,6 +36,7 @@
 
 ### Project Management
 - **Multiple Editors** — Set preferred editor per project with quick dropdown selection
+- **Terminal Selection** — Choose your default terminal from auto-detected options (iTerm2, Warp, Terminal.app, Alacritty, Kitty, etc.)
 - **Move Between Scopes** — Transfer projects between scopes with optional folder relocation
 - **Project Sorting** — Sort by last opened, name, or date added
 - **Reveal in Finder** — Open project folder in system file explorer

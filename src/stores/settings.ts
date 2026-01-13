@@ -6,6 +6,7 @@ interface Settings {
   global_hotkey: string;
   theme: "light" | "dark" | "system";
   default_editor_id: string;
+  default_terminal_id: string;
   // Max features
   max_git_integration: boolean;
   max_ssh_integration: boolean;
@@ -22,6 +23,7 @@ const defaultSettings: Settings = {
   global_hotkey: "CmdOrCtrl+Shift+O",
   theme: "system",
   default_editor_id: "",
+  default_terminal_id: "",
   // Max features - disabled by default
   max_git_integration: false,
   max_ssh_integration: false,
@@ -69,6 +71,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         default_editor_id:
           (allSettings.default_editor_id as string) ??
           defaultSettings.default_editor_id,
+        default_terminal_id:
+          (allSettings.default_terminal_id as string) ??
+          defaultSettings.default_terminal_id,
         max_git_integration:
           (allSettings.max_git_integration as boolean) ??
           defaultSettings.max_git_integration,

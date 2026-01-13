@@ -178,21 +178,6 @@ pub fn add_editor(
     })
 }
 
-/// Delete a custom editor (only non-auto-detected)
-#[tauri::command]
-#[specta::specta]
-pub fn delete_editor(db: State<Database>, id: String) -> Result<(), String> {
-    let conn = db.conn.lock().map_err(|e| e.to_string())?;
-
-    conn.execute(
-        "DELETE FROM editors WHERE id = ?1 AND is_auto_detected = 0",
-        [&id],
-    )
-    .map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
 /// Find workspace files (.code-workspace) in a project
 #[tauri::command]
 #[specta::specta]

@@ -8,6 +8,7 @@ import { SettingsDialog } from "./components/settings/SettingsDialog";
 import { AboutDialog } from "./components/settings/AboutDialog";
 import { useSettingsStore } from "./stores/settings";
 import { useEditorsStore } from "./stores/editors";
+import { useTerminalsStore } from "./stores/terminals";
 import { useScopesStore } from "./stores/scopes";
 import { useUIStore } from "./stores/ui";
 import { useGlobalShortcut } from "./hooks/useGlobalShortcut";
@@ -16,6 +17,7 @@ import { setupAppEventListener } from "./stores/events";
 function App() {
   const { fetchSettings } = useSettingsStore();
   const { fetchEditors } = useEditorsStore();
+  const { fetchTerminals } = useTerminalsStore();
   const { getCurrentScope } = useScopesStore();
   const { toggleRightPanel } = useUIStore();
   const currentScope = getCurrentScope();
@@ -30,7 +32,8 @@ function App() {
   useEffect(() => {
     fetchSettings();
     fetchEditors();
-  }, [fetchSettings, fetchEditors]);
+    fetchTerminals();
+  }, [fetchSettings, fetchEditors, fetchTerminals]);
 
   // Set up centralized app event listener
   useEffect(() => {

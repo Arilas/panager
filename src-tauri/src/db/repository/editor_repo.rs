@@ -165,22 +165,6 @@ pub fn update_editor_availability(
     Ok(())
 }
 
-/// Delete an editor (only if it's not auto-detected)
-///
-/// # Arguments
-/// * `conn` - Database connection
-/// * `editor_id` - The editor ID
-///
-/// # Returns
-/// Number of rows deleted (0 or 1)
-pub fn delete_manual_editor(conn: &Connection, editor_id: &str) -> Result<usize> {
-    conn.execute(
-        "DELETE FROM editors WHERE id = ?1 AND is_auto_detected = 0",
-        [editor_id],
-    )
-    .map_err(PanagerError::Database)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

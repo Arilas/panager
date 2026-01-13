@@ -20,7 +20,7 @@ fn parse_diagnostic_issue(row: &Row) -> rusqlite::Result<DiagnosticIssue> {
         scope_id: row.get(1)?,
         project_id: row.get(2)?,
         rule_id: row.get(3)?,
-        severity: Severity::from_str(&row.get::<_, String>(4)?).unwrap_or(Severity::Info),
+        severity: Severity::parse(&row.get::<_, String>(4)?).unwrap_or(Severity::Info),
         title: row.get(5)?,
         description: row.get(6)?,
         expected_value: row.get(7)?,

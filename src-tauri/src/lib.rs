@@ -101,7 +101,6 @@ pub fn run() {
             commands::editors::sync_editors,
             commands::editors::get_editors,
             commands::editors::add_editor,
-            commands::editors::delete_editor,
             commands::editors::open_in_editor,
             commands::editors::find_workspace_files,
             // Settings
@@ -147,6 +146,10 @@ pub fn run() {
             services::diagnostics::fix_diagnostic_issue,
             // Terminal
             commands::terminal::open_terminal,
+            // Terminals
+            commands::terminals::detect_terminals,
+            commands::terminals::sync_terminals,
+            commands::terminals::get_terminals,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

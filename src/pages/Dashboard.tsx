@@ -16,6 +16,7 @@ import {
 import { useScopesStore } from "../stores/scopes";
 import { useProjectsStore } from "../stores/projects";
 import { useEditorsStore } from "../stores/editors";
+import { useTerminalsStore } from "../stores/terminals";
 import { useUIStore } from "../stores/ui";
 import { ProjectListItem } from "../components/projects/ProjectListItem";
 import { ScopeInfoPanel } from "../components/scopes/ScopeInfoPanel";
@@ -63,6 +64,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
     getProjectGroups,
   } = useProjectsStore();
   const { editors, syncEditors, getDefaultEditor } = useEditorsStore();
+  const { syncTerminals, getDefaultTerminal } = useTerminalsStore();
   const { rightPanelVisible, searchQuery } = useUIStore();
   const { settings } = useSettingsStore();
   const useLiquidGlass = settings.liquid_glass_enabled;
@@ -217,7 +219,8 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   useEffect(() => {
     fetchScopes();
     syncEditors();
-  }, [fetchScopes, syncEditors]);
+    syncTerminals();
+  }, [fetchScopes, syncEditors, syncTerminals]);
 
   useEffect(() => {
     if (currentScopeId) {
@@ -433,8 +436,10 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
 
   const handleOpenTerminal = async (projectPath: string) => {
     try {
-      // Open terminal in the project directory using Tauri command
-      await openTerminal(projectPath);
+      // Get the default terminal and use its exec template
+      const defaultTerminal = getDefaultTerminal();
+      const execTemplate = defaultTerminal?.execTemplate;
+      await openTerminal(projectPath, execTemplate);
     } catch (e) {
       console.error("Failed to open terminal:", e);
     }

@@ -59,6 +59,17 @@ pub fn init_database(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
+        -- Terminals
+        CREATE TABLE IF NOT EXISTS terminals (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            command TEXT NOT NULL,
+            exec_template TEXT NOT NULL,
+            is_auto_detected INTEGER NOT NULL DEFAULT 0,
+            is_available INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
         -- App Settings
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,

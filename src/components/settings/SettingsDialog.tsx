@@ -5,6 +5,7 @@ import { Button } from "../ui/Button";
 import { cn } from "../../lib/utils";
 import { useSettingsStore } from "../../stores/settings";
 import { useEditorsStore } from "../../stores/editors";
+import { useTerminalsStore } from "../../stores/terminals";
 import { useDiagnosticsStore } from "../../stores/diagnostics";
 import type { RuleGroup, RuleMetadata, Severity } from "../../types";
 import {
@@ -14,7 +15,6 @@ import {
   Keyboard,
   GitBranch,
   Code,
-  Trash2,
   RefreshCw,
   Check,
   Sparkles,
@@ -28,6 +28,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Info,
+  Terminal,
 } from "lucide-react";
 
 interface SettingsDialogProps {
@@ -68,6 +69,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <TabTrigger value="editors" icon={<Code className="h-4 w-4" />}>
               Editors
             </TabTrigger>
+            <TabTrigger value="terminals" icon={<Terminal className="h-4 w-4" />}>
+              Terminals
+            </TabTrigger>
             <TabTrigger
               value="shortcuts"
               icon={<Keyboard className="h-4 w-4" />}
@@ -100,6 +104,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </Tabs.Content>
               <Tabs.Content value="editors" className="px-6 pt-2 pb-6">
                 <EditorsSettings />
+              </Tabs.Content>
+              <Tabs.Content value="terminals" className="px-6 pt-2 pb-6">
+                <TerminalsSettings />
               </Tabs.Content>
               <Tabs.Content value="shortcuts" className="px-6 pt-2 pb-6">
                 <ShortcutsSettings />
@@ -382,10 +389,12 @@ function IntensityButton({
 }
 
 function EditorsSettings() {
-  const { editors, syncEditors, deleteEditor, getDefaultEditor } =
-    useEditorsStore();
+  const { editors, syncEditors, getDefaultEditor } = useEditorsStore();
   const { settings, updateSetting } = useSettingsStore();
   const [syncing, setSyncing] = useState(false);
+
+  const availableEditors = editors.filter((e) => e.isAvailable);
+  const currentDefaultId = settings.default_editor_id || getDefaultEditor()?.id;
 
   const handleSync = async () => {
     setSyncing(true);
@@ -396,12 +405,6 @@ function EditorsSettings() {
     }
   };
 
-  const handleSetDefault = async (editorId: string) => {
-    await updateSetting("default_editor_id", editorId);
-  };
-
-  const currentDefaultId = settings.default_editor_id || getDefaultEditor()?.id;
-
   return (
     <div className="space-y-6">
       <Section title="Default Editor" icon={<Code className="h-4 w-4" />}>
@@ -409,86 +412,34 @@ function EditorsSettings() {
           Used when opening projects without a specific editor preference.
         </p>
         <div className="space-y-1.5">
-          {editors.filter((e) => e.isAvailable).length === 0 ? (
+          {availableEditors.length === 0 ? (
             <p className="text-[13px] text-muted-foreground py-4 text-center">
               No editors available
             </p>
           ) : (
-            editors
-              .filter((e) => e.isAvailable)
-              .map((editor) => (
-                <button
-                  key={editor.id}
-                  onClick={() => handleSetDefault(editor.id)}
-                  className={cn(
-                    "w-full flex items-center justify-between",
-                    "px-3 py-2.5 rounded-lg text-left",
-                    "transition-colors",
-                    currentDefaultId === editor.id
-                      ? "bg-primary/10 border border-primary/20"
-                      : "bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
-                  )}
-                >
-                  <div>
-                    <div className="text-[13px] font-medium">{editor.name}</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {editor.command}
-                    </div>
-                  </div>
-                  {currentDefaultId === editor.id && (
-                    <Check className="h-4 w-4 text-primary" />
-                  )}
-                </button>
-              ))
-          )}
-        </div>
-      </Section>
-
-      <Section title="All Editors" icon={<Code className="h-4 w-4" />}>
-        <div className="space-y-1.5">
-          {editors.length === 0 ? (
-            <p className="text-[13px] text-muted-foreground py-4 text-center">
-              No editors detected
-            </p>
-          ) : (
-            editors.map((editor) => (
-              <div
+            availableEditors.map((editor) => (
+              <button
                 key={editor.id}
+                onClick={() => updateSetting("default_editor_id", editor.id)}
                 className={cn(
-                  "flex items-center justify-between",
-                  "px-3 py-2 rounded-lg",
-                  "bg-black/[0.02] dark:bg-white/[0.02]",
-                  "border border-black/5 dark:border-white/5"
+                  "w-full flex items-center justify-between",
+                  "px-3 py-2.5 rounded-lg text-left",
+                  "transition-colors",
+                  currentDefaultId === editor.id
+                    ? "bg-primary/10 border border-primary/20"
+                    : "bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
                 )}
               >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "w-2 h-2 rounded-full",
-                      editor.isAvailable ? "bg-green-500" : "bg-red-500"
-                    )}
-                    title={editor.isAvailable ? "Available" : "Not available"}
-                  />
-                  <div>
-                    <div className="text-[13px] font-medium">{editor.name}</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {editor.command}
-                    </div>
+                <div>
+                  <div className="text-[13px] font-medium">{editor.name}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {editor.command}
                   </div>
                 </div>
-                {!editor.isAutoDetected && (
-                  <button
-                    onClick={() => deleteEditor(editor.id)}
-                    className={cn(
-                      "p-1.5 rounded-md",
-                      "hover:bg-red-500/10 text-red-500",
-                      "transition-colors"
-                    )}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                {currentDefaultId === editor.id && (
+                  <Check className="h-4 w-4 text-primary" />
                 )}
-              </div>
+              </button>
             ))
           )}
           <Button
@@ -499,6 +450,75 @@ function EditorsSettings() {
           >
             {!syncing && <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
             {syncing ? "Scanning..." : "Rescan for Editors"}
+          </Button>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+function TerminalsSettings() {
+  const { terminals, syncTerminals, getDefaultTerminal } = useTerminalsStore();
+  const { settings, updateSetting } = useSettingsStore();
+  const [syncing, setSyncing] = useState(false);
+
+  const availableTerminals = terminals.filter((t) => t.isAvailable);
+  const currentDefaultId = settings.default_terminal_id || getDefaultTerminal()?.id;
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await syncTerminals();
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Section title="Default Terminal" icon={<Terminal className="h-4 w-4" />}>
+        <p className="text-[12px] text-muted-foreground mb-3">
+          Used when opening terminals in project directories.
+        </p>
+        <div className="space-y-1.5">
+          {availableTerminals.length === 0 ? (
+            <p className="text-[13px] text-muted-foreground py-4 text-center">
+              No terminals available
+            </p>
+          ) : (
+            availableTerminals.map((terminal) => (
+              <button
+                key={terminal.id}
+                onClick={() => updateSetting("default_terminal_id", terminal.id)}
+                className={cn(
+                  "w-full flex items-center justify-between",
+                  "px-3 py-2.5 rounded-lg text-left",
+                  "transition-colors",
+                  currentDefaultId === terminal.id
+                    ? "bg-primary/10 border border-primary/20"
+                    : "bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+                )}
+              >
+                <div>
+                  <div className="text-[13px] font-medium">{terminal.name}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {terminal.command}
+                  </div>
+                </div>
+                {currentDefaultId === terminal.id && (
+                  <Check className="h-4 w-4 text-primary" />
+                )}
+              </button>
+            ))
+          )}
+          <Button
+            variant="secondary"
+            onClick={handleSync}
+            loading={syncing}
+            className="w-full mt-2"
+          >
+            {!syncing && <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+            {syncing ? "Scanning..." : "Rescan for Terminals"}
           </Button>
         </div>
       </Section>

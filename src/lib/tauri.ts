@@ -33,6 +33,8 @@ import type {
   TempProjectRequest,
   TempProjectProgress,
   TempProjectResult,
+  Terminal,
+  TerminalInfo,
 } from "../types";
 
 // Scopes
@@ -300,8 +302,24 @@ export async function getProjectStatistics(
 }
 
 // Terminal
-export async function openTerminal(projectPath: string): Promise<void> {
-  return invoke("open_terminal", { projectPath });
+export async function openTerminal(
+  projectPath: string,
+  execTemplate?: string
+): Promise<void> {
+  return invoke("open_terminal", { projectPath, execTemplate });
+}
+
+// Terminals
+export async function detectTerminals(): Promise<TerminalInfo[]> {
+  return invoke("detect_terminals");
+}
+
+export async function syncTerminals(): Promise<Terminal[]> {
+  return invoke("sync_terminals");
+}
+
+export async function getTerminals(): Promise<Terminal[]> {
+  return invoke("get_terminals");
 }
 
 // Git
@@ -379,10 +397,6 @@ export async function addEditor(
   icon?: string
 ): Promise<Editor> {
   return invoke("add_editor", { name, command, icon });
-}
-
-export async function deleteEditor(id: string): Promise<void> {
-  return invoke("delete_editor", { id });
 }
 
 export async function openInEditor(
