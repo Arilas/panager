@@ -51,6 +51,7 @@ pub fn run() {
             // Projects
             commands::projects::get_projects,
             commands::projects::get_all_projects,
+            commands::projects::get_project,
             commands::projects::create_project,
             commands::projects::update_project,
             commands::projects::delete_project,
@@ -66,6 +67,10 @@ pub fn run() {
             commands::git::refresh_git_status,
             commands::git::git_pull,
             commands::git::git_push,
+            commands::git::get_git_branches,
+            commands::git::get_git_config,
+            commands::git::git_gc,
+            commands::git::git_fetch,
             commands::git::check_folder_exists,
             commands::git::clone_repository,
             // Editors
@@ -75,6 +80,7 @@ pub fn run() {
             commands::editors::add_editor,
             commands::editors::delete_editor,
             commands::editors::open_in_editor,
+            commands::editors::find_workspace_files,
             // Settings
             commands::settings::get_setting,
             commands::settings::set_setting,

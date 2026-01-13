@@ -23,7 +23,7 @@ pub fn fetch_projects_with_status(
     let sql = if scope_id.is_some() {
         r#"
         SELECT p.id, p.scope_id, p.name, p.path, p.preferred_editor_id,
-               p.is_temp, p.last_opened_at, p.created_at, p.updated_at,
+               p.default_branch, p.workspace_file, p.is_temp, p.last_opened_at, p.created_at, p.updated_at,
                g.branch, g.ahead, g.behind, g.has_uncommitted, g.has_untracked,
                g.last_checked_at, g.remote_url
         FROM projects p
@@ -34,7 +34,7 @@ pub fn fetch_projects_with_status(
     } else {
         r#"
         SELECT p.id, p.scope_id, p.name, p.path, p.preferred_editor_id,
-               p.is_temp, p.last_opened_at, p.created_at, p.updated_at,
+               p.default_branch, p.workspace_file, p.is_temp, p.last_opened_at, p.created_at, p.updated_at,
                g.branch, g.ahead, g.behind, g.has_uncommitted, g.has_untracked,
                g.last_checked_at, g.remote_url
         FROM projects p
@@ -52,26 +52,28 @@ pub fn fetch_projects_with_status(
             name: row.get(2)?,
             path: row.get(3)?,
             preferred_editor_id: row.get(4)?,
-            is_temp: row.get(5)?,
-            last_opened_at: row.get::<_, Option<String>>(6)?.map(|s| {
+            default_branch: row.get(5)?,
+            workspace_file: row.get(6)?,
+            is_temp: row.get(7)?,
+            last_opened_at: row.get::<_, Option<String>>(8)?.map(|s| {
                 s.parse::<DateTime<Utc>>().unwrap_or_else(|_| Utc::now())
             }),
-            created_at: row.get::<_, String>(7)?.parse().unwrap_or_else(|_| Utc::now()),
-            updated_at: row.get::<_, String>(8)?.parse().unwrap_or_else(|_| Utc::now()),
+            created_at: row.get::<_, String>(9)?.parse().unwrap_or_else(|_| Utc::now()),
+            updated_at: row.get::<_, String>(10)?.parse().unwrap_or_else(|_| Utc::now()),
         };
 
-        let git_status = row.get::<_, Option<String>>(9)?.map(|branch| {
+        let git_status = row.get::<_, Option<String>>(11)?.map(|branch| {
             GitStatusCache {
                 project_id: project.id.clone(),
                 branch: Some(branch),
-                ahead: row.get(10).unwrap_or(0),
-                behind: row.get(11).unwrap_or(0),
-                has_uncommitted: row.get(12).unwrap_or(false),
-                has_untracked: row.get(13).unwrap_or(false),
-                last_checked_at: row.get::<_, Option<String>>(14).ok().flatten().map(|s| {
+                ahead: row.get(12).unwrap_or(0),
+                behind: row.get(13).unwrap_or(0),
+                has_uncommitted: row.get(14).unwrap_or(false),
+                has_untracked: row.get(15).unwrap_or(false),
+                last_checked_at: row.get::<_, Option<String>>(16).ok().flatten().map(|s| {
                     s.parse::<DateTime<Utc>>().unwrap_or_else(|_| Utc::now())
                 }),
-                remote_url: row.get(15).ok().flatten(),
+                remote_url: row.get(17).ok().flatten(),
             }
         });
 
@@ -137,7 +139,7 @@ pub fn fetch_project_tags(conn: &Connection, project_id: &str) -> Result<Vec<Str
 pub fn find_project_by_id(conn: &Connection, project_id: &str) -> Result<Option<Project>> {
     let sql = r#"
         SELECT id, scope_id, name, path, preferred_editor_id,
-               is_temp, last_opened_at, created_at, updated_at
+               default_branch, workspace_file, is_temp, last_opened_at, created_at, updated_at
         FROM projects
         WHERE id = ?1
     "#;
@@ -149,12 +151,14 @@ pub fn find_project_by_id(conn: &Connection, project_id: &str) -> Result<Option<
             name: row.get(2)?,
             path: row.get(3)?,
             preferred_editor_id: row.get(4)?,
-            is_temp: row.get(5)?,
-            last_opened_at: row.get::<_, Option<String>>(6)?.map(|s| {
+            default_branch: row.get(5)?,
+            workspace_file: row.get(6)?,
+            is_temp: row.get(7)?,
+            last_opened_at: row.get::<_, Option<String>>(8)?.map(|s| {
                 s.parse::<DateTime<Utc>>().unwrap_or_else(|_| Utc::now())
             }),
-            created_at: row.get::<_, String>(7)?.parse().unwrap_or_else(|_| Utc::now()),
-            updated_at: row.get::<_, String>(8)?.parse().unwrap_or_else(|_| Utc::now()),
+            created_at: row.get::<_, String>(9)?.parse().unwrap_or_else(|_| Utc::now()),
+            updated_at: row.get::<_, String>(10)?.parse().unwrap_or_else(|_| Utc::now()),
         })
     })
     .optional()
@@ -172,7 +176,7 @@ pub fn find_project_by_id(conn: &Connection, project_id: &str) -> Result<Option<
 pub fn find_project_by_path(conn: &Connection, path: &str) -> Result<Option<Project>> {
     let sql = r#"
         SELECT id, scope_id, name, path, preferred_editor_id,
-               is_temp, last_opened_at, created_at, updated_at
+               default_branch, workspace_file, is_temp, last_opened_at, created_at, updated_at
         FROM projects
         WHERE path = ?1
     "#;
@@ -184,12 +188,14 @@ pub fn find_project_by_path(conn: &Connection, path: &str) -> Result<Option<Proj
             name: row.get(2)?,
             path: row.get(3)?,
             preferred_editor_id: row.get(4)?,
-            is_temp: row.get(5)?,
-            last_opened_at: row.get::<_, Option<String>>(6)?.map(|s| {
+            default_branch: row.get(5)?,
+            workspace_file: row.get(6)?,
+            is_temp: row.get(7)?,
+            last_opened_at: row.get::<_, Option<String>>(8)?.map(|s| {
                 s.parse::<DateTime<Utc>>().unwrap_or_else(|_| Utc::now())
             }),
-            created_at: row.get::<_, String>(7)?.parse().unwrap_or_else(|_| Utc::now()),
-            updated_at: row.get::<_, String>(8)?.parse().unwrap_or_else(|_| Utc::now()),
+            created_at: row.get::<_, String>(9)?.parse().unwrap_or_else(|_| Utc::now()),
+            updated_at: row.get::<_, String>(10)?.parse().unwrap_or_else(|_| Utc::now()),
         })
     })
     .optional()
@@ -239,7 +245,7 @@ pub fn delete_project_cascade(conn: &Connection, project_id: &str) -> Result<()>
 pub fn get_temp_projects_for_cleanup(conn: &Connection, days: i64) -> Result<Vec<Project>> {
     let sql = r#"
         SELECT id, scope_id, name, path, preferred_editor_id,
-               is_temp, last_opened_at, created_at, updated_at
+               default_branch, workspace_file, is_temp, last_opened_at, created_at, updated_at
         FROM projects
         WHERE is_temp = 1
         AND datetime(created_at) < datetime('now', ?1)
@@ -256,12 +262,14 @@ pub fn get_temp_projects_for_cleanup(conn: &Connection, days: i64) -> Result<Vec
                 name: row.get(2)?,
                 path: row.get(3)?,
                 preferred_editor_id: row.get(4)?,
-                is_temp: row.get(5)?,
-                last_opened_at: row.get::<_, Option<String>>(6)?.map(|s| {
+                default_branch: row.get(5)?,
+                workspace_file: row.get(6)?,
+                is_temp: row.get(7)?,
+                last_opened_at: row.get::<_, Option<String>>(8)?.map(|s| {
                     s.parse::<DateTime<Utc>>().unwrap_or_else(|_| Utc::now())
                 }),
-                created_at: row.get::<_, String>(7)?.parse().unwrap_or_else(|_| Utc::now()),
-                updated_at: row.get::<_, String>(8)?.parse().unwrap_or_else(|_| Utc::now()),
+                created_at: row.get::<_, String>(9)?.parse().unwrap_or_else(|_| Utc::now()),
+                updated_at: row.get::<_, String>(10)?.parse().unwrap_or_else(|_| Utc::now()),
             })
         })
         .map_err(PanagerError::Database)?

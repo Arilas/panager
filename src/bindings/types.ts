@@ -45,7 +45,7 @@ export type GitIncludeIf = { condition: string; path: string }
 /**
  * A project represents a code repository or folder
  */
-export type Project = { id: string; scopeId: string; name: string; path: string; preferredEditorId: string | null; isTemp: boolean; lastOpenedAt: string | null; createdAt: string; updatedAt: string }
+export type Project = { id: string; scopeId: string; name: string; path: string; preferredEditorId: string | null; defaultBranch: string | null; workspaceFile: string | null; isTemp: boolean; lastOpenedAt: string | null; createdAt: string; updatedAt: string }
 
 /**
  * Cached git status information for a project
@@ -60,7 +60,7 @@ export type ProjectWithStatus = { project: Project; tags: string[]; gitStatus: G
 /**
  * An editor that can be used to open projects
  */
-export type Editor = { id: string; name: string; command: string; icon: string | null; isAutoDetected: boolean; isAvailable: boolean; createdAt: string }
+export type Editor = { id: string; name: string; command: string; icon: string | null; isAutoDetected: boolean; isAvailable: boolean; supportsWorkspaces: boolean; createdAt: string }
 
 /**
  * SSH alias configuration

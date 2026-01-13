@@ -14,6 +14,7 @@ pub struct Editor {
     pub icon: Option<String>,
     pub is_auto_detected: bool,
     pub is_available: bool,
+    pub supports_workspaces: bool,
     pub created_at: DateTime<Utc>,
 }
 

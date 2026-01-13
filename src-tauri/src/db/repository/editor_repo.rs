@@ -17,7 +17,7 @@ pub fn fetch_available_editors(conn: &Connection) -> Result<Vec<Editor>> {
     let mut stmt = conn
         .prepare(
             r#"
-            SELECT id, name, command, icon, is_auto_detected, is_available, created_at
+            SELECT id, name, command, icon, is_auto_detected, is_available, supports_workspaces, created_at
             FROM editors
             WHERE is_available = 1
             ORDER BY is_auto_detected DESC, name ASC
@@ -34,7 +34,8 @@ pub fn fetch_available_editors(conn: &Connection) -> Result<Vec<Editor>> {
                 icon: row.get(3)?,
                 is_auto_detected: row.get(4)?,
                 is_available: row.get(5)?,
-                created_at: row.get::<_, String>(6)?.parse().unwrap_or_else(|_| Utc::now()),
+                supports_workspaces: row.get::<_, i32>(6)? != 0,
+                created_at: row.get::<_, String>(7)?.parse().unwrap_or_else(|_| Utc::now()),
             })
         })
         .map_err(PanagerError::Database)?
@@ -55,7 +56,7 @@ pub fn fetch_all_editors(conn: &Connection) -> Result<Vec<Editor>> {
     let mut stmt = conn
         .prepare(
             r#"
-            SELECT id, name, command, icon, is_auto_detected, is_available, created_at
+            SELECT id, name, command, icon, is_auto_detected, is_available, supports_workspaces, created_at
             FROM editors
             ORDER BY is_auto_detected DESC, name ASC
             "#,
@@ -71,7 +72,8 @@ pub fn fetch_all_editors(conn: &Connection) -> Result<Vec<Editor>> {
                 icon: row.get(3)?,
                 is_auto_detected: row.get(4)?,
                 is_available: row.get(5)?,
-                created_at: row.get::<_, String>(6)?.parse().unwrap_or_else(|_| Utc::now()),
+                supports_workspaces: row.get::<_, i32>(6)? != 0,
+                created_at: row.get::<_, String>(7)?.parse().unwrap_or_else(|_| Utc::now()),
             })
         })
         .map_err(PanagerError::Database)?
@@ -91,7 +93,7 @@ pub fn fetch_all_editors(conn: &Connection) -> Result<Vec<Editor>> {
 /// The editor if found
 pub fn find_editor_by_id(conn: &Connection, editor_id: &str) -> Result<Option<Editor>> {
     let sql = r#"
-        SELECT id, name, command, icon, is_auto_detected, is_available, created_at
+        SELECT id, name, command, icon, is_auto_detected, is_available, supports_workspaces, created_at
         FROM editors
         WHERE id = ?1
     "#;
@@ -104,7 +106,8 @@ pub fn find_editor_by_id(conn: &Connection, editor_id: &str) -> Result<Option<Ed
             icon: row.get(3)?,
             is_auto_detected: row.get(4)?,
             is_available: row.get(5)?,
-            created_at: row.get::<_, String>(6)?.parse().unwrap_or_else(|_| Utc::now()),
+            supports_workspaces: row.get::<_, i32>(6)? != 0,
+            created_at: row.get::<_, String>(7)?.parse().unwrap_or_else(|_| Utc::now()),
         })
     })
     .optional()
@@ -121,7 +124,7 @@ pub fn find_editor_by_id(conn: &Connection, editor_id: &str) -> Result<Option<Ed
 /// The editor if found
 pub fn find_editor_by_command(conn: &Connection, command: &str) -> Result<Option<Editor>> {
     let sql = r#"
-        SELECT id, name, command, icon, is_auto_detected, is_available, created_at
+        SELECT id, name, command, icon, is_auto_detected, is_available, supports_workspaces, created_at
         FROM editors
         WHERE command = ?1
     "#;
@@ -134,7 +137,8 @@ pub fn find_editor_by_command(conn: &Connection, command: &str) -> Result<Option
             icon: row.get(3)?,
             is_auto_detected: row.get(4)?,
             is_available: row.get(5)?,
-            created_at: row.get::<_, String>(6)?.parse().unwrap_or_else(|_| Utc::now()),
+            supports_workspaces: row.get::<_, i32>(6)? != 0,
+            created_at: row.get::<_, String>(7)?.parse().unwrap_or_else(|_| Utc::now()),
         })
     })
     .optional()

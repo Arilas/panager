@@ -106,20 +106,23 @@ pub fn sync_editors(db: State<Database>) -> Result<Vec<Editor>, String> {
             )
             .ok();
 
+        // Check if editor supports workspaces (VS Code and Cursor)
+        let supports_workspaces = editor.command == "code" || editor.command == "cursor";
+
         if let Some(id) = existing {
             conn.execute(
-                "UPDATE editors SET is_available = 1, name = ?1 WHERE id = ?2",
-                (&editor.name, &id),
+                "UPDATE editors SET is_available = 1, name = ?1, supports_workspaces = ?2 WHERE id = ?3",
+                (&editor.name, supports_workspaces as i32, &id),
             )
             .map_err(|e| e.to_string())?;
         } else {
             let id = Uuid::new_v4().to_string();
             conn.execute(
                 r#"
-                INSERT INTO editors (id, name, command, icon, is_auto_detected, is_available, created_at)
-                VALUES (?1, ?2, ?3, ?4, 1, 1, ?5)
+                INSERT INTO editors (id, name, command, icon, is_auto_detected, is_available, supports_workspaces, created_at)
+                VALUES (?1, ?2, ?3, ?4, 1, 1, ?5, ?6)
                 "#,
-                (&id, &editor.name, &editor.command, &editor.icon, now.to_rfc3339()),
+                (&id, &editor.name, &editor.command, &editor.icon, supports_workspaces as i32, now.to_rfc3339()),
             )
             .map_err(|e| e.to_string())?;
         }
@@ -151,12 +154,15 @@ pub fn add_editor(
 
     let is_available = which(&command).is_ok();
 
+    // Check if editor supports workspaces (VS Code and Cursor)
+    let supports_workspaces = command == "code" || command == "cursor";
+
     conn.execute(
         r#"
-        INSERT INTO editors (id, name, command, icon, is_auto_detected, is_available, created_at)
-        VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6)
+        INSERT INTO editors (id, name, command, icon, is_auto_detected, is_available, supports_workspaces, created_at)
+        VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7)
         "#,
-        (&id, &name, &command, &icon, is_available as i32, now.to_rfc3339()),
+        (&id, &name, &command, &icon, is_available as i32, supports_workspaces as i32, now.to_rfc3339()),
     )
     .map_err(|e| e.to_string())?;
 
@@ -167,6 +173,7 @@ pub fn add_editor(
         icon,
         is_auto_detected: false,
         is_available,
+        supports_workspaces,
         created_at: now,
     })
 }
@@ -186,10 +193,64 @@ pub fn delete_editor(db: State<Database>, id: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Find workspace files (.code-workspace) in a project
+#[tauri::command]
+#[specta::specta]
+pub fn find_workspace_files(project_path: String) -> Result<Vec<String>, String> {
+    use std::fs;
+    use std::path::PathBuf;
+
+    let path = PathBuf::from(&project_path);
+    if !path.exists() || !path.is_dir() {
+        return Err(format!("Invalid project path: {}", project_path));
+    }
+
+    let mut workspace_files = Vec::new();
+
+    // Check root directory
+    if let Ok(entries) = fs::read_dir(&path) {
+        for entry in entries.flatten() {
+            if let Some(file_name) = entry.file_name().to_str() {
+                if file_name.ends_with(".code-workspace") {
+                    if let Ok(full_path) = entry.path().canonicalize() {
+                        if let Some(path_str) = full_path.to_str() {
+                            workspace_files.push(path_str.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Check immediate subdirectories (one level deep)
+    if let Ok(entries) = fs::read_dir(&path) {
+        for entry in entries.flatten() {
+            let entry_path = entry.path();
+            if entry_path.is_dir() {
+                if let Ok(sub_entries) = fs::read_dir(&entry_path) {
+                    for sub_entry in sub_entries.flatten() {
+                        if let Some(file_name) = sub_entry.file_name().to_str() {
+                            if file_name.ends_with(".code-workspace") {
+                                if let Ok(full_path) = sub_entry.path().canonicalize() {
+                                    if let Some(path_str) = full_path.to_str() {
+                                        workspace_files.push(path_str.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(workspace_files)
+}
+
 /// Open a project in an editor
 #[tauri::command]
 #[specta::specta]
-pub fn open_in_editor(editor_command: String, project_path: String) -> Result<(), String> {
+pub fn open_in_editor(editor_command: String, project_path: String, workspace_file: Option<String>) -> Result<(), String> {
     // Handle Flatpak commands (Linux-only, they contain spaces like "flatpak run com.app.Id")
     #[cfg(target_os = "linux")]
     if editor_command.starts_with("flatpak run ") {
@@ -209,9 +270,12 @@ pub fn open_in_editor(editor_command: String, project_path: String) -> Result<()
         }
     }
 
+    // Determine what to open: workspace file if provided, otherwise project path
+    let target_path = workspace_file.unwrap_or(project_path);
+
     // Try to spawn the command directly
     Command::new(&editor_command)
-        .arg(&project_path)
+        .arg(&target_path)
         .spawn()
         .map(|_| ())
         .or_else(|e| {
@@ -220,14 +284,14 @@ pub fn open_in_editor(editor_command: String, project_path: String) -> Result<()
             #[cfg(target_os = "macos")]
             return crate::platform::macos::editors::open_with_fallback(
                 &editor_command,
-                &project_path,
+                &target_path,
                 &error_str,
             );
 
             #[cfg(target_os = "linux")]
             return crate::platform::linux::editors::open_with_fallback(
                 &editor_command,
-                &project_path,
+                &target_path,
                 &error_str,
             );
 
@@ -241,7 +305,7 @@ fn get_editors_internal(conn: &rusqlite::Connection) -> Result<Vec<Editor>, Stri
     let mut stmt = conn
         .prepare(
             r#"
-            SELECT id, name, command, icon, is_auto_detected, is_available, created_at
+            SELECT id, name, command, icon, is_auto_detected, is_available, supports_workspaces, created_at
             FROM editors WHERE is_available = 1
             ORDER BY name ASC
             "#,
@@ -257,8 +321,9 @@ fn get_editors_internal(conn: &rusqlite::Connection) -> Result<Vec<Editor>, Stri
                 icon: row.get(3)?,
                 is_auto_detected: row.get::<_, i32>(4)? != 0,
                 is_available: row.get::<_, i32>(5)? != 0,
+                supports_workspaces: row.get::<_, i32>(6)? != 0,
                 created_at: row
-                    .get::<_, String>(6)?
+                    .get::<_, String>(7)?
                     .parse()
                     .unwrap_or_else(|_| Utc::now()),
             })

@@ -19,7 +19,8 @@ fn fetch_projects_internal(
     let sql = if scope_id.is_some() {
         r#"
         SELECT p.id, p.scope_id, p.name, p.path, p.preferred_editor_id,
-               p.is_temp, p.last_opened_at, p.created_at, p.updated_at,
+               p.default_branch, p.workspace_file, p.is_temp, p.last_opened_at, 
+               p.created_at, p.updated_at,
                g.branch, g.ahead, g.behind, g.has_uncommitted, g.has_untracked,
                g.last_checked_at, g.remote_url
         FROM projects p
@@ -30,7 +31,8 @@ fn fetch_projects_internal(
     } else {
         r#"
         SELECT p.id, p.scope_id, p.name, p.path, p.preferred_editor_id,
-               p.is_temp, p.last_opened_at, p.created_at, p.updated_at,
+               p.default_branch, p.workspace_file, p.is_temp, p.last_opened_at, 
+               p.created_at, p.updated_at,
                g.branch, g.ahead, g.behind, g.has_uncommitted, g.has_untracked,
                g.last_checked_at, g.remote_url
         FROM projects p
@@ -73,34 +75,36 @@ fn parse_project_row(row: &rusqlite::Row) -> rusqlite::Result<(Project, Option<G
         name: row.get(2)?,
         path: row.get(3)?,
         preferred_editor_id: row.get(4)?,
-        is_temp: row.get::<_, i32>(5)? != 0,
+        default_branch: row.get(5)?,
+        workspace_file: row.get(6)?,
+        is_temp: row.get::<_, i32>(7)? != 0,
         last_opened_at: row
-            .get::<_, Option<String>>(6)?
+            .get::<_, Option<String>>(8)?
             .and_then(|s| s.parse().ok()),
         created_at: row
-            .get::<_, String>(7)?
+            .get::<_, String>(9)?
             .parse()
             .unwrap_or_else(|_| Utc::now()),
         updated_at: row
-            .get::<_, String>(8)?
+            .get::<_, String>(10)?
             .parse()
             .unwrap_or_else(|_| Utc::now()),
     };
 
-    let branch: Option<String> = row.get(9)?;
+    let branch: Option<String> = row.get(11)?;
     let git_status = branch.map(|b| GitStatusCache {
         project_id: project.id.clone(),
         branch: Some(b),
-        ahead: row.get(10).unwrap_or(0),
-        behind: row.get(11).unwrap_or(0),
-        has_uncommitted: row.get::<_, i32>(12).unwrap_or(0) != 0,
-        has_untracked: row.get::<_, i32>(13).unwrap_or(0) != 0,
+        ahead: row.get(12).unwrap_or(0),
+        behind: row.get(13).unwrap_or(0),
+        has_uncommitted: row.get::<_, i32>(14).unwrap_or(0) != 0,
+        has_untracked: row.get::<_, i32>(15).unwrap_or(0) != 0,
         last_checked_at: row
-            .get::<_, Option<String>>(14)
+            .get::<_, Option<String>>(16)
             .ok()
             .flatten()
             .and_then(|s| s.parse().ok()),
-        remote_url: row.get(15).ok().flatten(),
+        remote_url: row.get(17).ok().flatten(),
     });
 
     Ok((project, git_status))
@@ -153,6 +157,8 @@ pub fn create_project(db: State<Database>, request: CreateProjectRequest) -> Res
         name: request.name,
         path: request.path,
         preferred_editor_id: None,
+        default_branch: None,
+        workspace_file: None,
         is_temp: request.is_temp.unwrap_or(false),
         last_opened_at: None,
         created_at: now,
@@ -167,6 +173,8 @@ pub fn update_project(
     id: String,
     name: Option<String>,
     preferred_editor_id: Option<String>,
+    default_branch: Option<String>,
+    workspace_file: Option<String>,
 ) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = Utc::now();
@@ -185,6 +193,16 @@ pub fn update_project(
         params.push(Box::new(e.clone()));
         param_idx += 1;
     }
+    if let Some(ref b) = default_branch {
+        updates.push(format!("default_branch = ?{}", param_idx));
+        params.push(Box::new(b.clone()));
+        param_idx += 1;
+    }
+    if let Some(ref w) = workspace_file {
+        updates.push(format!("workspace_file = ?{}", param_idx));
+        params.push(Box::new(w.clone()));
+        param_idx += 1;
+    }
 
     let sql = format!(
         "UPDATE projects SET {} WHERE id = ?{}",
@@ -198,6 +216,38 @@ pub fn update_project(
         .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+/// Get a single project by ID
+#[tauri::command]
+#[specta::specta]
+pub fn get_project(db: State<Database>, id: String) -> Result<ProjectWithStatus, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+    let (project, git_status) = conn
+        .query_row(
+            r#"
+            SELECT p.id, p.scope_id, p.name, p.path, p.preferred_editor_id,
+                   p.default_branch, p.workspace_file, p.is_temp, p.last_opened_at, 
+                   p.created_at, p.updated_at,
+                   g.branch, g.ahead, g.behind, g.has_uncommitted, g.has_untracked,
+                   g.last_checked_at, g.remote_url
+            FROM projects p
+            LEFT JOIN git_status_cache g ON p.id = g.project_id
+            WHERE p.id = ?1
+            "#,
+            [&id],
+            parse_project_row,
+        )
+        .map_err(|e| format!("Project not found: {}", e))?;
+
+    let tags = get_project_tags_internal(&conn, &project.id)?;
+
+    Ok(ProjectWithStatus {
+        project,
+        tags,
+        git_status,
+    })
 }
 
 #[tauri::command]

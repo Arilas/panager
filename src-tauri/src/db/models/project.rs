@@ -13,6 +13,8 @@ pub struct Project {
     pub name: String,
     pub path: String,
     pub preferred_editor_id: Option<String>,
+    pub default_branch: Option<String>,
+    pub workspace_file: Option<String>,
     pub is_temp: bool,
     pub last_opened_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,

@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Result};
 
 /// Current schema version - increment this when adding new migrations
-const CURRENT_VERSION: i32 = 4;
+const CURRENT_VERSION: i32 = 5;
 
 /// Run all pending migrations
 pub fn run_migrations(conn: &Connection) -> Result<()> {
@@ -36,6 +36,11 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     if current_version < 4 {
         migrate_v4(conn)?;
         set_version(conn, 4)?;
+    }
+
+    if current_version < 5 {
+        migrate_v5(conn)?;
+        set_version(conn, 5)?;
     }
 
     Ok(())
@@ -240,6 +245,45 @@ fn migrate_v4(conn: &Connection) -> Result<()> {
             ('diagnostics_scan_interval', '300000')
         "#,
         [],
+    )?;
+
+    Ok(())
+}
+
+/// Migration v5: Add project settings columns and editor workspace support
+fn migrate_v5(conn: &Connection) -> Result<()> {
+    // Check if columns already exist in projects table
+    let project_columns: Vec<String> = conn
+        .prepare("PRAGMA table_info(projects)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if !project_columns.contains(&"default_branch".to_string()) {
+        conn.execute_batch("ALTER TABLE projects ADD COLUMN default_branch TEXT;")?;
+    }
+
+    if !project_columns.contains(&"workspace_file".to_string()) {
+        conn.execute_batch("ALTER TABLE projects ADD COLUMN workspace_file TEXT;")?;
+    }
+
+    // Check if column already exists in editors table
+    let editor_columns: Vec<String> = conn
+        .prepare("PRAGMA table_info(editors)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if !editor_columns.contains(&"supports_workspaces".to_string()) {
+        conn.execute_batch(
+            "ALTER TABLE editors ADD COLUMN supports_workspaces INTEGER NOT NULL DEFAULT 0;",
+        )?;
+    }
+
+    // Mark VS Code and Cursor as workspace-capable
+    conn.execute_batch(
+        r#"
+        UPDATE editors SET supports_workspaces = 1 
+        WHERE command IN ('code', 'cursor') AND supports_workspaces = 0;
+        "#,
     )?;
 
     Ok(())

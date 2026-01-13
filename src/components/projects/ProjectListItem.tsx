@@ -12,6 +12,7 @@ import {
   Copy,
   ArrowRightLeft,
   Folder,
+  Settings2,
 } from "lucide-react";
 import type { ProjectWithStatus, Editor, ScopeWithLinks } from "../../types";
 import { cn } from "../../lib/utils";
@@ -45,6 +46,7 @@ interface ProjectListItemProps {
   onRevealInFinder?: () => void;
   onCopyPath?: () => void;
   onManageTags?: () => void;
+  onSettings?: () => void;
 }
 
 export function ProjectListItem({
@@ -66,6 +68,7 @@ export function ProjectListItem({
   onRevealInFinder,
   onCopyPath,
   onManageTags,
+  onSettings,
 }: ProjectListItemProps) {
   const { project: p, tags, gitStatus } = project;
   const otherScopes = scopes.filter((s) => s.scope.id !== currentScopeId);
@@ -81,6 +84,14 @@ export function ProjectListItem({
     .split("/")
     .slice(-2)
     .join("/");
+
+  // Extract workspace name from workspace file path
+  const workspaceName = p.workspaceFile
+    ? p.workspaceFile
+        .split("/")
+        .pop()
+        ?.replace(/\.code-workspace$/, "") || null
+    : null;
 
   return (
     <div
@@ -118,6 +129,13 @@ export function ProjectListItem({
           <h3 className="text-[14px] font-medium text-foreground/90 truncate">
             {p.name}
           </h3>
+
+        {/* Workspace Badge */}
+        {workspaceName && (
+          <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+            {workspaceName}
+          </span>
+        )}
 
         {/* Temp Badge */}
         {p.isTemp && (
@@ -326,10 +344,10 @@ export function ProjectListItem({
 
               <DropdownMenuSeparator />
 
-              {onManageTags && (
-                <DropdownMenuItem onClick={onManageTags}>
-                  <Tag className="h-3.5 w-3.5 mr-2" />
-                  Manage Tags
+              {onSettings && (
+                <DropdownMenuItem onClick={onSettings}>
+                  <Settings2 className="h-3.5 w-3.5 mr-2" />
+                  Settings
                 </DropdownMenuItem>
               )}
 

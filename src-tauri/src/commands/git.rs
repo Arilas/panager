@@ -115,6 +115,183 @@ pub fn git_push(project_path: String) -> Result<String, String> {
     }
 }
 
+/// Git branch information
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GitBranch {
+    pub name: String,
+    pub is_remote: bool,
+    pub is_current: bool,
+}
+
+/// Get all branches (local and remote) for a project
+#[tauri::command]
+#[specta::specta]
+pub fn get_git_branches(project_path: String) -> Result<Vec<GitBranch>, String> {
+    let path = Path::new(&project_path);
+    let repo = Repository::open(path).map_err(|e| e.to_string())?;
+
+    let mut branches = Vec::new();
+    let current_branch = get_current_branch(&repo);
+
+    // Get local branches
+    let local_branches = repo.branches(Some(git2::BranchType::Local))
+        .map_err(|e| e.to_string())?;
+
+    for branch in local_branches {
+        let (branch_ref, _) = branch.map_err(|e| e.to_string())?;
+        if let Some(name) = branch_ref.name().ok().flatten() {
+            let name_str = name.to_string();
+            branches.push(GitBranch {
+                name: name_str.clone(),
+                is_remote: false,
+                is_current: current_branch.as_ref() == Some(&name_str),
+            });
+        }
+    }
+
+    // Get remote branches
+    let remote_branches = repo.branches(Some(git2::BranchType::Remote))
+        .map_err(|e| e.to_string())?;
+
+    for branch in remote_branches {
+        let (branch_ref, _) = branch.map_err(|e| e.to_string())?;
+        if let Some(name) = branch_ref.name().ok().flatten() {
+            // Remove "origin/" or other remote prefix
+            let name_str = name.to_string();
+            if let Some(stripped) = name_str.strip_prefix("origin/") {
+                // Only add if we don't already have a local branch with this name
+                if !branches.iter().any(|b| !b.is_remote && b.name == stripped) {
+                    branches.push(GitBranch {
+                        name: stripped.to_string(),
+                        is_remote: true,
+                        is_current: false,
+                    });
+                }
+            }
+        }
+    }
+
+    // Sort: current branch first, then local branches, then remote branches
+    branches.sort_by(|a, b| {
+        match (a.is_current, b.is_current) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => match (a.is_remote, b.is_remote) {
+                (false, true) => std::cmp::Ordering::Less,
+                (true, false) => std::cmp::Ordering::Greater,
+                _ => a.name.cmp(&b.name),
+            },
+        }
+    });
+
+    Ok(branches)
+}
+
+/// Git configuration information
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GitConfigInfo {
+    pub user_name: Option<String>,
+    pub user_email: Option<String>,
+    pub remotes: Vec<GitRemote>,
+}
+
+/// Git remote information
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GitRemote {
+    pub name: String,
+    pub url: String,
+}
+
+/// Get git configuration for a project
+#[tauri::command]
+#[specta::specta]
+pub fn get_git_config(project_path: String) -> Result<GitConfigInfo, String> {
+    let path = Path::new(&project_path);
+    let repo = Repository::open(path).map_err(|e| e.to_string())?;
+
+    // Get user.name and user.email from git config
+    let config = repo.config().map_err(|e| e.to_string())?;
+    let user_name = config.get_string("user.name").ok();
+    let user_email = config.get_string("user.email").ok();
+
+    // Get remotes
+    let mut remotes = Vec::new();
+    let remote_names = repo.remotes().map_err(|e| e.to_string())?;
+    for remote_name in remote_names.iter().flatten() {
+        if let Ok(remote) = repo.find_remote(remote_name) {
+            if let Some(url) = remote.url() {
+                remotes.push(GitRemote {
+                    name: remote_name.to_string(),
+                    url: url.to_string(),
+                });
+            }
+        }
+    }
+
+    Ok(GitConfigInfo {
+        user_name,
+        user_email,
+        remotes,
+    })
+}
+
+/// Run git gc (garbage collection)
+#[tauri::command]
+#[specta::specta]
+#[instrument(level = "info")]
+pub fn git_gc(project_path: String) -> Result<String, String> {
+    let output = Command::new("git")
+        .args(["gc"])
+        .current_dir(&project_path)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let combined = if stdout.is_empty() {
+            stderr.to_string()
+        } else if stderr.is_empty() {
+            stdout.to_string()
+        } else {
+            format!("{}\n{}", stdout, stderr)
+        };
+        Ok(combined)
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
+}
+
+/// Run git fetch
+#[tauri::command]
+#[specta::specta]
+#[instrument(level = "info")]
+pub fn git_fetch(project_path: String) -> Result<String, String> {
+    let output = Command::new("git")
+        .args(["fetch"])
+        .current_dir(&project_path)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let combined = if stdout.is_empty() {
+            stderr.to_string()
+        } else if stderr.is_empty() {
+            stdout.to_string()
+        } else {
+            format!("{}\n{}", stdout, stderr)
+        };
+        Ok(combined)
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
+}
+
 fn get_current_branch(repo: &Repository) -> Option<String> {
     repo.head()
         .ok()

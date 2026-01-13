@@ -17,7 +17,9 @@ interface ProjectsState {
   updateProject: (
     id: string,
     name?: string,
-    preferredEditorId?: string
+    preferredEditorId?: string,
+    defaultBranch?: string,
+    workspaceFile?: string
   ) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   deleteProjectWithFolder: (id: string) => Promise<void>;
@@ -39,7 +41,7 @@ interface ProjectsState {
   gitPush: (projectPath: string) => Promise<string>;
 
   // Editor
-  openInEditor: (editorCommand: string, projectPath: string) => Promise<void>;
+  openInEditor: (editorCommand: string, projectPath: string, workspaceFile?: string) => Promise<void>;
   updateLastOpened: (projectId: string) => Promise<void>;
 
   // Scanning
@@ -101,9 +103,9 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     }
   },
 
-  updateProject: async (id, name, preferredEditorId) => {
+  updateProject: async (id, name, preferredEditorId, defaultBranch, workspaceFile) => {
     try {
-      await api.updateProject(id, name, preferredEditorId);
+      await api.updateProject(id, name, preferredEditorId, defaultBranch, workspaceFile);
       const updateFn = (p: ProjectWithStatus) =>
         p.project.id === id
           ? {
@@ -113,6 +115,12 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
                 ...(name && { name }),
                 ...(preferredEditorId !== undefined && {
                   preferredEditorId: preferredEditorId,
+                }),
+                ...(defaultBranch !== undefined && {
+                  defaultBranch: defaultBranch,
+                }),
+                ...(workspaceFile !== undefined && {
+                  workspaceFile: workspaceFile,
                 }),
               },
             }
@@ -263,9 +271,9 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     return api.gitPush(projectPath);
   },
 
-  openInEditor: async (editorCommand, projectPath) => {
+  openInEditor: async (editorCommand, projectPath, workspaceFile) => {
     try {
-      await api.openInEditor(editorCommand, projectPath);
+      await api.openInEditor(editorCommand, projectPath, workspaceFile);
     } catch (error) {
       set({ error: String(error) });
       throw error;

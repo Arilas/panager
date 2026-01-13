@@ -96,15 +96,23 @@ export async function createProject(
   return invoke("create_project", { request });
 }
 
+export async function getProject(id: string): Promise<ProjectWithStatus> {
+  return invoke("get_project", { id });
+}
+
 export async function updateProject(
   id: string,
   name?: string,
-  preferredEditorId?: string
+  preferredEditorId?: string,
+  defaultBranch?: string,
+  workspaceFile?: string
 ): Promise<void> {
   return invoke("update_project", {
     id,
     name,
     preferredEditorId,
+    defaultBranch,
+    workspaceFile,
   });
 }
 
@@ -196,6 +204,32 @@ export async function gitPush(projectPath: string): Promise<string> {
   return invoke("git_push", { projectPath });
 }
 
+export async function getGitBranches(projectPath: string): Promise<
+  Array<{
+    name: string;
+    isRemote: boolean;
+    isCurrent: boolean;
+  }>
+> {
+  return invoke("get_git_branches", { projectPath });
+}
+
+export async function getGitConfig(projectPath: string): Promise<{
+  userName: string | null;
+  userEmail: string | null;
+  remotes: Array<{ name: string; url: string }>;
+}> {
+  return invoke("get_git_config", { projectPath });
+}
+
+export async function gitGc(projectPath: string): Promise<string> {
+  return invoke("git_gc", { projectPath });
+}
+
+export async function gitFetch(projectPath: string): Promise<string> {
+  return invoke("git_fetch", { projectPath });
+}
+
 // Editors
 export async function detectEditors(): Promise<EditorInfo[]> {
   return invoke("detect_editors");
@@ -223,12 +257,20 @@ export async function deleteEditor(id: string): Promise<void> {
 
 export async function openInEditor(
   editorCommand: string,
-  projectPath: string
+  projectPath: string,
+  workspaceFile?: string
 ): Promise<void> {
   return invoke("open_in_editor", {
     editorCommand,
     projectPath,
+    workspaceFile,
   });
+}
+
+export async function findWorkspaceFiles(
+  projectPath: string
+): Promise<string[]> {
+  return invoke("find_workspace_files", { projectPath });
 }
 
 // Settings

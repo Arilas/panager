@@ -46,7 +46,7 @@ export function CommandPalette({
     async (project: ProjectWithStatus) => {
       const editor = getDefaultEditor();
       if (editor) {
-        await openInEditor(editor.command, project.project.path);
+        await openInEditor(editor.command, project.project.path, project.project.workspaceFile);
         await updateLastOpened(project.project.id);
       }
       onOpenChange(false);

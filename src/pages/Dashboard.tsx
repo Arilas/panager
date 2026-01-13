@@ -18,7 +18,7 @@ import { ProjectListItem } from "../components/projects/ProjectListItem";
 import { ScopeInfoPanel } from "../components/scopes/ScopeInfoPanel";
 import { ScopeSelector } from "../components/scopes/ScopeSelector";
 import { TempProjectDialog } from "../components/temp-projects/TempProjectDialog";
-import { ProjectTagsDialog } from "../components/projects/ProjectTagsDialog";
+import { ProjectSettingsDialog } from "../components/projects/ProjectSettingsDialog";
 import { EditScopeDialog } from "../components/scopes/EditScopeDialog";
 import { DeleteScopeDialog } from "../components/scopes/DeleteScopeDialog";
 import { ScopeLinksDialog } from "../components/scopes/ScopeLinksDialog";
@@ -60,7 +60,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const useLiquidGlass = settings.liquid_glass_enabled;
   const [refreshing, setRefreshing] = useState(false);
   const [showTempProject, setShowTempProject] = useState(false);
-  const [tagsProject, setTagsProject] = useState<ProjectWithStatus | null>(
+  const [settingsProject, setSettingsProject] = useState<ProjectWithStatus | null>(
     null
   );
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -244,7 +244,8 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
             handleOpenProject(
               project.project.id,
               project.project.path,
-              project.project.preferredEditorId
+              project.project.preferredEditorId,
+              project.project.workspaceFile
             );
           }
           break;
@@ -325,14 +326,15 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const handleOpenProject = async (
     projectId: string,
     projectPath: string,
-    editorId?: string | null
+    editorId?: string | null,
+    workspaceFile?: string | null
   ) => {
     const editor = editorId
       ? editors.find((e) => e.id === editorId)
       : getDefaultEditor();
 
     if (editor) {
-      await openInEditor(editor.command, projectPath);
+      await openInEditor(editor.command, projectPath, workspaceFile || undefined);
       await updateLastOpened(projectId);
     }
   };
@@ -358,11 +360,12 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
   const handleOpenWithEditor = async (
     projectId: string,
     projectPath: string,
-    editorId: string
+    editorId: string,
+    workspaceFile?: string | null
   ) => {
     const editor = editors.find((e) => e.id === editorId);
     if (editor) {
-      await openInEditor(editor.command, projectPath);
+      await openInEditor(editor.command, projectPath, workspaceFile || undefined);
       await updateLastOpened(projectId);
     }
   };
@@ -666,20 +669,22 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                     currentScopeHasDefaultFolder={
                       !!currentScope?.scope.defaultFolder
                     }
-                    onOpen={() =>
-                      handleOpenProject(
-                        project.project.id,
-                        project.project.path,
-                        project.project.preferredEditorId
-                      )
-                    }
-                    onOpenWithEditor={(editorId) =>
-                      handleOpenWithEditor(
-                        project.project.id,
-                        project.project.path,
-                        editorId
-                      )
-                    }
+                  onOpen={() =>
+                    handleOpenProject(
+                      project.project.id,
+                      project.project.path,
+                      project.project.preferredEditorId,
+                      project.project.workspaceFile
+                    )
+                  }
+                  onOpenWithEditor={(editorId) =>
+                    handleOpenWithEditor(
+                      project.project.id,
+                      project.project.path,
+                      editorId,
+                      project.project.workspaceFile
+                    )
+                  }
                     onDelete={() => deleteProject(project.project.id)}
                     onDeleteWithFolder={() => setProjectToDelete(project)}
                     onRefreshGit={() =>
@@ -698,7 +703,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                     onMoveToScope={(scopeId) =>
                       handleMoveToScope(project, scopeId)
                     }
-                    onManageTags={() => setTagsProject(project)}
+                    onSettings={() => setSettingsProject(project)}
                   />
                 </div>
               ))}
@@ -738,10 +743,18 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           }}
         />
       )}
-      <ProjectTagsDialog
-        project={tagsProject}
-        open={!!tagsProject}
-        onOpenChange={(open) => !open && setTagsProject(null)}
+      <ProjectSettingsDialog
+        project={settingsProject}
+        open={!!settingsProject}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSettingsProject(null);
+            // Refresh projects to get updated data
+            if (currentScopeId) {
+              fetchProjects(currentScopeId);
+            }
+          }
+        }}
       />
       <EditScopeDialog
         scope={currentScope}

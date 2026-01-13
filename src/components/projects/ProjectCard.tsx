@@ -12,6 +12,7 @@ import {
   Copy,
   Pencil,
   ArrowRightLeft,
+  Settings2,
 } from "lucide-react";
 import type { ProjectWithStatus, Editor, ScopeWithLinks } from "../../types";
 import { cn } from "../../lib/utils";
@@ -45,6 +46,7 @@ interface ProjectCardProps {
   onRevealInFinder?: () => void;
   onCopyPath?: () => void;
   onManageTags?: () => void;
+  onSettings?: () => void;
 }
 
 export function ProjectCard({
@@ -64,6 +66,7 @@ export function ProjectCard({
   onRevealInFinder,
   onCopyPath,
   onManageTags,
+  onSettings,
 }: ProjectCardProps) {
   const { project: p, tags, gitStatus } = project;
   const otherScopes = scopes.filter((s) => s.scope.id !== currentScopeId);
@@ -73,6 +76,14 @@ export function ProjectCard({
   const hasChanges = gitStatus?.hasUncommitted || gitStatus?.hasUntracked;
   const needsPull = (gitStatus?.behind ?? 0) > 0;
   const needsPush = (gitStatus?.ahead ?? 0) > 0;
+
+  // Extract workspace name from workspace file path
+  const workspaceName = p.workspaceFile
+    ? p.workspaceFile
+        .split("/")
+        .pop()
+        ?.replace(/\.code-workspace$/, "") || null
+    : null;
 
   return (
     <div
@@ -93,9 +104,21 @@ export function ProjectCard({
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex-1 min-w-0">
-          <h3 className="text-[13px] font-medium text-foreground/90 truncate">
-            {p.name}
-          </h3>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h3 className="text-[13px] font-medium text-foreground/90 truncate">
+              {p.name}
+            </h3>
+            {workspaceName && (
+              <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+                {workspaceName}
+              </span>
+            )}
+            {p.isTemp && (
+              <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                Temp
+              </span>
+            )}
+          </div>
           <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">
             {p.path.replace(/^\/Users\/[^/]+/, "~")}
           </p>
@@ -169,10 +192,10 @@ export function ProjectCard({
               </DropdownMenuItem>
             )}
 
-            {onManageTags && (
-              <DropdownMenuItem onClick={onManageTags}>
-                <Tag className="h-3.5 w-3.5 mr-2" />
-                Manage Tags
+            {onSettings && (
+              <DropdownMenuItem onClick={onSettings}>
+                <Settings2 className="h-3.5 w-3.5 mr-2" />
+                Settings
               </DropdownMenuItem>
             )}
 
