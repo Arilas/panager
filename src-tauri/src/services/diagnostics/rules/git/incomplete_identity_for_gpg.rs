@@ -40,8 +40,8 @@ impl DiagnosticRule for IncompleteIdentityForGpgRule {
         }
 
         // Check if identity is complete
-        let has_name = config.user_name.as_ref().map_or(false, |n: &String| !n.is_empty());
-        let has_email = config.user_email.as_ref().map_or(false, |e: &String| !e.is_empty());
+        let has_name = config.user_name.as_ref().is_some_and(|n| !n.is_empty());
+        let has_email = config.user_email.as_ref().is_some_and(|e| !e.is_empty());
 
         if !has_name || !has_email {
             let missing = match (has_name, has_email) {

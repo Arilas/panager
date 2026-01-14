@@ -260,7 +260,7 @@ mod tests {
     #[test]
     fn test_severity_serialization() {
         assert_eq!(Severity::Error.as_str(), "error");
-        assert_eq!(Severity::from_str("warning"), Some(Severity::Warning));
+        assert_eq!(Severity::parse("warning"), Some(Severity::Warning));
     }
 
     #[test]
