@@ -8,26 +8,14 @@ import {
   Trash2,
   Tag,
   RefreshCw,
-  FolderOpen,
-  Copy,
-  Pencil,
-  ArrowRightLeft,
-  Settings2,
+  Star,
 } from "lucide-react";
 import type { ProjectWithStatus, Editor, ScopeWithLinks } from "../../types";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
 import { useSettingsStore } from "../../stores/settings";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from "../ui/DropdownMenu";
+import { DropdownMenu, DropdownMenuTrigger } from "../ui/DropdownMenu";
+import { QuickActionsMenu } from "./QuickActionsMenu";
 
 interface ProjectCardProps {
   project: ProjectWithStatus;
@@ -35,18 +23,22 @@ interface ProjectCardProps {
   editors?: Editor[];
   scopes?: ScopeWithLinks[];
   currentScopeId?: string;
+  currentScopeHasDefaultFolder?: boolean;
+  isSelected?: boolean;
   onOpen: () => void;
   onOpenWithEditor?: (editorId: string) => void;
   onDelete: () => void;
+  onDeleteWithFolder?: () => void;
   onRefreshGit: () => void;
   onPull: () => void;
   onPush: () => void;
-  onRename?: () => void;
   onMoveToScope?: (scopeId: string) => void;
   onRevealInFinder?: () => void;
   onCopyPath?: () => void;
-  onManageTags?: () => void;
   onSettings?: () => void;
+  onPin?: () => void;
+  onUnpin?: () => void;
+  onOpenTerminal?: () => void;
 }
 
 export function ProjectCard({
@@ -55,21 +47,24 @@ export function ProjectCard({
   editors = [],
   scopes = [],
   currentScopeId,
+  currentScopeHasDefaultFolder = false,
+  isSelected = false,
   onOpen,
   onOpenWithEditor,
   onDelete,
+  onDeleteWithFolder,
   onRefreshGit,
   onPull,
   onPush,
-  onRename,
   onMoveToScope,
   onRevealInFinder,
   onCopyPath,
-  onManageTags,
   onSettings,
+  onPin,
+  onUnpin,
+  onOpenTerminal,
 }: ProjectCardProps) {
   const { project: p, tags, gitStatus } = project;
-  const otherScopes = scopes.filter((s) => s.scope.id !== currentScopeId);
   const { settings } = useSettingsStore();
   const useLiquidGlass = settings.liquid_glass_enabled;
 
@@ -90,13 +85,19 @@ export function ProjectCard({
       className={cn(
         "group p-3 transition-all cursor-pointer",
         useLiquidGlass
-          ? "liquid-glass-card-scope"
+          ? isSelected
+            ? "liquid-glass-card-scope-selected"
+            : "liquid-glass-card-scope"
           : [
               "rounded-lg",
               "bg-white/60 dark:bg-white/5",
               "border border-black/[0.06] dark:border-white/[0.08]",
               "hover:bg-white/80 dark:hover:bg-white/10",
-              "hover:shadow-sm hover:border-black/10 dark:hover:border-white/10"
+              "hover:shadow-sm hover:border-black/10 dark:hover:border-white/10",
+              isSelected && [
+                "bg-primary/10 dark:bg-primary/15",
+                "border-primary/40 dark:border-primary/50",
+              ],
             ]
       )}
       onClick={onOpen}
@@ -105,6 +106,9 @@ export function ProjectCard({
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
+            {p.isPinned && (
+              <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 shrink-0" />
+            )}
             <h3 className="text-[13px] font-medium text-foreground/90 truncate">
               {p.name}
             </h3>
@@ -135,105 +139,33 @@ export function ProjectCard({
               <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenuItem onClick={onOpen}>
-              <ExternalLink className="h-3.5 w-3.5 mr-2" />
-              Open in {editor?.name || "Editor"}
-            </DropdownMenuItem>
-
-            {editors.length > 1 && onOpenWithEditor && (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <ExternalLink className="h-3.5 w-3.5 mr-2" />
-                  Open with...
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {editors
-                    .filter((e) => e.isAvailable)
-                    .map((e) => (
-                      <DropdownMenuItem
-                        key={e.id}
-                        onClick={() => onOpenWithEditor(e.id)}
-                      >
-                        {e.name}
-                      </DropdownMenuItem>
-                    ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            )}
-
-            <DropdownMenuSeparator />
-
-            {onRevealInFinder && (
-              <DropdownMenuItem onClick={onRevealInFinder}>
-                <FolderOpen className="h-3.5 w-3.5 mr-2" />
-                Reveal in Finder
-              </DropdownMenuItem>
-            )}
-
-            {onCopyPath && (
-              <DropdownMenuItem onClick={onCopyPath}>
-                <Copy className="h-3.5 w-3.5 mr-2" />
-                Copy Path
-              </DropdownMenuItem>
-            )}
-
-            <DropdownMenuItem onClick={onRefreshGit}>
-              <RefreshCw className="h-3.5 w-3.5 mr-2" />
-              Refresh Git Status
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator />
-
-            {onRename && (
-              <DropdownMenuItem onClick={onRename}>
-                <Pencil className="h-3.5 w-3.5 mr-2" />
-                Rename
-              </DropdownMenuItem>
-            )}
-
-            {onSettings && (
-              <DropdownMenuItem onClick={onSettings}>
-                <Settings2 className="h-3.5 w-3.5 mr-2" />
-                Settings
-              </DropdownMenuItem>
-            )}
-
-            {otherScopes.length > 0 && onMoveToScope && (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <ArrowRightLeft className="h-3.5 w-3.5 mr-2" />
-                  Move to Scope
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {otherScopes.map((scope) => (
-                    <DropdownMenuItem
-                      key={scope.scope.id}
-                      onClick={() => onMoveToScope(scope.scope.id)}
-                    >
-                      <div
-                        className="h-2.5 w-2.5 rounded-full mr-2"
-                        style={{
-                          backgroundColor: scope.scope.color || "#6b7280",
-                        }}
-                      />
-                      {scope.scope.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            )}
-
-            <DropdownMenuSeparator />
-
-            <DropdownMenuItem
-              onClick={onDelete}
-              className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-2" />
-              Remove from Scope
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+          <QuickActionsMenu
+            editor={editor}
+            editors={editors}
+            scopes={scopes}
+            currentScopeId={currentScopeId}
+            gitStatus={{
+              needsPull,
+              needsPush,
+              hasChanges: hasChanges || false,
+            }}
+            isPinned={p.isPinned}
+            isInScopeDefaultFolder={currentScopeHasDefaultFolder}
+            onOpen={onOpen}
+            onOpenWithEditor={onOpenWithEditor}
+            onRevealInFinder={onRevealInFinder}
+            onCopyPath={onCopyPath}
+            onRefreshGit={onRefreshGit}
+            onPull={onPull}
+            onPush={onPush}
+            onSettings={onSettings}
+            onPin={onPin}
+            onUnpin={onUnpin}
+            onOpenTerminal={onOpenTerminal}
+            onMoveToScope={onMoveToScope}
+            onDelete={onDelete}
+            onDeleteWithFolder={onDeleteWithFolder}
+          />
         </DropdownMenu>
       </div>
 
@@ -348,11 +280,15 @@ export function ProjectCard({
         <Button
           variant="ghost"
           size="icon"
-          onClick={onDelete}
+          onClick={onUnpin || onDelete}
           className="h-7 w-7 hover:bg-red-500/10 text-red-500/70 hover:text-red-500"
-          title="Remove"
+          title={p.isPinned ? "Unpin" : "Remove"}
         >
-          <Trash2 className="h-3 w-3" />
+          {p.isPinned ? (
+            <Star className="h-3 w-3" />
+          ) : (
+            <Trash2 className="h-3 w-3" />
+          )}
         </Button>
       </div>
     </div>

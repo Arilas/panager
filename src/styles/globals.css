@@ -462,6 +462,19 @@
     ) !important;
   }
 
+  .liquid-glass-card-scope-selected {
+    background: color-mix(
+      in srgb,
+      var(--scope-color, #6b7280) 15%,
+      transparent
+    ) !important;
+    -apple-visual-effect: -apple-system-glass-material;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
   .liquid-glass-button {
     background: transparent !important;
     -apple-visual-effect: -apple-system-glass-material;
@@ -738,6 +751,23 @@
   box-shadow: 0 8px 40px var(--glass-shadow),
     inset 0 1px 0 var(--glass-highlight),
     0 0 30px color-mix(in srgb, var(--scope-color, #6b7280) 15%, transparent);
+}
+
+.liquid-glass-card-scope-selected {
+  background: color-mix(
+    in srgb,
+    var(--glass-bg) 80%,
+    var(--scope-color, #6b7280) 20%
+  );
+  backdrop-filter: blur(30px) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(30px) saturate(var(--glass-saturation));
+  border: 1px solid
+    color-mix(in srgb, var(--glass-border) 50%, var(--scope-color, #6b7280) 50%);
+  border-radius: 16px;
+  box-shadow: 0 8px 40px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight),
+    0 0 30px color-mix(in srgb, var(--scope-color, #6b7280) 20%, transparent);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ----------------------------------------

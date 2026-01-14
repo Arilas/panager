@@ -15,7 +15,7 @@ use panager_lib::db::models::{
     TempProjectSettings,
     // Project models
     GitStatusCache, Project, ProjectWithStatus, ProjectLink, ProjectGroup, ProjectCommand,
-    ProjectStatistics,
+    ProjectStatistics, LastCommitInfo, LanguageInfo, ContributorInfo,
     // Editor models
     Editor, SshAlias,
     // DTOs
@@ -92,6 +92,9 @@ fn main() {
         ProjectGroup,
         ProjectCommand,
         ProjectStatistics,
+        LastCommitInfo,
+        LanguageInfo,
+        ContributorInfo,
         // Editor models
         Editor,
         SshAlias,

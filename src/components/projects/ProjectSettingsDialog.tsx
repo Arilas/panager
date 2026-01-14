@@ -13,7 +13,11 @@ import { cn } from "../../lib/utils";
 import { useProjectsStore } from "../../stores/projects";
 import { useEditorsStore } from "../../stores/editors";
 import { useSettingsStore } from "../../stores/settings";
-import type { ProjectWithStatus, Editor, ProjectCommand, ProjectStatistics, ProjectLink } from "../../types";
+import type {
+  ProjectWithStatus,
+  ProjectCommand,
+  ProjectStatistics,
+} from "../../types";
 import * as api from "../../lib/tauri";
 import { ProjectLinksSection } from "./ProjectLinksSection";
 import { formatRelativeTime } from "../../lib/utils";
@@ -53,14 +57,15 @@ export function ProjectSettingsDialog({
   const [workspaceFile, setWorkspaceFile] = useState<string>("");
   const [useWorkspace, setUseWorkspace] = useState(false);
   const [newTag, setNewTag] = useState("");
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
   const [showNotesPreview, setShowNotesPreview] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
-  const [projectGroups, setProjectGroups] = useState<Array<{ id: string; name: string; color: string | null }>>([]);
+  const [projectGroups, setProjectGroups] = useState<
+    Array<{ id: string; name: string; color: string | null }>
+  >([]);
 
   // Git tab state
   const [gitBranches, setGitBranches] = useState<
@@ -79,9 +84,6 @@ export function ProjectSettingsDialog({
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
   const [loadingWorkspaceFiles, setLoadingWorkspaceFiles] = useState(false);
 
-  // Links tab state
-  const [projectLinks, setProjectLinks] = useState<ProjectLink[]>([]);
-
   // Statistics tab state
   const [statistics, setStatistics] = useState<ProjectStatistics | null>(null);
   const [loadingStatistics, setLoadingStatistics] = useState(false);
@@ -95,10 +97,16 @@ export function ProjectSettingsDialog({
     description: "",
     workingDirectory: "",
   });
-  const [editingCommand, setEditingCommand] = useState<ProjectCommand | null>(null);
+  const [editingCommand, setEditingCommand] = useState<ProjectCommand | null>(
+    null
+  );
   const [executingCommand, setExecutingCommand] = useState<string | null>(null);
-  const [commandOutputs, setCommandOutputs] = useState<Record<string, string>>({});
-  const [showCommandLog, setShowCommandLog] = useState<Record<string, boolean>>({});
+  const [commandOutputs, setCommandOutputs] = useState<Record<string, string>>(
+    {}
+  );
+  const [showCommandLog, setShowCommandLog] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const {
     updateProject,
@@ -122,7 +130,9 @@ export function ProjectSettingsDialog({
 
   const allTags = getAllTags();
   const suggestedTags = allTags.filter(
-    (t) => !project?.tags.includes(t) && t.toLowerCase().includes(newTag.toLowerCase())
+    (t) =>
+      !project?.tags.includes(t) &&
+      t.toLowerCase().includes(newTag.toLowerCase())
   );
 
   const selectedEditor = editors.find((e) => e.id === preferredEditorId);
@@ -174,13 +184,6 @@ export function ProjectSettingsDialog({
     }
   }, [activeTab, project, open, editorSupportsWorkspaces]);
 
-  // Load links when Links tab is opened
-  useEffect(() => {
-    if (activeTab === "links" && project && open) {
-      loadProjectLinks();
-    }
-  }, [activeTab, project, open]);
-
   // Load statistics when Statistics tab is opened
   useEffect(() => {
     if (activeTab === "statistics" && project && open) {
@@ -225,23 +228,6 @@ export function ProjectSettingsDialog({
     }
   };
 
-  const loadProjectLinks = async () => {
-    if (!project) return;
-    try {
-      // Use links from project prop if available
-      if (project.links && project.links.length > 0) {
-        setProjectLinks(project.links);
-      } else {
-        // Otherwise fetch them
-        const links = await api.getProjectLinks(project.project.id);
-        setProjectLinks(links);
-      }
-    } catch (error) {
-      console.error("Failed to load project links:", error);
-      setProjectLinks([]);
-    }
-  };
-
   const loadStatistics = async () => {
     if (!project) return;
 
@@ -276,17 +262,23 @@ export function ProjectSettingsDialog({
   };
 
   const handleAddCommand = async () => {
-    if (!project || !newCommand.name.trim() || !newCommand.command.trim()) return;
+    if (!project || !newCommand.name.trim() || !newCommand.command.trim())
+      return;
 
     try {
       await createProjectCommand({
         projectId: project.project.id,
         name: newCommand.name.trim(),
         command: newCommand.command.trim(),
-        description: newCommand.description.trim() || undefined,
-        workingDirectory: newCommand.workingDirectory.trim() || undefined,
+        description: newCommand.description.trim() || null,
+        workingDirectory: newCommand.workingDirectory.trim() || null,
       });
-      setNewCommand({ name: "", command: "", description: "", workingDirectory: "" });
+      setNewCommand({
+        name: "",
+        command: "",
+        description: "",
+        workingDirectory: "",
+      });
       await loadCommands();
     } catch (error) {
       console.error("Failed to add command:", error);
@@ -327,7 +319,10 @@ export function ProjectSettingsDialog({
     setCommandOutputs((prev) => ({ ...prev, [commandId]: "" }));
     setShowCommandLog((prev) => ({ ...prev, [commandId]: true }));
     try {
-      const output = await executeProjectCommand(commandId, project.project.path);
+      const output = await executeProjectCommand(
+        commandId,
+        project.project.path
+      );
       setCommandOutputs((prev) => ({ ...prev, [commandId]: output }));
     } catch (error) {
       setCommandOutputs((prev) => ({ ...prev, [commandId]: String(error) }));
@@ -433,7 +428,11 @@ export function ProjectSettingsDialog({
             <DialogTitle>Project Settings</DialogTitle>
           </DialogHeader>
         )}
-        <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="flex h-[460px]">
+        <Tabs.Root
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="flex h-[460px]"
+        >
           <Tabs.List
             className={cn(
               "flex flex-col w-[160px] shrink-0",
@@ -442,7 +441,10 @@ export function ProjectSettingsDialog({
                 : "p-2 pt-6 border-r border-black/5 dark:border-white/5"
             )}
           >
-            <TabTrigger value="general" icon={<Settings2 className="h-4 w-4" />}>
+            <TabTrigger
+              value="general"
+              icon={<Settings2 className="h-4 w-4" />}
+            >
               General
             </TabTrigger>
             <TabTrigger value="notes" icon={<FileText className="h-4 w-4" />}>
@@ -451,10 +453,16 @@ export function ProjectSettingsDialog({
             <TabTrigger value="links" icon={<LinkIcon className="h-4 w-4" />}>
               Links
             </TabTrigger>
-            <TabTrigger value="statistics" icon={<BarChart3 className="h-4 w-4" />}>
+            <TabTrigger
+              value="statistics"
+              icon={<BarChart3 className="h-4 w-4" />}
+            >
               Statistics
             </TabTrigger>
-            <TabTrigger value="commands" icon={<Terminal className="h-4 w-4" />}>
+            <TabTrigger
+              value="commands"
+              icon={<Terminal className="h-4 w-4" />}
+            >
               Commands
             </TabTrigger>
             <TabTrigger value="git" icon={<GitBranch className="h-4 w-4" />}>
@@ -631,7 +639,8 @@ export function ProjectSettingsDialog({
                     />
                   )}
                   <p className="text-[11px] text-muted-foreground">
-                    Markdown supported. Notes are shown in the project list (truncated).
+                    Markdown supported. Notes are shown in the project list
+                    (truncated).
                   </p>
                 </div>
               </Tabs.Content>
@@ -654,7 +663,9 @@ export function ProjectSettingsDialog({
                             <label className="text-[11px] font-medium text-foreground/70">
                               File Count
                             </label>
-                            <p className="text-[13px]">{statistics.fileCount.toLocaleString()}</p>
+                            <p className="text-[13px]">
+                              {statistics.fileCount.toLocaleString()}
+                            </p>
                           </div>
                         )}
                         {statistics.repoSizeBytes !== null && (
@@ -663,7 +674,10 @@ export function ProjectSettingsDialog({
                               Repository Size
                             </label>
                             <p className="text-[13px]">
-                              {(statistics.repoSizeBytes / 1024 / 1024).toFixed(2)} MB
+                              {(statistics.repoSizeBytes / 1024 / 1024).toFixed(
+                                2
+                              )}{" "}
+                              MB
                             </p>
                           </div>
                         )}
@@ -688,7 +702,9 @@ export function ProjectSettingsDialog({
                             <p className="text-[12px] font-mono text-muted-foreground mb-1">
                               {statistics.lastCommit.hash.slice(0, 8)}
                             </p>
-                            <p className="text-[13px] mb-1">{statistics.lastCommit.message}</p>
+                            <p className="text-[13px] mb-1">
+                              {statistics.lastCommit.message}
+                            </p>
                             <p className="text-[11px] text-muted-foreground">
                               {statistics.lastCommit.author} •{" "}
                               {formatRelativeTime(statistics.lastCommit.date)}
@@ -768,7 +784,9 @@ export function ProjectSettingsDialog({
                             >
                               <div className="flex items-start justify-between mb-2">
                                 <div className="flex-1">
-                                  <h4 className="text-[13px] font-medium">{cmd.name}</h4>
+                                  <h4 className="text-[13px] font-medium">
+                                    {cmd.name}
+                                  </h4>
                                   {cmd.description && (
                                     <p className="text-[11px] text-muted-foreground mt-0.5">
                                       {cmd.description}
@@ -793,7 +811,9 @@ export function ProjectSettingsDialog({
                                       "disabled:opacity-50"
                                     )}
                                   >
-                                    {executingCommand === cmd.id ? "Running..." : "Run"}
+                                    {executingCommand === cmd.id
+                                      ? "Running..."
+                                      : "Run"}
                                   </button>
                                   <button
                                     onClick={() => setEditingCommand(cmd)}
@@ -822,20 +842,24 @@ export function ProjectSettingsDialog({
                                     className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                                   >
                                     <Terminal className="h-3 w-3" />
-                                    {showCommandLog[cmd.id] ? "Hide" : "Show"} output
+                                    {showCommandLog[cmd.id]
+                                      ? "Hide"
+                                      : "Show"}{" "}
+                                    output
                                   </button>
-                                  {showCommandLog[cmd.id] && commandOutputs[cmd.id] && (
-                                    <div
-                                      className={cn(
-                                        "rounded-md bg-black/5 dark:bg-black/30 p-2",
-                                        "font-mono text-[10px] leading-relaxed",
-                                        "max-h-[200px] overflow-y-auto",
-                                        "text-muted-foreground whitespace-pre-wrap break-all"
-                                      )}
-                                    >
-                                      {commandOutputs[cmd.id]}
-                                    </div>
-                                  )}
+                                  {showCommandLog[cmd.id] &&
+                                    commandOutputs[cmd.id] && (
+                                      <div
+                                        className={cn(
+                                          "rounded-md bg-black/5 dark:bg-black/30 p-2",
+                                          "font-mono text-[10px] leading-relaxed",
+                                          "max-h-[200px] overflow-y-auto",
+                                          "text-muted-foreground whitespace-pre-wrap break-all"
+                                        )}
+                                      >
+                                        {commandOutputs[cmd.id]}
+                                      </div>
+                                    )}
                                 </div>
                               )}
                             </div>
@@ -845,7 +869,9 @@ export function ProjectSettingsDialog({
 
                       {editingCommand ? (
                         <div className="p-3 rounded-lg border border-black/10 dark:border-white/10 space-y-3">
-                          <h4 className="text-[12px] font-medium">Edit Command</h4>
+                          <h4 className="text-[12px] font-medium">
+                            Edit Command
+                          </h4>
                           <Input
                             value={editingCommand.name}
                             onChange={(e) =>
@@ -905,25 +931,36 @@ export function ProjectSettingsDialog({
                         </div>
                       ) : (
                         <div className="p-3 rounded-lg border border-dashed border-black/10 dark:border-white/10 space-y-3">
-                          <h4 className="text-[12px] font-medium">Add Command</h4>
+                          <h4 className="text-[12px] font-medium">
+                            Add Command
+                          </h4>
                           <Input
                             value={newCommand.name}
                             onChange={(e) =>
-                              setNewCommand({ ...newCommand, name: e.target.value })
+                              setNewCommand({
+                                ...newCommand,
+                                name: e.target.value,
+                              })
                             }
                             placeholder="Command name"
                           />
                           <Input
                             value={newCommand.command}
                             onChange={(e) =>
-                              setNewCommand({ ...newCommand, command: e.target.value })
+                              setNewCommand({
+                                ...newCommand,
+                                command: e.target.value,
+                              })
                             }
                             placeholder="Command to run (e.g., npm run build)"
                           />
                           <Input
                             value={newCommand.description}
                             onChange={(e) =>
-                              setNewCommand({ ...newCommand, description: e.target.value })
+                              setNewCommand({
+                                ...newCommand,
+                                description: e.target.value,
+                              })
                             }
                             placeholder="Description (optional)"
                           />
@@ -941,7 +978,10 @@ export function ProjectSettingsDialog({
                             variant="glass-scope"
                             size="sm"
                             onClick={handleAddCommand}
-                            disabled={!newCommand.name.trim() || !newCommand.command.trim()}
+                            disabled={
+                              !newCommand.name.trim() ||
+                              !newCommand.command.trim()
+                            }
                           >
                             <Plus className="h-3.5 w-3.5 mr-1.5" />
                             Add Command
@@ -990,7 +1030,9 @@ export function ProjectSettingsDialog({
                                 key={remote.name}
                                 className="px-3 py-2 rounded-md bg-black/5 dark:bg-white/5 text-[12px] font-mono"
                               >
-                                <span className="font-medium">{remote.name}:</span>{" "}
+                                <span className="font-medium">
+                                  {remote.name}:
+                                </span>{" "}
                                 {remote.url}
                               </div>
                             ))}
@@ -1031,7 +1073,8 @@ export function ProjectSettingsDialog({
                       ))}
                     </select>
                     <p className="text-[11px] text-muted-foreground">
-                      This is for reference only. The branch will not be switched automatically.
+                      This is for reference only. The branch will not be
+                      switched automatically.
                     </p>
                   </div>
 
@@ -1096,8 +1139,8 @@ export function ProjectSettingsDialog({
                           Open with selected workspace
                         </label>
                         <p className="text-[11px] text-muted-foreground">
-                          When enabled, the project will open using the selected workspace file
-                          instead of the project folder.
+                          When enabled, the project will open using the selected
+                          workspace file instead of the project folder.
                         </p>
                       </div>
 

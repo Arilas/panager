@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { cn } from "../../lib/utils";
+import * as api from "../../lib/tauri";
 import { useProjectsStore } from "../../stores/projects";
 import { getProjectLinks } from "../../lib/tauri";
 import { LINK_TYPES, detectLinkType } from "../../types";
@@ -28,7 +29,10 @@ interface ProjectLinksSectionProps {
   compact?: boolean;
 }
 
-export function ProjectLinksSection({ project, compact }: ProjectLinksSectionProps) {
+export function ProjectLinksSection({
+  project,
+  compact,
+}: ProjectLinksSectionProps) {
   const [newLink, setNewLink] = useState({ label: "", url: "" });
   const [typeOverride, setTypeOverride] = useState<LinkType | null>(null);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
@@ -47,11 +51,10 @@ export function ProjectLinksSection({ project, compact }: ProjectLinksSectionPro
         setLinks(project.links);
       } else {
         // Fetch links if not in project prop
-        import("../../lib/tauri").then((api) => {
-          api.getProjectLinks(project.project.id)
-            .then(setLinks)
-            .catch(console.error);
-        });
+        api
+          .getProjectLinks(project.project.id)
+          .then(setLinks)
+          .catch(console.error);
       }
     }
   }, [project.project.id, project.links]);

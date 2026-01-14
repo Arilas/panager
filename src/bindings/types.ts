@@ -78,6 +78,21 @@ export type ProjectCommand = { id: string; projectId: string; name: string; comm
 export type ProjectStatistics = { fileCount: number | null; repoSizeBytes: number | null; commitCount: number | null; lastCommit: LastCommitInfo | null; languages: LanguageInfo[]; contributors: ContributorInfo[] }
 
 /**
+ * Information about the last commit
+ */
+export type LastCommitInfo = { hash: string; message: string; author: string; date: string }
+
+/**
+ * Language information
+ */
+export type LanguageInfo = { name: string; bytes: number; percentage: number }
+
+/**
+ * Contributor information
+ */
+export type ContributorInfo = { name: string; email: string; commitCount: number }
+
+/**
  * An editor that can be used to open projects
  */
 export type Editor = { id: string; name: string; command: string; icon: string | null; isAutoDetected: boolean; isAvailable: boolean; supportsWorkspaces: boolean; createdAt: string }

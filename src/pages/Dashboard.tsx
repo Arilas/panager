@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   FolderTree,
+  Star,
 } from "lucide-react";
 import { useScopesStore } from "../stores/scopes";
 import { useProjectsStore } from "../stores/projects";
@@ -19,6 +20,7 @@ import { useEditorsStore } from "../stores/editors";
 import { useTerminalsStore } from "../stores/terminals";
 import { useUIStore } from "../stores/ui";
 import { ProjectListItem } from "../components/projects/ProjectListItem";
+import { ProjectCard } from "../components/projects/ProjectCard";
 import { ScopeInfoPanel } from "../components/scopes/ScopeInfoPanel";
 import { ScopeSelector } from "../components/scopes/ScopeSelector";
 import { TempProjectDialog } from "../components/temp-projects/TempProjectDialog";
@@ -150,9 +152,9 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
     return Array.from(tags).sort();
   }, [projects]);
 
-  // Filter and sort projects
+  // Filter and sort projects (excluding pinned - they have their own section)
   const filteredProjects = useMemo(() => {
-    let result = [...projects];
+    let result = [...projects].filter((p) => !p.project.isPinned);
 
     // Filter by search query (matches name or path)
     if (searchQuery.trim()) {
@@ -173,11 +175,6 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
 
     // Sort
     result.sort((a, b) => {
-      // Always sort pinned projects first
-      if (a.project.isPinned !== b.project.isPinned) {
-        return a.project.isPinned ? -1 : 1;
-      }
-
       switch (sortBy) {
         case "name":
           return a.project.name.localeCompare(b.project.name);
@@ -197,6 +194,31 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
 
     return result;
   }, [projects, selectedTags, sortBy, searchQuery]);
+
+  // Pinned projects (separate section)
+  const pinnedProjects = useMemo(() => {
+    let result = projects.filter((p) => p.project.isPinned);
+
+    // Also apply search filter to pinned projects
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (p) =>
+          p.project.name.toLowerCase().includes(query) ||
+          p.project.path.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort pinned by name
+    result.sort((a, b) => a.project.name.localeCompare(b.project.name));
+
+    return result;
+  }, [projects, searchQuery]);
+
+  // All navigable projects (pinned first, then filtered) for keyboard navigation
+  const allNavigableProjects = useMemo(() => {
+    return [...pinnedProjects, ...filteredProjects];
+  }, [pinnedProjects, filteredProjects]);
 
   // Group projects by group_id
   const groupedProjects = useMemo(() => {
@@ -256,7 +278,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
     setSelectedIndex(-1);
   }, [searchQuery, selectedTags, sortBy, currentScopeId]);
 
-  // Keyboard navigation for project list
+  // Keyboard navigation for project list (includes pinned projects)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only handle if not in an input/textarea
@@ -268,13 +290,13 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
         return;
       }
 
-      if (filteredProjects.length === 0) return;
+      if (allNavigableProjects.length === 0) return;
 
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
           setSelectedIndex((prev) =>
-            prev < filteredProjects.length - 1 ? prev + 1 : prev
+            prev < allNavigableProjects.length - 1 ? prev + 1 : prev
           );
           break;
         case "ArrowUp":
@@ -282,9 +304,9 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
           break;
         case "Enter":
-          if (selectedIndex >= 0 && selectedIndex < filteredProjects.length) {
+          if (selectedIndex >= 0 && selectedIndex < allNavigableProjects.length) {
             e.preventDefault();
-            const project = filteredProjects[selectedIndex];
+            const project = allNavigableProjects[selectedIndex];
             handleOpenProject(
               project.project.id,
               project.project.path,
@@ -301,12 +323,13 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [filteredProjects, selectedIndex]);
+  }, [allNavigableProjects, selectedIndex]);
 
   // Scroll selected item into view
   useEffect(() => {
-    if (selectedIndex >= 0 && listRef.current) {
-      const items = listRef.current.querySelectorAll("[data-project-item]");
+    if (selectedIndex >= 0) {
+      // Search in entire document for project items (includes pinned section)
+      const items = document.querySelectorAll("[data-project-item]");
       if (items[selectedIndex]) {
         items[selectedIndex].scrollIntoView({
           block: "nearest",
@@ -668,6 +691,84 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           </div>
         )}
 
+        {/* Pinned Projects Section */}
+        {pinnedProjects.length > 0 && (
+          <div className="px-3 pb-4 border-b border-black/10 dark:border-white/10 mb-2">
+            <div className="flex items-center gap-2 mb-3">
+              <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
+              <span className="text-[12px] font-medium text-foreground/80">
+                Pinned
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                ({pinnedProjects.length})
+              </span>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {pinnedProjects.map((project, index) => (
+                <div key={`pinned-${project.project.id}`} data-project-item>
+                  <ProjectCard
+                    project={project}
+                    isSelected={index === selectedIndex}
+                    editor={
+                      project.project.preferredEditorId
+                        ? editors.find(
+                            (e) => e.id === project.project.preferredEditorId
+                          )
+                        : scopeDefaultEditor
+                    }
+                    editors={editors}
+                    scopes={scopes}
+                    currentScopeId={currentScopeId}
+                    currentScopeHasDefaultFolder={
+                      !!currentScope?.scope.defaultFolder
+                    }
+                    onOpen={() =>
+                      handleOpenProject(
+                        project.project.id,
+                        project.project.path,
+                        project.project.preferredEditorId,
+                        project.project.workspaceFile
+                      )
+                    }
+                    onOpenWithEditor={(editorId) =>
+                      handleOpenWithEditor(
+                        project.project.id,
+                        project.project.path,
+                        editorId,
+                        project.project.workspaceFile
+                      )
+                    }
+                    onDelete={() => deleteProject(project.project.id)}
+                    onDeleteWithFolder={() => setProjectToDelete(project)}
+                    onRefreshGit={() =>
+                      refreshGitStatus(project.project.id, project.project.path)
+                    }
+                    onPull={() =>
+                      handlePull(project.project.path, project.project.id)
+                    }
+                    onPush={() =>
+                      handlePush(project.project.path, project.project.id)
+                    }
+                    onRevealInFinder={() =>
+                      handleRevealInFinder(project.project.path)
+                    }
+                    onCopyPath={() => handleCopyPath(project.project.path)}
+                    onOpenTerminal={() =>
+                      handleOpenTerminal(project.project.path)
+                    }
+                    onMoveToScope={(scopeId) =>
+                      handleMoveToScope(project, scopeId)
+                    }
+                    onSettings={() => setSettingsProject(project)}
+                    onPin={() => pinProject(project.project.id)}
+                    onUnpin={() => unpinProject(project.project.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Projects List */}
         <div ref={listRef} className="flex-1 overflow-y-auto px-3 pb-4">
           {loading ? (
@@ -780,7 +881,8 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                             <ProjectListItem
                               project={project}
                               isSelected={
-                                filteredProjects.indexOf(project) ===
+                                pinnedProjects.length +
+                                  filteredProjects.indexOf(project) ===
                                 selectedIndex
                               }
                               editor={
@@ -870,7 +972,8 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                     </div>
                   )}
                   {groupedProjects.ungrouped.map((project) => {
-                    const globalIndex = filteredProjects.indexOf(project);
+                    const globalIndex =
+                      pinnedProjects.length + filteredProjects.indexOf(project);
                     return (
                       <div key={project.project.id} data-project-item>
                         <ProjectListItem
@@ -961,10 +1064,10 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           onManageLinks={() => setShowScopeLinks(true)}
           onSetupGitIdentity={() => setShowGitConfig(true)}
           selectedProject={
-            selectedIndex >= 0 && selectedIndex < filteredProjects.length
+            selectedIndex >= 0 && selectedIndex < allNavigableProjects.length
               ? {
-                  id: filteredProjects[selectedIndex].project.id,
-                  links: filteredProjects[selectedIndex].links || [],
+                  id: allNavigableProjects[selectedIndex].project.id,
+                  links: allNavigableProjects[selectedIndex].links || [],
                 }
               : null
           }

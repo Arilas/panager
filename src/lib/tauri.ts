@@ -4,7 +4,6 @@ import type {
   CloneOptions,
   CloneProgress,
   CloneResult,
-  CommandResult,
   CreateProjectCommandRequest,
   CreateProjectGroupRequest,
   CreateProjectLinkRequest,
@@ -220,7 +219,9 @@ export async function deleteProjectGroup(groupId: string): Promise<void> {
   return invoke("delete_project_group", { groupId });
 }
 
-export async function getProjectGroups(scopeId: string): Promise<ProjectGroup[]> {
+export async function getProjectGroups(
+  scopeId: string
+): Promise<ProjectGroup[]> {
   return invoke("get_project_groups", { scopeId });
 }
 
@@ -581,7 +582,9 @@ export async function getScopeDiagnostics(
   return invoke("get_scope_diagnostics", { scopeId, includeDismissed });
 }
 
-export async function getDiagnosticsSummaries(): Promise<ScopeDiagnosticsSummary[]> {
+export async function getDiagnosticsSummaries(): Promise<
+  ScopeDiagnosticsSummary[]
+> {
   return invoke("get_diagnostics_summaries");
 }
 
@@ -591,7 +594,9 @@ export async function getScopeDiagnosticsSummary(
   return invoke("get_scope_diagnostics_summary", { scopeId });
 }
 
-export async function scanScopeDiagnostics(scopeId: string): Promise<ScanState> {
+export async function scanScopeDiagnostics(
+  scopeId: string
+): Promise<ScanState> {
   return invoke("scan_scope_diagnostics", { scopeId });
 }
 

@@ -51,7 +51,11 @@ interface ProjectsState {
   gitPush: (projectPath: string) => Promise<string>;
 
   // Editor
-  openInEditor: (editorCommand: string, projectPath: string, workspaceFile?: string) => Promise<void>;
+  openInEditor: (
+    editorCommand: string,
+    projectPath: string,
+    workspaceFile?: string
+  ) => Promise<void>;
   updateLastOpened: (projectId: string) => Promise<void>;
 
   // Scanning
@@ -69,7 +73,9 @@ interface ProjectsState {
   getProjectLinks: (projectId: string) => Promise<ProjectLink[]>;
 
   // Project Groups
-  createProjectGroup: (request: CreateProjectGroupRequest) => Promise<ProjectGroup>;
+  createProjectGroup: (
+    request: CreateProjectGroupRequest
+  ) => Promise<ProjectGroup>;
   updateProjectGroup: (
     groupId: string,
     name?: string,
@@ -101,7 +107,10 @@ interface ProjectsState {
   ) => Promise<string>;
 
   // Project Metadata
-  updateProjectNotes: (projectId: string, notes: string | null) => Promise<void>;
+  updateProjectNotes: (
+    projectId: string,
+    notes: string | null
+  ) => Promise<void>;
   updateProjectDescription: (
     projectId: string,
     description: string | null
@@ -168,9 +177,21 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     }
   },
 
-  updateProject: async (id, name, preferredEditorId, defaultBranch, workspaceFile) => {
+  updateProject: async (
+    id,
+    name,
+    preferredEditorId,
+    defaultBranch,
+    workspaceFile
+  ) => {
     try {
-      await api.updateProject(id, name, preferredEditorId, defaultBranch, workspaceFile);
+      await api.updateProject(
+        id,
+        name,
+        preferredEditorId,
+        defaultBranch,
+        workspaceFile
+      );
       const updateFn = (p: ProjectWithStatus) =>
         p.project.id === id
           ? {
@@ -247,7 +268,12 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     }
   },
 
-  moveProjectToScopeWithFolder: async (projectId, newScopeId, targetFolder, folderName) => {
+  moveProjectToScopeWithFolder: async (
+    projectId,
+    newScopeId,
+    targetFolder,
+    folderName
+  ) => {
     try {
       const newPath = await api.moveProjectToScopeWithFolder(
         projectId,
@@ -473,7 +499,7 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         p.project.id === projectId
           ? {
               ...p,
-              project: { ...p.project, groupId: groupId || undefined },
+              project: { ...p.project, groupId: groupId ?? null },
             }
           : p;
 
@@ -497,9 +523,21 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     }
   },
 
-  updateProjectCommand: async (commandId, name, command, description, workingDirectory) => {
+  updateProjectCommand: async (
+    commandId,
+    name,
+    command,
+    description,
+    workingDirectory
+  ) => {
     try {
-      await api.updateProjectCommand(commandId, name, command, description, workingDirectory);
+      await api.updateProjectCommand(
+        commandId,
+        name,
+        command,
+        description,
+        workingDirectory
+      );
     } catch (error) {
       set({ error: String(error) });
       throw error;
@@ -534,7 +572,7 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       await api.updateProjectNotes(projectId, notes);
       const updateFn = (p: ProjectWithStatus) =>
         p.project.id === projectId
-          ? { ...p, project: { ...p.project, notes: notes || undefined } }
+          ? { ...p, project: { ...p.project, notes: notes ?? null } }
           : p;
 
       set((state) => ({
@@ -554,7 +592,7 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         p.project.id === projectId
           ? {
               ...p,
-              project: { ...p.project, description: description || undefined },
+              project: { ...p.project, description: description ?? null },
             }
           : p;
 
@@ -605,7 +643,7 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   },
 
   // Project Statistics
-  fetchProjectStatistics: async (projectId, projectPath) => {
+  fetchProjectStatistics: async (_projectId, projectPath) => {
     try {
       return await api.getProjectStatistics(projectPath);
     } catch (error) {
