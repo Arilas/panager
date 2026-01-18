@@ -4,7 +4,7 @@
  * Styled with theme support to match Panager's design.
  */
 
-import { X, File } from "lucide-react";
+import { X, File, Circle } from "lucide-react";
 import { useFilesStore } from "../../stores/files";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
@@ -62,19 +62,38 @@ export function EditorTabs() {
           >
             <File className="w-3.5 h-3.5 shrink-0 opacity-60" />
             <span className="truncate">{fileName}</span>
+            {/* Close button or dirty indicator */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 closeFile(file.path);
               }}
               className={cn(
-                "p-0.5 rounded transition-colors shrink-0",
+                "p-0.5 rounded transition-colors shrink-0 relative",
                 isDark ? "hover:bg-white/10" : "hover:bg-black/10",
-                "opacity-0 group-hover:opacity-100",
+                // Show X on hover for dirty files, always show dirty indicator otherwise
+                file.isDirty
+                  ? "opacity-100"
+                  : "opacity-0 group-hover:opacity-100",
                 isActive && "opacity-100"
               )}
             >
-              <X className="w-3 h-3" />
+              {/* Dirty indicator (dot) - hidden on hover */}
+              {file.isDirty && (
+                <Circle
+                  className={cn(
+                    "w-2.5 h-2.5 fill-current group-hover:hidden",
+                    isDark ? "text-neutral-400" : "text-neutral-500"
+                  )}
+                />
+              )}
+              {/* Close X - shown on hover or when not dirty */}
+              <X
+                className={cn(
+                  "w-3 h-3",
+                  file.isDirty ? "hidden group-hover:block" : ""
+                )}
+              />
             </button>
           </div>
         );

@@ -4,7 +4,32 @@
 
 import { create } from "zustand";
 import type { FileEntry, OpenFile } from "../types";
-import { readDirectory, readFile } from "../lib/tauri-ide";
+import {
+  readDirectory,
+  readFile,
+  writeFile,
+  notifyFileClosed,
+  notifyFileChanged,
+} from "../lib/tauri-ide";
+
+/** Position to navigate to when opening a file */
+export interface FilePosition {
+  line: number; // 1-indexed
+  column: number; // 1-indexed
+}
+
+/** Pending navigation after file opens */
+let pendingNavigation: { path: string; position: FilePosition } | null = null;
+
+/** Get and clear pending navigation */
+export function consumePendingNavigation(path: string): FilePosition | null {
+  if (pendingNavigation && pendingNavigation.path === path) {
+    const pos = pendingNavigation.position;
+    pendingNavigation = null;
+    return pos;
+  }
+  return null;
+}
 
 interface FilesState {
   // File tree
@@ -25,10 +50,15 @@ interface FilesState {
   toggleDirectory: (path: string, projectPath: string) => Promise<void>;
 
   openFile: (path: string) => Promise<void>;
+  openFileAtPosition: (path: string, position: FilePosition) => Promise<void>;
   closeFile: (path: string) => void;
   closeOtherFiles: (path: string) => void;
   closeAllFiles: () => void;
   setActiveFile: (path: string | null) => void;
+  updateFileContent: (path: string, content: string) => void;
+  saveFile: (path: string) => Promise<void>;
+  saveActiveFile: () => Promise<void>;
+  saveAllFiles: () => Promise<void>;
 
   // File tree updates from watcher
   addFileToTree: (path: string, isDirectory: boolean) => void;
@@ -146,7 +176,35 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     }
   },
 
+  openFileAtPosition: async (path, position) => {
+    const { openFiles, openFile } = get();
+
+    // Store the pending navigation
+    pendingNavigation = { path, position };
+
+    // Check if already open
+    const existing = openFiles.find((f) => f.path === path);
+    if (existing) {
+      // File is already open, just set it active
+      // The editor will pick up the pending navigation
+      set({ activeFilePath: path });
+      // Force a re-render by updating the file (this triggers the editor to check for navigation)
+      set((state) => ({
+        openFiles: state.openFiles.map((f) =>
+          f.path === path ? { ...f } : f
+        ),
+      }));
+      return;
+    }
+
+    // Open the file - the editor will navigate when it mounts
+    await openFile(path);
+  },
+
   closeFile: (path) => {
+    // Notify plugins about the file being closed
+    notifyFileClosed(path).catch(console.error);
+
     set((state) => {
       const newOpenFiles = state.openFiles.filter((f) => f.path !== path);
       let newActivePath = state.activeFilePath;
@@ -183,6 +241,48 @@ export const useFilesStore = create<FilesState>((set, get) => ({
 
   setActiveFile: (path) => {
     set({ activeFilePath: path });
+  },
+
+  updateFileContent: (path, content) => {
+    // Notify plugins about the content change
+    notifyFileChanged(path, content).catch(console.error);
+
+    set((state) => ({
+      openFiles: state.openFiles.map((f) =>
+        f.path === path ? { ...f, content, isDirty: true } : f
+      ),
+    }));
+  },
+
+  saveFile: async (path) => {
+    const { openFiles } = get();
+    const file = openFiles.find((f) => f.path === path);
+    if (!file) return;
+
+    try {
+      await writeFile(path, file.content);
+      set((state) => ({
+        openFiles: state.openFiles.map((f) =>
+          f.path === path ? { ...f, isDirty: false } : f
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to save file:", error);
+      throw error;
+    }
+  },
+
+  saveActiveFile: async () => {
+    const { activeFilePath, saveFile } = get();
+    if (activeFilePath) {
+      await saveFile(activeFilePath);
+    }
+  },
+
+  saveAllFiles: async () => {
+    const { openFiles, saveFile } = get();
+    const dirtyFiles = openFiles.filter((f) => f.isDirty);
+    await Promise.all(dirtyFiles.map((f) => saveFile(f.path)));
   },
 
   // File tree updates

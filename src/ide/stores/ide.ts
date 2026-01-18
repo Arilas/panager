@@ -3,7 +3,12 @@
  */
 
 import { create } from "zustand";
-import type { IdeProjectContext, SidebarPanel, CursorPosition } from "../types";
+import type {
+  IdeProjectContext,
+  SidebarPanel,
+  CursorPosition,
+  BottomPanelTab,
+} from "../types";
 
 interface IdeState {
   // Project context
@@ -13,6 +18,11 @@ interface IdeState {
   activePanel: SidebarPanel;
   sidebarWidth: number;
   sidebarCollapsed: boolean;
+
+  // Bottom panel state
+  bottomPanelOpen: boolean;
+  bottomPanelTab: BottomPanelTab;
+  bottomPanelHeight: number;
 
   // Editor state
   cursorPosition: CursorPosition | null;
@@ -30,6 +40,13 @@ interface IdeState {
   setCursorPosition: (position: CursorPosition | null) => void;
   setShowQuickOpen: (show: boolean) => void;
   setShowGoToLine: (show: boolean) => void;
+
+  // Bottom panel actions
+  setBottomPanelOpen: (open: boolean) => void;
+  toggleBottomPanel: () => void;
+  setBottomPanelTab: (tab: BottomPanelTab) => void;
+  setBottomPanelHeight: (height: number) => void;
+  openBottomPanelTab: (tab: BottomPanelTab) => void;
 }
 
 export const useIdeStore = create<IdeState>((set, get) => ({
@@ -38,6 +55,9 @@ export const useIdeStore = create<IdeState>((set, get) => ({
   activePanel: "files",
   sidebarWidth: 260,
   sidebarCollapsed: false,
+  bottomPanelOpen: false,
+  bottomPanelTab: "problems",
+  bottomPanelHeight: 200,
   cursorPosition: null,
   showQuickOpen: false,
   showGoToLine: false,
@@ -66,4 +86,16 @@ export const useIdeStore = create<IdeState>((set, get) => ({
   setShowQuickOpen: (show) => set({ showQuickOpen: show }),
 
   setShowGoToLine: (show) => set({ showGoToLine: show }),
+
+  // Bottom panel actions
+  setBottomPanelOpen: (open) => set({ bottomPanelOpen: open }),
+
+  toggleBottomPanel: () =>
+    set((state) => ({ bottomPanelOpen: !state.bottomPanelOpen })),
+
+  setBottomPanelTab: (tab) => set({ bottomPanelTab: tab }),
+
+  setBottomPanelHeight: (height) => set({ bottomPanelHeight: height }),
+
+  openBottomPanelTab: (tab) => set({ bottomPanelOpen: true, bottomPanelTab: tab }),
 }));

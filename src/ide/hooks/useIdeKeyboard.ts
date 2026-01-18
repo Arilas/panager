@@ -11,8 +11,12 @@ export function useIdeKeyboard() {
   const setShowGoToLine = useIdeStore((s) => s.setShowGoToLine);
   const togglePanel = useIdeStore((s) => s.togglePanel);
   const toggleSidebar = useIdeStore((s) => s.toggleSidebar);
+  const toggleBottomPanel = useIdeStore((s) => s.toggleBottomPanel);
+  const openBottomPanelTab = useIdeStore((s) => s.openBottomPanelTab);
   const closeFile = useFilesStore((s) => s.closeFile);
   const activeFilePath = useFilesStore((s) => s.activeFilePath);
+  const saveActiveFile = useFilesStore((s) => s.saveActiveFile);
+  const saveAllFiles = useFilesStore((s) => s.saveAllFiles);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -69,6 +73,34 @@ export function useIdeKeyboard() {
         toggleSidebar();
         return;
       }
+
+      // Cmd+S - Save current file
+      if (isMod && e.key === "s" && !isShift) {
+        e.preventDefault();
+        saveActiveFile().catch(console.error);
+        return;
+      }
+
+      // Cmd+Shift+S - Save all files
+      if (isMod && isShift && e.key === "s") {
+        e.preventDefault();
+        saveAllFiles().catch(console.error);
+        return;
+      }
+
+      // Cmd+J - Toggle Bottom Panel
+      if (isMod && e.key === "j" && !isShift) {
+        e.preventDefault();
+        toggleBottomPanel();
+        return;
+      }
+
+      // Cmd+Shift+M - Focus Problems Panel
+      if (isMod && isShift && e.key === "m") {
+        e.preventDefault();
+        openBottomPanelTab("problems");
+        return;
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -78,7 +110,11 @@ export function useIdeKeyboard() {
     setShowGoToLine,
     togglePanel,
     toggleSidebar,
+    toggleBottomPanel,
+    openBottomPanelTab,
     closeFile,
     activeFilePath,
+    saveActiveFile,
+    saveAllFiles,
   ]);
 }

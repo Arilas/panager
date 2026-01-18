@@ -15,7 +15,7 @@ interface PersistedState {
   openFilePaths: string[];
   activeFilePath: string | null;
   sidebarWidth: number;
-  activePanel: "files" | "git" | "search" | null;
+  activePanel: "files" | "git" | "search" | "settings" | null;
   expandedPaths: string[];
 }
 

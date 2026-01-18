@@ -2,6 +2,11 @@
  * IDE-specific type definitions
  */
 
+// Re-export types from separate files
+export * from "./problems";
+export * from "./plugin";
+export * from "./panels";
+
 /** Project context passed to IDE window via URL params */
 export interface IdeProjectContext {
   projectId: string;
@@ -90,4 +95,4 @@ export interface CursorPosition {
 }
 
 /** Sidebar panel type */
-export type SidebarPanel = "files" | "git" | "search" | null;
+export type SidebarPanel = "files" | "git" | "search" | "settings" | null;

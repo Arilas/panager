@@ -11,6 +11,7 @@ import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { FileTreePanel } from "../panels/FileTreePanel";
 import { GitPanel } from "../panels/GitPanel";
 import { SearchPanel } from "../panels/SearchPanel";
+import { SettingsPanel } from "../panels/SettingsPanel";
 import { cn } from "../../../lib/utils";
 
 const MIN_WIDTH = 200;
@@ -71,6 +72,7 @@ export function Sidebar() {
         {activePanel === "files" && <FileTreePanel />}
         {activePanel === "git" && <GitPanel />}
         {activePanel === "search" && <SearchPanel />}
+        {activePanel === "settings" && <SettingsPanel />}
       </div>
 
       {/* Resize handle */}

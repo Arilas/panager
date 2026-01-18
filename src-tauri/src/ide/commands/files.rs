@@ -1,10 +1,14 @@
 //! File system commands for IDE
 
 use crate::ide::types::{FileContent, FileEntry};
+use crate::plugins::host::PluginHost;
+use crate::plugins::types::HostEvent;
 use ignore::WalkBuilder;
 use std::fs;
 use std::path::Path;
-use tracing::debug;
+use std::sync::Arc;
+use tauri::State;
+use tracing::{debug, info};
 
 /// Reads a directory and returns its contents as a file tree
 ///
@@ -123,7 +127,10 @@ fn read_directory_entries(
 /// Reads the content of a file
 #[tauri::command]
 #[specta::specta]
-pub fn ide_read_file(file_path: String) -> Result<FileContent, String> {
+pub async fn ide_read_file(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+) -> Result<FileContent, String> {
     let path = Path::new(&file_path);
 
     if !path.exists() {
@@ -146,6 +153,18 @@ pub fn ide_read_file(file_path: String) -> Result<FileContent, String> {
     match fs::read_to_string(&path) {
         Ok(content) => {
             let language = detect_language(&file_path);
+
+            // Notify plugins about the file being opened
+            host.broadcast(
+                HostEvent::FileOpened {
+                    path: path.to_path_buf(),
+                    content: content.clone(),
+                    language: language.clone(),
+                },
+                Some(&language),
+            )
+            .await;
+
             Ok(FileContent {
                 content,
                 language,
@@ -385,4 +404,195 @@ fn detect_language(file_path: &str) -> String {
         _ => "plaintext",
     }
     .to_string()
+}
+
+/// Make detect_language public for use in other modules
+pub fn get_file_language(file_path: &str) -> String {
+    detect_language(file_path)
+}
+
+/// Writes content to a file
+///
+/// This will overwrite existing content. Creates the file if it doesn't exist.
+#[tauri::command]
+#[specta::specta]
+pub async fn ide_write_file(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    content: String,
+) -> Result<(), String> {
+    let path = Path::new(&file_path);
+
+    // Ensure parent directory exists
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            return Err(format!("Parent directory does not exist: {:?}", parent));
+        }
+    }
+
+    info!("Writing file: {}", file_path);
+
+    // Write the file
+    fs::write(&path, &content).map_err(|e| format!("Failed to write file: {}", e))?;
+
+    // Notify plugins about the save
+    let language = detect_language(&file_path);
+    host.broadcast(
+        HostEvent::FileSaved {
+            path: path.to_path_buf(),
+        },
+        Some(&language),
+    )
+    .await;
+
+    Ok(())
+}
+
+/// Creates a new file with optional content
+#[tauri::command]
+#[specta::specta]
+pub fn ide_create_file(file_path: String, content: Option<String>) -> Result<(), String> {
+    let path = Path::new(&file_path);
+
+    if path.exists() {
+        return Err(format!("File already exists: {}", file_path));
+    }
+
+    // Create parent directories if needed
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directories: {}", e))?;
+    }
+
+    info!("Creating file: {}", file_path);
+
+    fs::write(&path, content.unwrap_or_default())
+        .map_err(|e| format!("Failed to create file: {}", e))
+}
+
+/// Deletes a file or directory
+#[tauri::command]
+#[specta::specta]
+pub fn ide_delete_file(file_path: String) -> Result<(), String> {
+    let path = Path::new(&file_path);
+
+    if !path.exists() {
+        return Err(format!("File does not exist: {}", file_path));
+    }
+
+    info!("Deleting: {}", file_path);
+
+    if path.is_dir() {
+        fs::remove_dir_all(&path).map_err(|e| format!("Failed to delete directory: {}", e))
+    } else {
+        fs::remove_file(&path).map_err(|e| format!("Failed to delete file: {}", e))
+    }
+}
+
+/// Renames/moves a file or directory
+#[tauri::command]
+#[specta::specta]
+pub fn ide_rename_file(old_path: String, new_path: String) -> Result<(), String> {
+    let from = Path::new(&old_path);
+    let to = Path::new(&new_path);
+
+    if !from.exists() {
+        return Err(format!("Source does not exist: {}", old_path));
+    }
+
+    if to.exists() {
+        return Err(format!("Destination already exists: {}", new_path));
+    }
+
+    info!("Renaming: {} -> {}", old_path, new_path);
+
+    fs::rename(from, to).map_err(|e| format!("Failed to rename: {}", e))
+}
+
+/// Notifies plugins that a file's content has changed
+///
+/// This should be called by the frontend when the user edits a file in the editor.
+#[tauri::command]
+#[specta::specta]
+pub async fn ide_notify_file_changed(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    content: String,
+) -> Result<(), String> {
+    let path = Path::new(&file_path);
+    let language = detect_language(&file_path);
+
+    debug!("File changed: {}", file_path);
+
+    host.broadcast(
+        HostEvent::FileChanged {
+            path: path.to_path_buf(),
+            content,
+        },
+        Some(&language),
+    )
+    .await;
+
+    Ok(())
+}
+
+/// Notifies plugins that a file has been closed
+///
+/// This should be called by the frontend when the user closes a file tab.
+#[tauri::command]
+#[specta::specta]
+pub async fn ide_notify_file_closed(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+) -> Result<(), String> {
+    let path = Path::new(&file_path);
+    let language = detect_language(&file_path);
+
+    debug!("File closed: {}", file_path);
+
+    host.broadcast(
+        HostEvent::FileClosed {
+            path: path.to_path_buf(),
+        },
+        Some(&language),
+    )
+    .await;
+
+    Ok(())
+}
+
+/// Notifies plugins that a project has been opened
+///
+/// This should be called by the frontend when the IDE opens a project.
+#[tauri::command]
+#[specta::specta]
+pub async fn ide_notify_project_opened(
+    host: State<'_, Arc<PluginHost>>,
+    project_path: String,
+) -> Result<(), String> {
+    let path = Path::new(&project_path);
+
+    info!("Project opened: {}", project_path);
+
+    host.broadcast(
+        HostEvent::ProjectOpened {
+            path: path.to_path_buf(),
+        },
+        None, // Broadcast to all plugins
+    )
+    .await;
+
+    Ok(())
+}
+
+/// Notifies plugins that the project has been closed
+#[tauri::command]
+#[specta::specta]
+pub async fn ide_notify_project_closed(
+    host: State<'_, Arc<PluginHost>>,
+) -> Result<(), String> {
+    info!("Project closed");
+
+    host.broadcast(HostEvent::ProjectClosed, None).await;
+
+    Ok(())
 }

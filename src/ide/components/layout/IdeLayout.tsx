@@ -11,8 +11,9 @@
  * │  [Git]      │ Search panels       │ MonacoEditor    │
  * │  [Search]   │                     │                 │
  * │             │                     │                 │
- * │  [Settings] │                     │                 │
- * ├─────────────┴─────────────────────┴─────────────────┤
+ * │  [Problems] ├─────────────────────┴─────────────────┤
+ * │  [Settings] │ Bottom Panel (Problems/Output/Term)   │
+ * ├─────────────┴───────────────────────────────────────┤
  * │ StatusBar                                           │
  * └─────────────────────────────────────────────────────┘
  */
@@ -23,10 +24,12 @@ import { IdeTitlebar } from "./IdeTitlebar";
 import { ActivityBar } from "./ActivityBar";
 import { Sidebar } from "./Sidebar";
 import { ContentArea } from "./ContentArea";
+import { BottomPanel } from "./BottomPanel";
 import { StatusBar } from "./StatusBar";
 import { QuickOpenDialog } from "../dialogs/QuickOpenDialog";
 import { GoToLineDialog } from "../dialogs/GoToLineDialog";
 import { useIdeKeyboard } from "../../hooks/useIdeKeyboard";
+import { usePluginEvents } from "../../hooks/usePluginEvents";
 import { cn } from "../../../lib/utils";
 
 export function IdeLayout() {
@@ -36,6 +39,9 @@ export function IdeLayout() {
 
   // Set up keyboard shortcuts
   useIdeKeyboard();
+
+  // Listen for plugin events from backend
+  usePluginEvents();
 
   const isDark = effectiveTheme === "dark";
 
@@ -67,15 +73,20 @@ export function IdeLayout() {
       <IdeTitlebar />
 
       {/* Main content area */}
-      <div className="flex-1 flex min-h-0">
-        {/* Activity Bar */}
-        <ActivityBar />
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex min-h-0">
+          {/* Activity Bar */}
+          <ActivityBar />
 
-        {/* Sidebar */}
-        {activePanel && !sidebarCollapsed && <Sidebar />}
+          {/* Sidebar */}
+          {activePanel && !sidebarCollapsed && <Sidebar />}
 
-        {/* Content Area */}
-        <ContentArea />
+          {/* Content Area */}
+          <ContentArea />
+        </div>
+
+        {/* Bottom Panel */}
+        <BottomPanel />
       </div>
 
       {/* Status Bar */}

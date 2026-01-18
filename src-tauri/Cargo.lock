@@ -3246,6 +3246,7 @@ dependencies = [
 name = "panager"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
  "directories",
  "git2",

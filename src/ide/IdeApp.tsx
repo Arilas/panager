@@ -14,7 +14,7 @@ import { useFileWatcher } from "./hooks/useFileWatcher";
 import { usePersistedIdeState } from "./hooks/usePersistedIdeState";
 import type { IdeProjectContext } from "./types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { stopWatcher } from "./lib/tauri-ide";
+import { stopWatcher, notifyProjectOpened, notifyProjectClosed } from "./lib/tauri-ide";
 import { getProject, getScopes } from "../lib/tauri";
 
 export function IdeApp() {
@@ -50,12 +50,15 @@ export function IdeApp() {
     setLoading(false);
   }, [setProjectContext]);
 
-  // Load file tree and git status when context is set
+  // Load file tree, git status, and notify plugins when context is set
   useEffect(() => {
     if (!projectContext) return;
 
     loadFileTree(projectContext.projectPath);
     loadGitStatus(projectContext.projectPath).catch(console.error);
+
+    // Notify plugins about project being opened (starts LSP servers, etc.)
+    notifyProjectOpened(projectContext.projectPath).catch(console.error);
   }, [projectContext, loadFileTree, loadGitStatus]);
 
   // Fetch project's scope color and set CSS variable
@@ -89,13 +92,15 @@ export function IdeApp() {
   // Set up state persistence
   usePersistedIdeState();
 
-  // Handle window close - cleanup watcher
+  // Handle window close - cleanup watcher and notify plugins
   useEffect(() => {
     if (!projectContext) return;
 
     const currentWindow = getCurrentWindow();
 
     const handleClose = async () => {
+      // Notify plugins about project being closed (stops LSP servers, etc.)
+      await notifyProjectClosed().catch(console.error);
       await stopWatcher(`ide-${projectContext.projectId}`);
     };
 

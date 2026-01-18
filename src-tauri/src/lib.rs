@@ -11,6 +11,7 @@ pub mod git;
 pub mod ide;
 pub mod logging;
 mod platform;
+pub mod plugins;
 pub mod services;
 pub mod ssh;
 pub mod utils;
@@ -167,6 +168,28 @@ pub fn run() {
             ide::commands::ide_search_files,
             ide::commands::ide_start_watcher,
             ide::commands::ide_stop_watcher,
+            // IDE - File write operations
+            ide::commands::ide_write_file,
+            ide::commands::ide_create_file,
+            ide::commands::ide_delete_file,
+            ide::commands::ide_rename_file,
+            // IDE - Plugin notifications (for LSP/plugins)
+            ide::commands::ide_notify_file_changed,
+            ide::commands::ide_notify_file_closed,
+            ide::commands::ide_notify_project_opened,
+            ide::commands::ide_notify_project_closed,
+            // IDE - Plugin management
+            ide::commands::ide_list_plugins,
+            ide::commands::ide_enable_plugin,
+            ide::commands::ide_disable_plugin,
+            ide::commands::ide_get_plugin,
+            // IDE - LSP commands
+            ide::commands::ide_lsp_goto_definition,
+            ide::commands::ide_lsp_hover,
+            ide::commands::ide_lsp_completion,
+            ide::commands::ide_lsp_references,
+            ide::commands::ide_lsp_rename,
+            ide::commands::ide_lsp_code_action,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

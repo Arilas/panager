@@ -5,9 +5,11 @@
 
 use crate::db::Database;
 use crate::events::EventBus;
+use crate::plugins::PluginHost;
 use crate::services::cleanup::CleanupServiceState;
 use crate::services::diagnostics::DiagnosticsServiceState;
 use crate::services::folder_scanner::FolderScanServiceState;
+use std::sync::Arc;
 use tauri::{App, Manager};
 
 /// Initialize all managed state for the application
@@ -27,6 +29,10 @@ pub fn init_state(app: &App) -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize diagnostics service state
     app.manage(DiagnosticsServiceState::default());
+
+    // Initialize plugin host
+    let plugin_host = Arc::new(PluginHost::new());
+    app.manage(plugin_host);
 
     Ok(())
 }
@@ -66,4 +72,36 @@ pub fn start_background_services(app: &App) {
     tauri::async_runtime::spawn(async move {
         crate::services::diagnostics::start_diagnostics_service(app_handle).await;
     });
+
+    // Start plugin host
+    let app_handle = app.handle().clone();
+    tauri::async_runtime::spawn(async move {
+        start_plugin_host(app_handle).await;
+    });
+}
+
+/// Initialize and start the plugin host
+async fn start_plugin_host(app: tauri::AppHandle) {
+    use crate::plugins::builtin;
+
+    tracing::info!("Starting plugin host");
+
+    let Some(host) = app.try_state::<Arc<PluginHost>>() else {
+        tracing::error!("Plugin host not initialized");
+        return;
+    };
+
+    // Set the app handle so plugins can emit events to frontend
+    host.set_app_handle(app.clone()).await;
+
+    // Register built-in plugins
+    builtin::register_builtin_plugins(&host).await;
+
+    // Start the event forwarding loop
+    host.start_event_loop().await;
+
+    // Activate default plugins
+    builtin::activate_default_plugins(&host).await;
+
+    tracing::info!("Plugin host started");
 }
