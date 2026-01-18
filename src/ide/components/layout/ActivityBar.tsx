@@ -1,11 +1,13 @@
 /**
- * VS Code-style Activity Bar
+ * Activity Bar - Panager-styled icon bar
  *
  * Vertical icon bar on the far left that toggles sidebar panels.
+ * Styled with glass effects and theme support to match Panager's design.
  */
 
 import { Files, GitBranch, Search, Settings } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
+import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
 import type { SidebarPanel } from "../../types";
 
@@ -23,32 +25,73 @@ const TOP_ITEMS: ActivityItem[] = [
 
 export function ActivityBar() {
   const activePanel = useIdeStore((s) => s.activePanel);
+  const sidebarCollapsed = useIdeStore((s) => s.sidebarCollapsed);
+  const setActivePanel = useIdeStore((s) => s.setActivePanel);
   const togglePanel = useIdeStore((s) => s.togglePanel);
+  const { useLiquidGlass, effectiveTheme } = useIdeSettingsContext();
+
+  const isDark = effectiveTheme === "dark";
+
+  const handlePanelClick = (panelId: Exclude<SidebarPanel, null>) => {
+    if (sidebarCollapsed) {
+      // If sidebar is collapsed, open it with the clicked panel
+      setActivePanel(panelId);
+      useIdeStore.setState({ sidebarCollapsed: false });
+    } else {
+      // Otherwise toggle as normal
+      togglePanel(panelId);
+    }
+  };
 
   return (
-    <div className="flex flex-col w-12 bg-neutral-950 border-r border-neutral-800 shrink-0">
+    <div
+      className={cn(
+        "flex flex-col w-12 shrink-0",
+        useLiquidGlass
+          ? "liquid-glass-sidebar"
+          : [
+              "bg-vibrancy-sidebar",
+              "border-r border-black/5 dark:border-white/5",
+            ]
+      )}
+    >
       {/* Top icons */}
       <div className="flex-1 flex flex-col items-center py-2 gap-0.5">
         {TOP_ITEMS.map(({ id, icon: Icon, label }) => {
-          const isActive = activePanel === id;
+          // Only show as active if sidebar is visible
+          const isActive = activePanel === id && !sidebarCollapsed;
           return (
             <button
               key={id}
-              onClick={() => togglePanel(id)}
+              onClick={() => handlePanelClick(id)}
               title={label}
               className={cn(
-                "w-12 h-10 flex items-center justify-center relative",
-                "transition-colors",
+                "w-10 h-10 flex items-center justify-center relative rounded-lg mx-1",
+                "transition-all duration-150",
                 isActive
-                  ? "text-white"
-                  : "text-neutral-500 hover:text-neutral-300"
+                  ? [
+                      useLiquidGlass
+                        ? "liquid-glass-button bg-black/10 dark:bg-white/10"
+                        : "bg-black/10 dark:bg-white/10",
+                      isDark ? "text-white" : "text-neutral-900",
+                    ]
+                  : [
+                      isDark
+                        ? "text-neutral-400 hover:text-neutral-200 hover:bg-white/5"
+                        : "text-neutral-500 hover:text-neutral-700 hover:bg-black/5",
+                    ]
               )}
             >
-              {/* Active indicator */}
+              {/* Active indicator - subtle left border */}
               {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-white rounded-r" />
+                <div
+                  className={cn(
+                    "absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r",
+                    isDark ? "bg-white" : "bg-neutral-900"
+                  )}
+                />
               )}
-              <Icon className="w-5 h-5" />
+              <Icon className="w-[18px] h-[18px]" />
             </button>
           );
         })}
@@ -58,9 +101,15 @@ export function ActivityBar() {
       <div className="flex flex-col items-center py-2">
         <button
           title="Settings"
-          className="w-12 h-10 flex items-center justify-center text-neutral-500 hover:text-neutral-300 transition-colors"
+          className={cn(
+            "w-10 h-10 flex items-center justify-center rounded-lg mx-1",
+            "transition-all duration-150",
+            isDark
+              ? "text-neutral-400 hover:text-neutral-200 hover:bg-white/5"
+              : "text-neutral-500 hover:text-neutral-700 hover:bg-black/5"
+          )}
         >
-          <Settings className="w-5 h-5" />
+          <Settings className="w-[18px] h-[18px]" />
         </button>
       </div>
     </div>

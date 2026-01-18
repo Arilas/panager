@@ -1,5 +1,7 @@
 /**
  * Git Status Panel
+ *
+ * Styled with theme support to match Panager's design.
  */
 
 import { useEffect } from "react";
@@ -15,6 +17,7 @@ import {
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useGitStore } from "../../stores/git";
+import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
 import type { GitFileChange, GitFileStatus } from "../../types";
 import { useState } from "react";
@@ -24,6 +27,9 @@ export function GitPanel() {
   const activePanel = useIdeStore((s) => s.activePanel);
   const { changes, branch, loading, loadGitStatus, selectFileForDiff, selectedFilePath } =
     useGitStore();
+  const { effectiveTheme } = useIdeSettingsContext();
+
+  const isDark = effectiveTheme === "dark";
 
   // Refresh on panel open
   useEffect(() => {
@@ -53,18 +59,32 @@ export function GitPanel() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-800">
-        <span className="text-xs font-medium uppercase tracking-wider text-neutral-400">
+      <div
+        className={cn(
+          "flex items-center justify-between px-3 py-2",
+          "border-b border-black/5 dark:border-white/5"
+        )}
+      >
+        <span
+          className={cn(
+            "text-xs font-medium uppercase tracking-wider",
+            isDark ? "text-neutral-400" : "text-neutral-500"
+          )}
+        >
           Source Control
         </span>
         <button
           onClick={handleRefresh}
-          className="p-1 hover:bg-neutral-800 rounded transition-colors"
+          className={cn(
+            "p-1 rounded transition-colors",
+            isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+          )}
           title="Refresh"
         >
           <RefreshCw
             className={cn(
-              "w-3.5 h-3.5 text-neutral-500",
+              "w-3.5 h-3.5",
+              isDark ? "text-neutral-500" : "text-neutral-400",
               loading && "animate-spin"
             )}
           />
@@ -73,18 +93,44 @@ export function GitPanel() {
 
       {/* Branch info */}
       {branch && (
-        <div className="px-3 py-2 text-sm border-b border-neutral-800">
-          <span className="text-neutral-400">On branch </span>
-          <span className="font-medium text-neutral-200">{branch.name}</span>
+        <div
+          className={cn(
+            "px-3 py-2 text-sm",
+            "border-b border-black/5 dark:border-white/5"
+          )}
+        >
+          <span className={isDark ? "text-neutral-400" : "text-neutral-500"}>
+            On branch{" "}
+          </span>
+          <span
+            className={cn(
+              "font-medium",
+              isDark ? "text-neutral-200" : "text-neutral-800"
+            )}
+          >
+            {branch.name}
+          </span>
         </div>
       )}
 
       {/* Changes */}
       <div className="flex-1 overflow-auto py-1">
         {loading && changes.length === 0 ? (
-          <div className="px-3 py-4 text-sm text-neutral-500">Loading...</div>
+          <div
+            className={cn(
+              "px-3 py-4 text-sm",
+              isDark ? "text-neutral-500" : "text-neutral-400"
+            )}
+          >
+            Loading...
+          </div>
         ) : changes.length === 0 ? (
-          <div className="px-3 py-4 text-sm text-neutral-500">
+          <div
+            className={cn(
+              "px-3 py-4 text-sm",
+              isDark ? "text-neutral-500" : "text-neutral-400"
+            )}
+          >
             No changes detected
           </div>
         ) : (
@@ -139,12 +185,20 @@ function ChangeSection({
   selectedPath,
 }: ChangeSectionProps) {
   const [expanded, setExpanded] = useState(true);
+  const { effectiveTheme } = useIdeSettingsContext();
+
+  const isDark = effectiveTheme === "dark";
 
   return (
     <div>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 w-full px-3 py-1.5 text-xs font-medium text-neutral-400 hover:bg-neutral-800/50"
+        className={cn(
+          "flex items-center gap-1 w-full px-3 py-1.5 text-xs font-medium",
+          isDark
+            ? "text-neutral-400 hover:bg-white/5"
+            : "text-neutral-500 hover:bg-black/5"
+        )}
       >
         {expanded ? (
           <ChevronDown className="w-3.5 h-3.5" />
@@ -152,7 +206,9 @@ function ChangeSection({
           <ChevronRight className="w-3.5 h-3.5" />
         )}
         {title}
-        <span className="ml-1 text-neutral-500">({changes.length})</span>
+        <span className={cn("ml-1", isDark ? "text-neutral-500" : "text-neutral-400")}>
+          ({changes.length})
+        </span>
       </button>
 
       {expanded && (
@@ -163,13 +219,21 @@ function ChangeSection({
               onClick={() => onFileClick(change)}
               className={cn(
                 "flex items-center gap-2 px-4 py-1 cursor-pointer text-sm",
-                "hover:bg-neutral-800/50 transition-colors",
-                selectedPath === change.path && "bg-neutral-800"
+                "transition-colors",
+                isDark ? "hover:bg-white/5" : "hover:bg-black/5",
+                selectedPath === change.path && [
+                  isDark ? "bg-white/10" : "bg-black/10",
+                ]
               )}
             >
               <StatusIcon status={change.status} />
               <span className="truncate flex-1">{getFileName(change.path)}</span>
-              <span className="text-xs text-neutral-600 truncate max-w-[100px]">
+              <span
+                className={cn(
+                  "text-xs truncate max-w-[100px]",
+                  isDark ? "text-neutral-600" : "text-neutral-400"
+                )}
+              >
                 {getParentPath(change.path)}
               </span>
             </div>

@@ -1,5 +1,7 @@
 /**
  * File Tree Panel - Explorer sidebar
+ *
+ * Styled with theme support to match Panager's design.
  */
 
 import {
@@ -12,6 +14,7 @@ import {
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useFilesStore } from "../../stores/files";
+import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
 import type { FileEntry } from "../../types";
 
@@ -20,6 +23,9 @@ export function FileTreePanel() {
   const tree = useFilesStore((s) => s.tree);
   const treeLoading = useFilesStore((s) => s.treeLoading);
   const loadFileTree = useFilesStore((s) => s.loadFileTree);
+  const { effectiveTheme } = useIdeSettingsContext();
+
+  const isDark = effectiveTheme === "dark";
 
   const handleRefresh = () => {
     if (projectContext) {
@@ -30,18 +36,32 @@ export function FileTreePanel() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-800">
-        <span className="text-xs font-medium uppercase tracking-wider text-neutral-400">
+      <div
+        className={cn(
+          "flex items-center justify-between px-3 py-2",
+          "border-b border-black/5 dark:border-white/5"
+        )}
+      >
+        <span
+          className={cn(
+            "text-xs font-medium uppercase tracking-wider",
+            isDark ? "text-neutral-400" : "text-neutral-500"
+          )}
+        >
           Explorer
         </span>
         <button
           onClick={handleRefresh}
-          className="p-1 hover:bg-neutral-800 rounded transition-colors"
+          className={cn(
+            "p-1 rounded transition-colors",
+            isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+          )}
           title="Refresh"
         >
           <RefreshCw
             className={cn(
-              "w-3.5 h-3.5 text-neutral-500",
+              "w-3.5 h-3.5",
+              isDark ? "text-neutral-500" : "text-neutral-400",
               treeLoading && "animate-spin"
             )}
           />
@@ -49,21 +69,45 @@ export function FileTreePanel() {
       </div>
 
       {/* Project name */}
-      <div className="px-3 py-2 text-sm font-medium text-neutral-300 border-b border-neutral-800">
+      <div
+        className={cn(
+          "px-3 py-2 text-sm font-medium",
+          "border-b border-black/5 dark:border-white/5",
+          isDark ? "text-neutral-300" : "text-neutral-700"
+        )}
+      >
         {projectContext?.projectName}
       </div>
 
       {/* Tree */}
-      <div className="flex-1 overflow-auto py-1">
+      <div className="flex-1 overflow-auto py-1 group/tree">
         {treeLoading && tree.length === 0 ? (
-          <div className="px-3 py-4 text-sm text-neutral-500">Loading...</div>
+          <div
+            className={cn(
+              "px-3 py-4 text-sm",
+              isDark ? "text-neutral-500" : "text-neutral-400"
+            )}
+          >
+            Loading...
+          </div>
         ) : tree.length === 0 ? (
-          <div className="px-3 py-4 text-sm text-neutral-500">
+          <div
+            className={cn(
+              "px-3 py-4 text-sm",
+              isDark ? "text-neutral-500" : "text-neutral-400"
+            )}
+          >
             No files found
           </div>
         ) : (
-          tree.map((entry) => (
-            <FileTreeNode key={entry.path} entry={entry} depth={0} />
+          tree.map((entry, index) => (
+            <FileTreeNode
+              key={entry.path}
+              entry={entry}
+              depth={0}
+              guideLines={[]}
+              isLast={index === tree.length - 1}
+            />
           ))
         )}
       </div>
@@ -74,16 +118,20 @@ export function FileTreePanel() {
 interface FileTreeNodeProps {
   entry: FileEntry;
   depth: number;
+  guideLines: boolean[]; // Array tracking which levels should show guide lines
+  isLast: boolean; // Whether this is the last item in its parent
 }
 
-function FileTreeNode({ entry, depth }: FileTreeNodeProps) {
+function FileTreeNode({ entry, depth, guideLines, isLast }: FileTreeNodeProps) {
   const projectContext = useIdeStore((s) => s.projectContext);
   const expandedPaths = useFilesStore((s) => s.expandedPaths);
   const loadingPaths = useFilesStore((s) => s.loadingPaths);
   const toggleDirectory = useFilesStore((s) => s.toggleDirectory);
   const openFile = useFilesStore((s) => s.openFile);
   const activeFilePath = useFilesStore((s) => s.activeFilePath);
+  const { effectiveTheme } = useIdeSettingsContext();
 
+  const isDark = effectiveTheme === "dark";
   const isExpanded = expandedPaths.has(entry.path);
   const isLoading = loadingPaths.has(entry.path);
   const isActive = activeFilePath === entry.path;
@@ -98,28 +146,69 @@ function FileTreeNode({ entry, depth }: FileTreeNodeProps) {
     }
   };
 
-  const paddingLeft = 12 + depth * 12;
+  const guideLineColor = isDark
+    ? "bg-white/0 group-hover/tree:bg-white/20"
+    : "bg-black/0 group-hover/tree:bg-black/15";
+  const indentSize = 16; // pixels per indent level
+  const baseIndent = 12; // base left padding
+
+  // Build guide line elements for this row
+  // Position each line at the center of the indentation level (where chevron would be)
+  // Lines are invisible by default, shown on tree hover
+  const guideLineElements = guideLines.map((showLine, index) =>
+    showLine ? (
+      <div
+        key={index}
+        className={cn("absolute top-0 bottom-0 w-px transition-colors duration-150", guideLineColor)}
+        style={{ left: baseIndent + index * indentSize + 8 }}
+      />
+    ) : null
+  );
 
   return (
     <div>
       <div
         onClick={handleClick}
         className={cn(
-          "flex items-center gap-1 py-0.5 pr-2 cursor-pointer text-sm",
-          "hover:bg-neutral-800/50 transition-colors",
-          isActive && "bg-neutral-800 text-white"
+          "flex items-center py-0.5 pr-2 cursor-pointer text-sm relative",
+          "transition-colors",
+          isDark ? "hover:bg-white/5" : "hover:bg-black/5",
+          isActive && [
+            isDark ? "bg-white/10 text-white" : "bg-black/10 text-neutral-900",
+          ]
         )}
-        style={{ paddingLeft }}
+        style={{ paddingLeft: baseIndent }}
       >
+        {/* Guide lines for this row */}
+        {depth > 0 && guideLineElements}
+
+        {/* Indentation spacer */}
+        {depth > 0 && <div style={{ width: depth * indentSize }} className="shrink-0" />}
+
         {/* Expand/collapse icon for directories */}
         {entry.isDirectory ? (
           <span className="w-4 h-4 flex items-center justify-center shrink-0">
             {isLoading ? (
-              <RefreshCw className="w-3 h-3 animate-spin text-neutral-500" />
+              <RefreshCw
+                className={cn(
+                  "w-3 h-3 animate-spin",
+                  isDark ? "text-neutral-500" : "text-neutral-400"
+                )}
+              />
             ) : isExpanded ? (
-              <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />
+              <ChevronDown
+                className={cn(
+                  "w-3.5 h-3.5",
+                  isDark ? "text-neutral-500" : "text-neutral-400"
+                )}
+              />
             ) : (
-              <ChevronRight className="w-3.5 h-3.5 text-neutral-500" />
+              <ChevronRight
+                className={cn(
+                  "w-3.5 h-3.5",
+                  isDark ? "text-neutral-500" : "text-neutral-400"
+                )}
+              />
             )}
           </span>
         ) : (
@@ -129,19 +218,24 @@ function FileTreeNode({ entry, depth }: FileTreeNodeProps) {
         {/* Icon */}
         {entry.isDirectory ? (
           isExpanded ? (
-            <FolderOpen className="w-4 h-4 text-yellow-500/80 shrink-0" />
+            <FolderOpen className="w-4 h-4 text-amber-500/80 shrink-0" />
           ) : (
-            <Folder className="w-4 h-4 text-yellow-500/80 shrink-0" />
+            <Folder className="w-4 h-4 text-amber-500/80 shrink-0" />
           )
         ) : (
-          <File className="w-4 h-4 text-neutral-500 shrink-0" />
+          <File
+            className={cn(
+              "w-4 h-4 shrink-0",
+              isDark ? "text-neutral-500" : "text-neutral-400"
+            )}
+          />
         )}
 
         {/* Name */}
         <span
           className={cn(
-            "truncate",
-            entry.isHidden && "text-neutral-500"
+            "truncate ml-1",
+            entry.isHidden && (isDark ? "text-neutral-500" : "text-neutral-400")
           )}
         >
           {entry.name}
@@ -151,8 +245,14 @@ function FileTreeNode({ entry, depth }: FileTreeNodeProps) {
       {/* Children */}
       {entry.isDirectory && isExpanded && entry.children && (
         <div>
-          {entry.children.map((child) => (
-            <FileTreeNode key={child.path} entry={child} depth={depth + 1} />
+          {entry.children.map((child, index) => (
+            <FileTreeNode
+              key={child.path}
+              entry={child}
+              depth={depth + 1}
+              guideLines={[...guideLines, !isLast]}
+              isLast={index === entry.children!.length - 1}
+            />
           ))}
         </div>
       )}

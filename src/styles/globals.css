@@ -100,6 +100,11 @@
   position: relative;
 }
 
+/* Compact titlebar for IDE windows */
+.titlebar-compact {
+  height: 40px;
+}
+
 /* Scope color gradient overlay for titlebar */
 .titlebar::before {
   content: "";
@@ -384,6 +389,13 @@
       transparent
     ) !important;
     -apple-visual-effect: -apple-system-glass-material;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .liquid-glass-content {
+    background: transparent !important;
+    -apple-visual-effect: -apple-system-content-background;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
@@ -809,10 +821,26 @@
    ---------------------------------------- */
 .liquid-glass-sidebar {
   background: transparent;
-  border-radius: 16px;
-  margin: 8px;
+  border-radius: 12px;
+  margin: 8px 0 8px 8px;
   backdrop-filter: blur(40px) saturate(1.6);
   -webkit-backdrop-filter: blur(40px) saturate(1.6);
+}
+
+/* ----------------------------------------
+   Liquid Glass Content Area
+   ---------------------------------------- */
+.liquid-glass-content {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  margin: 8px;
+  backdrop-filter: blur(30px) saturate(1.4);
+  -webkit-backdrop-filter: blur(30px) saturate(1.4);
+  overflow: hidden;
+}
+
+.dark .liquid-glass-content {
+  background: rgba(20, 20, 25, 0.4);
 }
 
 /* ----------------------------------------
@@ -976,6 +1004,7 @@
 .no-glass .liquid-glass-card-scope,
 .no-glass .liquid-glass-dialog,
 .no-glass .liquid-glass-sidebar,
+.no-glass .liquid-glass-content,
 .no-glass .liquid-glass-titlebar,
 .no-glass .liquid-glass-button,
 .no-glass .liquid-glass-button-scope,
@@ -994,6 +1023,7 @@
 .dark.no-glass .liquid-glass-card-scope,
 .dark.no-glass .liquid-glass-dialog,
 .dark.no-glass .liquid-glass-sidebar,
+.dark.no-glass .liquid-glass-content,
 .dark.no-glass .liquid-glass-titlebar,
 .dark.no-glass .liquid-glass-button,
 .dark.no-glass .liquid-glass-button-scope,

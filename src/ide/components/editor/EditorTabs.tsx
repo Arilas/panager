@@ -1,9 +1,12 @@
 /**
  * Editor Tabs Component
+ *
+ * Styled with theme support to match Panager's design.
  */
 
 import { X, File } from "lucide-react";
 import { useFilesStore } from "../../stores/files";
+import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
 
 export function EditorTabs() {
@@ -11,9 +14,22 @@ export function EditorTabs() {
   const activeFilePath = useFilesStore((s) => s.activeFilePath);
   const setActiveFile = useFilesStore((s) => s.setActiveFile);
   const closeFile = useFilesStore((s) => s.closeFile);
+  const { effectiveTheme, useLiquidGlass } = useIdeSettingsContext();
+
+  const isDark = effectiveTheme === "dark";
 
   return (
-    <div className="flex bg-neutral-950 border-b border-neutral-800 overflow-x-auto shrink-0">
+    <div
+      className={cn(
+        "flex overflow-x-auto shrink-0",
+        useLiquidGlass
+          ? "bg-black/5 dark:bg-white/5 border-b border-black/5 dark:border-white/5"
+          : [
+              isDark ? "bg-neutral-900/80" : "bg-neutral-100/80",
+              "border-b border-black/5 dark:border-white/5",
+            ]
+      )}
+    >
       {openFiles.map((file) => {
         const isActive = file.path === activeFilePath;
         const fileName = file.path.split("/").pop() || file.path;
@@ -23,14 +39,27 @@ export function EditorTabs() {
             key={file.path}
             onClick={() => setActiveFile(file.path)}
             className={cn(
-              "group flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer border-r border-neutral-800",
+              "group flex items-center gap-2 px-3 py-1.5 text-[13px] cursor-pointer",
               "transition-colors min-w-0 max-w-[200px]",
+              "border-r border-black/5 dark:border-white/5",
               isActive
-                ? "bg-neutral-900 text-neutral-100"
-                : "bg-neutral-950 text-neutral-500 hover:text-neutral-300"
+                ? [
+                    useLiquidGlass
+                      ? "bg-white/10 dark:bg-white/10"
+                      : isDark
+                        ? "bg-neutral-800/50"
+                        : "bg-white/80",
+                    isDark ? "text-neutral-100" : "text-neutral-900",
+                  ]
+                : [
+                    "bg-transparent",
+                    isDark
+                      ? "text-neutral-400 hover:text-neutral-200 hover:bg-white/5"
+                      : "text-neutral-500 hover:text-neutral-700 hover:bg-black/5",
+                  ]
             )}
           >
-            <File className="w-3.5 h-3.5 shrink-0" />
+            <File className="w-3.5 h-3.5 shrink-0 opacity-60" />
             <span className="truncate">{fileName}</span>
             <button
               onClick={(e) => {
@@ -38,7 +67,8 @@ export function EditorTabs() {
                 closeFile(file.path);
               }}
               className={cn(
-                "p-0.5 rounded hover:bg-neutral-700 transition-colors shrink-0",
+                "p-0.5 rounded transition-colors shrink-0",
+                isDark ? "hover:bg-white/10" : "hover:bg-black/10",
                 "opacity-0 group-hover:opacity-100",
                 isActive && "opacity-100"
               )}

@@ -1,14 +1,15 @@
 /**
  * Main IDE Layout Component
  *
- * Structure:
+ * Structure (with Panager native styling):
  * ┌─────────────────────────────────────────────────────┐
+ * │ [Traffic Lights]      Project Name                  │  <- IdeTitlebar (drag region)
+ * ├─────────────────────────────────────────────────────┤
  * │ ActivityBar │ Sidebar (resizable) │ Content Area    │
  * │             │                     │                 │
  * │  [Files]    │ FileTree / Git /    │ EditorTabs      │
  * │  [Git]      │ Search panels       │ MonacoEditor    │
  * │  [Search]   │                     │                 │
- * │             │                     │                 │
  * │             │                     │                 │
  * │  [Settings] │                     │                 │
  * ├─────────────┴─────────────────────┴─────────────────┤
@@ -17,6 +18,8 @@
  */
 
 import { useIdeStore } from "../../stores/ide";
+import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { IdeTitlebar } from "./IdeTitlebar";
 import { ActivityBar } from "./ActivityBar";
 import { Sidebar } from "./Sidebar";
 import { ContentArea } from "./ContentArea";
@@ -24,16 +27,45 @@ import { StatusBar } from "./StatusBar";
 import { QuickOpenDialog } from "../dialogs/QuickOpenDialog";
 import { GoToLineDialog } from "../dialogs/GoToLineDialog";
 import { useIdeKeyboard } from "../../hooks/useIdeKeyboard";
+import { cn } from "../../../lib/utils";
 
 export function IdeLayout() {
   const sidebarCollapsed = useIdeStore((s) => s.sidebarCollapsed);
   const activePanel = useIdeStore((s) => s.activePanel);
+  const { useLiquidGlass, effectiveTheme, loading } = useIdeSettingsContext();
 
   // Set up keyboard shortcuts
   useIdeKeyboard();
 
+  const isDark = effectiveTheme === "dark";
+
+  // Show loading state while settings are loading
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-neutral-100 dark:bg-neutral-900">
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-6 h-6 border-2 border-neutral-300 dark:border-neutral-600 border-t-neutral-500 dark:border-t-neutral-400 rounded-full animate-spin" />
+          <span className="text-sm text-neutral-500 dark:text-neutral-400">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen w-screen flex flex-col bg-neutral-900 text-neutral-100 overflow-hidden">
+    <div
+      className={cn(
+        "h-screen w-screen flex flex-col overflow-hidden",
+        useLiquidGlass
+          ? "liquid-glass"
+          : isDark
+            ? "bg-neutral-900"
+            : "bg-neutral-50",
+        isDark ? "text-neutral-100" : "text-neutral-900"
+      )}
+    >
+      {/* Titlebar with traffic light spacer */}
+      <IdeTitlebar />
+
       {/* Main content area */}
       <div className="flex-1 flex min-h-0">
         {/* Activity Bar */}

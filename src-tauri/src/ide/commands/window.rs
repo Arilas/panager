@@ -1,11 +1,12 @@
 //! Window management commands for IDE
 
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tracing::{info, warn};
 
 /// Opens an IDE window for a project
 ///
 /// If a window for this project already exists, it will be focused instead of creating a new one.
+/// Uses a frameless window with transparent background for native Panager look.
 #[tauri::command]
 #[specta::specta]
 pub async fn ide_open_window(
@@ -45,16 +46,57 @@ pub async fn ide_open_window(
         urlencoding::encode(&project_name)
     );
 
-    // Create the IDE window
-    WebviewWindowBuilder::new(&app, &window_label, WebviewUrl::App(url.into()))
+    // Create the IDE window matching main window configuration for native Panager look
+    // Note: decorations(true) is required for macOS traffic lights to appear
+    // titleBarStyle(Overlay) makes traffic lights float over content
+    let window = WebviewWindowBuilder::new(&app, &window_label, WebviewUrl::App(url.into()))
         .title(format!("{} - Panager", project_name))
         .inner_size(1400.0, 900.0)
         .min_inner_size(800.0, 600.0)
         .center()
-        .decorations(true)
+        .decorations(true) // Required for macOS traffic lights
+        .transparent(true) // Enable transparent background for glass effects
         .resizable(true)
+        .hidden_title(true) // Hide title in macOS traffic light area
+        .title_bar_style(tauri::TitleBarStyle::Overlay) // macOS: show traffic lights over content
         .build()
         .map_err(|e| format!("Failed to create IDE window: {}", e))?;
+
+    // Apply vibrancy and liquid glass effects (macOS only)
+    // Must run on main thread for vibrancy to work
+    #[cfg(target_os = "macos")]
+    {
+        let window_for_vibrancy = window.clone();
+        let window_for_liquid_glass = window.clone();
+
+        // Apply vibrancy on main thread (required by window_vibrancy crate)
+        app.run_on_main_thread(move || {
+            use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+
+            if let Err(e) = apply_vibrancy(&window_for_vibrancy, NSVisualEffectMaterial::Sidebar, None, None) {
+                warn!("Failed to apply vibrancy to IDE window: {}", e);
+            } else {
+                info!("Applied vibrancy to IDE window");
+            }
+        })
+        .map_err(|e| format!("Failed to run on main thread: {}", e))?;
+
+        // Enable Liquid Glass effect after a short delay (WebView needs to be ready)
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            if let Err(e) =
+                crate::commands::liquid_glass::enable_liquid_glass_for_window(&window_for_liquid_glass)
+            {
+                warn!("Failed to enable Liquid Glass for IDE window: {}", e);
+            } else {
+                info!("Enabled Liquid Glass for IDE window");
+                // Emit event to frontend to trigger CSS re-evaluation
+                if let Err(e) = window_for_liquid_glass.emit("liquid-glass-ready", ()) {
+                    warn!("Failed to emit liquid-glass-ready event: {}", e);
+                }
+            }
+        });
+    }
 
     Ok(())
 }

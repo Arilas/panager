@@ -2,12 +2,15 @@
  * Monaco Editor Wrapper Component
  *
  * Uses @monaco-editor/react for proper Monaco integration with syntax highlighting.
+ * Supports light/dark theme switching based on app settings.
  */
 
 import { useRef, useCallback } from "react";
 import Editor, { OnMount, loader } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { useIdeStore } from "../../stores/ide";
+import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { cn } from "../../../lib/utils";
 
 // Configure Monaco loader to use CDN (simplest setup)
 loader.config({
@@ -31,6 +34,10 @@ export function MonacoEditor({
 }: MonacoEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const setCursorPosition = useIdeStore((s) => s.setCursorPosition);
+  const { effectiveTheme } = useIdeSettingsContext();
+
+  const isDark = effectiveTheme === "dark";
+  const monacoTheme = isDark ? "vs-dark" : "vs";
 
   const handleEditorMount: OnMount = useCallback(
     (editor, _monaco) => {
@@ -60,7 +67,7 @@ export function MonacoEditor({
         language={language}
         value={content}
         path={path}
-        theme="vs-dark"
+        theme={monacoTheme}
         onMount={handleEditorMount}
         options={{
           readOnly,
@@ -87,7 +94,12 @@ export function MonacoEditor({
           },
         }}
         loading={
-          <div className="h-full w-full flex items-center justify-center bg-neutral-900 text-neutral-500">
+          <div
+            className={cn(
+              "h-full w-full flex items-center justify-center",
+              isDark ? "bg-neutral-900 text-neutral-500" : "bg-white text-neutral-400"
+            )}
+          >
             Loading editor...
           </div>
         }

@@ -10,6 +10,7 @@ export function useIdeKeyboard() {
   const setShowQuickOpen = useIdeStore((s) => s.setShowQuickOpen);
   const setShowGoToLine = useIdeStore((s) => s.setShowGoToLine);
   const togglePanel = useIdeStore((s) => s.togglePanel);
+  const toggleSidebar = useIdeStore((s) => s.toggleSidebar);
   const closeFile = useFilesStore((s) => s.closeFile);
   const activeFilePath = useFilesStore((s) => s.activeFilePath);
 
@@ -61,6 +62,13 @@ export function useIdeKeyboard() {
         togglePanel("search");
         return;
       }
+
+      // Cmd+B - Toggle Sidebar
+      if (isMod && e.key === "b" && !isShift) {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -69,6 +77,7 @@ export function useIdeKeyboard() {
     setShowQuickOpen,
     setShowGoToLine,
     togglePanel,
+    toggleSidebar,
     closeFile,
     activeFilePath,
   ]);
