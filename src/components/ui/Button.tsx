@@ -8,7 +8,7 @@ export interface ButtonProps
   variant?:
     | "default"
     | "destructive"
-    | "outline"
+    | "outline-solid"
     | "secondary"
     | "ghost"
     | "link"
@@ -39,15 +39,15 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     // Standard variants (when liquid glass is disabled)
     const standardVariants: Record<string, string> = {
-      default: "scope-solid shadow",
-      destructive: "bg-red-500 text-white shadow-sm hover:bg-red-600",
+      default: "scope-solid shadow-sm",
+      destructive: "bg-red-500 text-white shadow-xs hover:bg-red-600",
       outline:
-        "border border-black/10 dark:border-white/10 bg-background shadow-sm hover:bg-black/5 dark:hover:bg-white/5",
+        "border border-black/10 dark:border-white/10 bg-background shadow-xs hover:bg-black/5 dark:hover:bg-white/5",
       secondary:
-        "bg-black/5 dark:bg-white/10 text-foreground/70 shadow-sm hover:bg-black/10 dark:hover:bg-white/15",
-      ghost: "hover:bg-black/[0.06] dark:hover:bg-white/[0.10]",
+        "bg-black/5 dark:bg-white/10 text-foreground/70 shadow-xs hover:bg-black/10 dark:hover:bg-white/15",
+      ghost: "hover:bg-black/6 dark:hover:bg-white/10",
       link: "text-primary underline-offset-4 hover:underline",
-      warning: "bg-amber-500 text-white shadow-sm hover:bg-amber-600",
+      warning: "bg-amber-500 text-white shadow-xs hover:bg-amber-600",
       scope: "scope-accent scope-accent-text",
       glass: "liquid-glass-button",
       "glass-scope": "liquid-glass-button-scope",
@@ -67,7 +67,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         className={cn(
-          "inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+          "inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
           variantStyles,
           {
             "px-4 py-2 text-[13px]": size === "default",

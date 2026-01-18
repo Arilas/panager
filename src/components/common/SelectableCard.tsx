@@ -25,7 +25,7 @@ export function SelectableCard({
         "transition-colors",
         selected
           ? "bg-primary/10 border border-primary/20"
-          : "bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]",
+          : "bg-black/2 dark:bg-white/2 border border-black/5 dark:border-white/5 hover:bg-black/4 dark:hover:bg-white/4",
         className
       )}
     >

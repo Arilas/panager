@@ -23,7 +23,7 @@ export function OptionSelect({
           "px-2 py-1 rounded text-[11px]",
           "bg-white dark:bg-white/10",
           "border border-black/10 dark:border-white/10",
-          "focus:outline-none focus:ring-1 focus:ring-primary/50"
+          "focus:outline-hidden focus:ring-1 focus:ring-primary/50"
         )}
       >
         {options.map((opt) => (

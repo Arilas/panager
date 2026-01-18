@@ -50,7 +50,7 @@ export function DiagnosticsIssueCard({
         onClick={onClick}
         className={cn(
           "w-full p-2.5 text-left rounded-lg transition-colors",
-          "hover:bg-black/[0.04] dark:hover:bg-white/[0.04]",
+          "hover:bg-black/4 dark:hover:bg-white/4",
           "border border-transparent",
           !issue.dismissed && config.borderStyle
         )}
@@ -82,9 +82,9 @@ export function DiagnosticsIssueCard({
       className={cn(
         "p-3 rounded-lg border transition-colors",
         issue.dismissed
-          ? "border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01] opacity-60"
+          ? "border-black/5 dark:border-white/5 bg-black/1 dark:bg-white/1 opacity-60"
           : config.borderStyle,
-        !issue.dismissed && "hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
+        !issue.dismissed && "hover:bg-black/2 dark:hover:bg-white/2"
       )}
     >
       <div className="flex items-start gap-3">

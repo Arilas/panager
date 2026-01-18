@@ -9,7 +9,7 @@ export function AppearanceSettingsSection() {
   return (
     <div className="space-y-6">
       {/* Liquid Glass Banner */}
-      <div className="p-3 rounded-lg bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-white/20">
+      <div className="p-3 rounded-lg bg-linear-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-white/20">
         <div className="flex items-center gap-2 mb-1">
           <Droplet className="h-4 w-4 text-blue-500" />
           <span className="text-[13px] font-medium">Liquid Glass</span>
@@ -40,7 +40,7 @@ export function AppearanceSettingsSection() {
             active={settings.liquid_glass_intensity === "subtle"}
             onClick={() => updateSetting("liquid_glass_intensity", "subtle")}
             label="Subtle"
-            description="Light blur"
+            description="Light blur-sm"
             disabled={!settings.liquid_glass_enabled}
           />
           <IntensityButton
@@ -54,7 +54,7 @@ export function AppearanceSettingsSection() {
             active={settings.liquid_glass_intensity === "strong"}
             onClick={() => updateSetting("liquid_glass_intensity", "strong")}
             label="Strong"
-            description="Heavy blur"
+            description="Heavy blur-sm"
             disabled={!settings.liquid_glass_enabled}
           />
         </div>
@@ -115,7 +115,7 @@ interface LiquidGlassPreviewProps {
 
 function LiquidGlassPreview({ enabled }: LiquidGlassPreviewProps) {
   return (
-    <div className="relative p-4 rounded-xl bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 overflow-hidden">
+    <div className="relative p-4 rounded-xl bg-linear-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 overflow-hidden">
       {/* Background pattern for demo */}
       <div className="absolute inset-0 opacity-30">
         <div className="absolute top-2 left-2 w-8 h-8 rounded-full bg-blue-500" />

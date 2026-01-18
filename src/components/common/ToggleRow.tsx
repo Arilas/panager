@@ -25,7 +25,7 @@ export function ToggleRow({
         disabled && "opacity-50 cursor-not-allowed",
         checked && !disabled
           ? "bg-primary/10 border border-primary/20"
-          : "bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+          : "bg-black/2 dark:bg-white/2 border border-black/5 dark:border-white/5 hover:bg-black/4 dark:hover:bg-white/4"
       )}
     >
       <ToggleSwitch checked={checked && !disabled} />
@@ -55,7 +55,7 @@ export function ToggleSwitch({ checked, className }: ToggleSwitchProps) {
     >
       <div
         className={cn(
-          "w-5 h-5 rounded-full bg-white shadow transition-transform",
+          "w-5 h-5 rounded-full bg-white shadow-sm transition-transform",
           checked ? "translate-x-4" : "translate-x-0"
         )}
       />

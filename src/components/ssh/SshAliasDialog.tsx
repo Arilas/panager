@@ -321,7 +321,7 @@ export function SshAliasDialog({
                     "w-full px-3 py-2 rounded-md text-[12px] font-mono",
                     "bg-white dark:bg-white/5",
                     "border border-black/10 dark:border-white/10",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/50",
+                    "focus:outline-hidden focus:ring-2 focus:ring-primary/50",
                     "resize-none"
                   )}
                 />
@@ -351,7 +351,7 @@ export function SshAliasDialog({
                   "w-full px-3 py-2 rounded-md text-[12px] font-mono",
                   "bg-white dark:bg-white/5",
                   "border border-black/10 dark:border-white/10",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
+                  "focus:outline-hidden focus:ring-2 focus:ring-primary/50",
                   "resize-none"
                 )}
               />
@@ -361,7 +361,7 @@ export function SshAliasDialog({
             </div>
           )}
 
-          <DialogFooter className="pt-4 shrink-0 sticky bottom-0 backdrop-blur-sm">
+          <DialogFooter className="pt-4 shrink-0 sticky bottom-0 backdrop-blur-xs">
             <Button variant="glass" onClick={() => handleClose(false)}>
               Cancel
             </Button>

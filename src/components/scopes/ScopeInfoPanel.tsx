@@ -208,7 +208,7 @@ export function ScopeInfoPanel({
             <div className="space-y-1.5">
               {gitConfig.gpgSign && (!gitConfig.userName || !gitConfig.userEmail) && (
                 <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-1 rounded">
-                  <AlertCircle className="h-2.5 w-2.5 flex-shrink-0" />
+                  <AlertCircle className="h-2.5 w-2.5 shrink-0" />
                   <span>Identity incomplete</span>
                 </div>
               )}
@@ -353,12 +353,12 @@ function LinkCard({
       rel="noopener noreferrer"
       className={cn(
         "flex items-center gap-2.5 p-2 transition-all group rounded-lg",
-        "hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+        "hover:bg-black/4 dark:hover:bg-white/4"
       )}
     >
       <div
         className={cn(
-          "h-7 w-7 rounded-md flex items-center justify-center flex-shrink-0",
+          "h-7 w-7 rounded-md flex items-center justify-center shrink-0",
           "bg-black/5 dark:bg-white/10 text-foreground/60"
         )}
       >

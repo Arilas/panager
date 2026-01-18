@@ -312,7 +312,7 @@ export function TempProjectDialog({
                   {Object.entries(groupedTemplates).map(
                     ([category, templates]) => (
                       <div key={category}>
-                        <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wide bg-black/[0.02] dark:bg-white/[0.02] sticky top-0">
+                        <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wide bg-black/2 dark:bg-white/2 sticky top-0">
                           {category}
                         </div>
                         {templates.map((t) => (
@@ -352,7 +352,7 @@ export function TempProjectDialog({
                     Advanced options
                   </button>
                   {showAdvanced && (
-                    <div className="mt-3 p-3 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+                    <div className="mt-3 p-3 rounded-lg bg-black/2 dark:bg-white/2 border border-black/5 dark:border-white/5">
                       <AdvancedOptions
                         template={template}
                         options={options}
@@ -385,7 +385,7 @@ export function TempProjectDialog({
                   ref={logRef}
                   className={cn(
                     "h-[200px] overflow-y-auto rounded-lg p-3",
-                    "bg-black/[0.02] dark:bg-white/[0.02]",
+                    "bg-black/2 dark:bg-white/2",
                     "border border-black/10 dark:border-white/10",
                     "font-mono text-[11px] leading-relaxed"
                   )}

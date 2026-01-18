@@ -125,7 +125,7 @@ export function GeneralTab({
             "w-full px-3 py-2 rounded-md text-[13px]",
             "bg-white dark:bg-white/5",
             "border border-black/10 dark:border-white/10",
-            "focus:outline-none focus:ring-2 focus:ring-primary/50"
+            "focus:outline-hidden focus:ring-2 focus:ring-primary/50"
           )}
         >
           <option value="">Use scope default</option>
@@ -150,7 +150,7 @@ export function GeneralTab({
             "w-full px-3 py-2 rounded-md text-[13px]",
             "bg-white dark:bg-white/5",
             "border border-black/10 dark:border-white/10",
-            "focus:outline-none focus:ring-2 focus:ring-primary/50"
+            "focus:outline-hidden focus:ring-2 focus:ring-primary/50"
           )}
         >
           <option value="">Ungrouped</option>

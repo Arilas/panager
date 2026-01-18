@@ -46,7 +46,7 @@ export function ScopeGitIdentity({
   // No default folder set
   if (!scope.scope.defaultFolder) {
     return (
-      <div className="p-3 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+      <div className="p-3 rounded-lg bg-black/2 dark:bg-white/2 border border-black/5 dark:border-white/5">
         <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
           <AlertCircle className="h-3.5 w-3.5" />
           <span>Set a default folder to configure git identity</span>
@@ -131,7 +131,7 @@ export function ScopeGitIdentity({
       {hasIncompleteIdentity && (
         <div className="p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
           <div className="flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400">
-            <AlertCircle className="h-3 w-3 flex-shrink-0" />
+            <AlertCircle className="h-3 w-3 shrink-0" />
             <span>GPG signing enabled but identity is incomplete</span>
           </div>
         </div>

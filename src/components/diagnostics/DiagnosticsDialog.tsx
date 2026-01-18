@@ -271,7 +271,7 @@ function TabTrigger({
   );
 
   const activeStyles = useLiquidGlass
-    ? "py-1.5 font-medium data-[state=active]:bg-[color-mix(in_srgb,_var(--scope-color)_10%,_transparent)] data-[state=active]:text-[var(--scope-color)]"
+    ? "py-1.5 font-medium data-[state=active]:bg-[color-mix(in_srgb,var(--scope-color)_10%,transparent)] data-[state=active]:text-(--scope-color)"
     : "py-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium";
 
   return (

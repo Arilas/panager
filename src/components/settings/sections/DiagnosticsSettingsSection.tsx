@@ -120,7 +120,7 @@ export function DiagnosticsSettingsSection() {
                 "h-9 px-3 rounded-md text-[13px]",
                 "bg-white/60 dark:bg-white/5",
                 "border border-black/10 dark:border-white/10",
-                "focus:outline-none focus:ring-2 focus:ring-primary/30"
+                "focus:outline-hidden focus:ring-2 focus:ring-primary/30"
               )}
             >
               <option value={60000}>1 minute</option>
@@ -222,7 +222,7 @@ function RuleToggleRow({
         disabled && "opacity-50 cursor-not-allowed",
         checked && !disabled
           ? "bg-primary/10 border border-primary/20"
-          : "bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+          : "bg-black/2 dark:bg-white/2 border border-black/5 dark:border-white/5 hover:bg-black/4 dark:hover:bg-white/4"
       )}
     >
       <ToggleSwitch checked={checked && !disabled} />

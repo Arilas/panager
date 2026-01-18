@@ -22,7 +22,7 @@ const DialogOverlay = React.forwardRef<
     ref={ref}
     className={cn(
       "fixed inset-0 z-50",
-      useLiquidGlass ? "bg-transparent" : "bg-black/40 backdrop-blur-sm",
+      useLiquidGlass ? "bg-transparent" : "bg-black/40 backdrop-blur-xs",
       "data-[state=open]:animate-in data-[state=closed]:animate-out",
       "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
@@ -78,7 +78,7 @@ const DialogContent = React.forwardRef<
                   "opacity-70 hover:opacity-100",
                   "hover:bg-black/5 dark:hover:bg-white/10",
                 ],
-            "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            "focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             "disabled:pointer-events-none"
           )}
         >

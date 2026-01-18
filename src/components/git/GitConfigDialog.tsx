@@ -348,7 +348,7 @@ export function GitConfigDialog({
                     "w-full px-3 py-2 rounded-md text-[12px] font-mono",
                     "bg-white dark:bg-white/5",
                     "border border-black/10 dark:border-white/10",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/50",
+                    "focus:outline-hidden focus:ring-2 focus:ring-primary/50",
                     "resize-none"
                   )}
                 />
@@ -361,7 +361,7 @@ export function GitConfigDialog({
           )}
 
           {scope.scope.defaultFolder && (
-            <div className="p-3 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+            <div className="p-3 rounded-md bg-black/2 dark:bg-white/2 border border-black/5 dark:border-white/5">
               <p className="text-[11px] text-muted-foreground">
                 <span className="font-medium">Config location: </span>
                 {scope.scope.defaultFolder}/.gitconfig
@@ -369,7 +369,7 @@ export function GitConfigDialog({
             </div>
           )}
 
-          <DialogFooter className="pt-4 sticky bottom-0 backdrop-blur-sm">
+          <DialogFooter className="pt-4 sticky bottom-0 backdrop-blur-xs">
             <Button variant="glass" onClick={() => handleClose(false)}>
               Cancel
             </Button>

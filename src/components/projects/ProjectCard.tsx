@@ -93,9 +93,9 @@ export function ProjectCard({
           : [
               "rounded-lg",
               "bg-white/60 dark:bg-white/5",
-              "border border-black/[0.06] dark:border-white/[0.08]",
+              "border border-black/6 dark:border-white/8",
               "hover:bg-white/80 dark:hover:bg-white/10",
-              "hover:shadow-sm hover:border-black/10 dark:hover:border-white/10",
+              "hover:shadow-xs hover:border-black/10 dark:hover:border-white/10",
               isSelected && [
                 "bg-primary/10 dark:bg-primary/15",
                 "border-primary/40 dark:border-primary/50",

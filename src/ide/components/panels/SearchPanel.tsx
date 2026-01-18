@@ -156,7 +156,7 @@ export function SearchPanel() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search in files..."
-            className="w-full pl-8 pr-8 py-1.5 text-sm bg-neutral-800 border border-neutral-700 rounded focus:outline-none focus:border-neutral-600 placeholder:text-neutral-500"
+            className="w-full pl-8 pr-8 py-1.5 text-sm bg-neutral-800 border border-neutral-700 rounded focus:outline-hidden focus:border-neutral-600 placeholder:text-neutral-500"
           />
           {query && (
             <button

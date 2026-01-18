@@ -139,10 +139,10 @@ export function ProjectListItem({
     <div
       className={cn(
         "group flex gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer",
-        "hover:bg-black/[0.03] dark:hover:bg-white/[0.03]",
-        "border border-transparent hover:border-black/[0.05] dark:hover:border-white/[0.05]",
+        "hover:bg-black/3 dark:hover:bg-white/3",
+        "border border-transparent hover:border-black/5 dark:hover:border-white/5",
         isSelected &&
-          "bg-black/[0.05] dark:bg-white/[0.05] border-black/[0.08] dark:border-white/[0.08]"
+          "bg-black/5 dark:bg-white/5 border-black/8 dark:border-white/8"
       )}
       onClick={onOpen}
       onContextMenu={handleContextMenu}
@@ -152,7 +152,7 @@ export function ProjectListItem({
         <div
           className={cn(
             "h-8 w-8 rounded-lg flex items-center justify-center",
-            "bg-black/[0.04] dark:bg-white/[0.08]",
+            "bg-black/4 dark:bg-white/8",
             isSelected && "bg-primary/10"
           )}
         >
@@ -220,7 +220,7 @@ export function ProjectListItem({
                   key={tag}
                   className={cn(
                     "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px]",
-                    "bg-black/[0.04] dark:bg-white/[0.08] text-foreground/60"
+                    "bg-black/4 dark:bg-white/8 text-foreground/60"
                   )}
                 >
                   {tag}

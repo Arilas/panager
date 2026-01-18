@@ -291,7 +291,7 @@ function LinkItem({
     <div
       className={cn(
         "flex items-center gap-3 rounded-lg w-full",
-        "bg-black/[0.02] dark:bg-white/[0.02]",
+        "bg-black/2 dark:bg-white/2",
         "border border-black/5 dark:border-white/5",
         "group",
         compact ? "px-2.5 py-2" : "px-3 py-2.5"

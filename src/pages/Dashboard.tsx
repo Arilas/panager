@@ -506,7 +506,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
               : [
                   "bg-white/60 dark:bg-neutral-900/60",
                   "backdrop-blur-xl",
-                  "border border-black/[0.08] dark:border-white/[0.08]",
+                  "border border-black/8 dark:border-white/8",
                 ]
           )}
         >
@@ -545,7 +545,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           "bg-white/70 dark:bg-neutral-900/70",
           "backdrop-blur-xl",
           "rounded-xl",
-          "border border-black/[0.08] dark:border-white/[0.08]",
+          "border border-black/8 dark:border-white/8",
           // ],
           isDragOver && "border-primary border-2"
         )}
@@ -555,7 +555,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
           <div
             className={cn(
               "absolute inset-0 z-50",
-              "bg-primary/10 backdrop-blur-sm",
+              "bg-primary/10 backdrop-blur-xs",
               "flex flex-col items-center justify-center gap-3",
               "pointer-events-none"
             )}
@@ -654,7 +654,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                   className={cn(
-                    "bg-transparent text-[12px] focus:outline-none cursor-pointer",
+                    "bg-transparent text-[12px] focus:outline-hidden cursor-pointer",
                     "hover:text-foreground transition-colors"
                   )}
                 >
@@ -682,7 +682,7 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                         "transition-colors",
                         selectedTags.includes(tag)
                           ? "bg-primary text-primary-foreground"
-                          : "bg-black/[0.04] dark:bg-white/[0.08] text-foreground/60 hover:bg-black/[0.08] dark:hover:bg-white/[0.12]"
+                          : "bg-black/4 dark:bg-white/8 text-foreground/60 hover:bg-black/8 dark:hover:bg-white/12"
                       )}
                     >
                       <Tag className="h-2.5 w-2.5" />

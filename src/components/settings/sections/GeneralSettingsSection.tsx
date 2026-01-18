@@ -22,7 +22,7 @@ export function GeneralSettingsSection() {
               "h-9 px-3 rounded-md text-[13px]",
               "bg-white/60 dark:bg-white/5",
               "border border-black/10 dark:border-white/10",
-              "focus:outline-none focus:ring-2 focus:ring-primary/30"
+              "focus:outline-hidden focus:ring-2 focus:ring-primary/30"
             )}
           >
             <option value={300000}>5 minutes</option>

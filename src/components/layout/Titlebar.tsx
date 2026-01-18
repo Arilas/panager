@@ -65,9 +65,9 @@ export function Titlebar({
             useLiquidGlass
               ? "liquid-glass-input rounded-lg"
               : [
-                  "bg-black/[0.04] dark:bg-white/[0.08]",
-                  "hover:bg-black/[0.06] dark:hover:bg-white/[0.10]",
-                  "focus-within:bg-black/[0.06] dark:focus-within:bg-white/[0.10]",
+                  "bg-black/4 dark:bg-white/8",
+                  "hover:bg-black/6 dark:hover:bg-white/10",
+                  "focus-within:bg-black/6 dark:focus-within:bg-white/10",
                   "focus-within:ring-1 focus-within:ring-primary/30",
                   "rounded-lg transition-all"
                 ]
@@ -85,14 +85,14 @@ export function Titlebar({
               "w-full h-8 pl-9 pr-16 text-[13px] select-text",
               "bg-transparent text-foreground/90",
               "placeholder:text-muted-foreground/50",
-              "focus:outline-none"
+              "focus:outline-hidden"
             )}
           />
           <div className="absolute right-2 flex items-center gap-1 pointer-events-none">
             <kbd
               className={cn(
                 "px-1.5 py-0.5 rounded text-[10px] font-medium",
-                "bg-black/[0.06] dark:bg-white/[0.08]",
+                "bg-black/6 dark:bg-white/8",
                 "text-muted-foreground/60"
               )}
             >

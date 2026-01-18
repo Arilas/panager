@@ -215,7 +215,7 @@ export function ProjectSettingsDialog({
           <div className="flex-1 min-w-0 flex flex-col">
             <div className="flex-1 overflow-y-auto">
               {useLiquidGlass && (
-                <DialogHeader className="px-6 pt-4 pb-2 shrink-0 sticky top-0 z-50 backdrop-blur-sm">
+                <DialogHeader className="px-6 pt-4 pb-2 shrink-0 sticky top-0 z-50 backdrop-blur-xs">
                   <DialogTitle>Project Settings</DialogTitle>
                 </DialogHeader>
               )}

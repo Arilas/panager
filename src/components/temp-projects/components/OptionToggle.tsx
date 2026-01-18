@@ -22,7 +22,7 @@ export function OptionToggle({ label, checked, onChange }: OptionToggleProps) {
       >
         <div
           className={cn(
-            "w-4 h-4 rounded-full bg-white shadow transition-transform",
+            "w-4 h-4 rounded-full bg-white shadow-sm transition-transform",
             checked ? "translate-x-3" : "translate-x-0"
           )}
         />

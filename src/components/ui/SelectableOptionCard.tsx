@@ -43,8 +43,8 @@ export function SelectableOptionCard({
               "rounded-lg border-2",
               selected
                 ? "border-primary bg-primary/5"
-                : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02]",
-              !disabled && !selected && "hover:border-black/20 dark:hover:border-white/20 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]",
+                : "border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/2",
+              !disabled && !selected && "hover:border-black/20 dark:hover:border-white/20 hover:bg-black/4 dark:hover:bg-white/4",
             ],
         disabled && "opacity-50 cursor-not-allowed"
       )}

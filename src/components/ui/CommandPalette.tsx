@@ -86,7 +86,7 @@ export function CommandPalette({
       onOpenChange={onOpenChange}
       label="Command Palette"
       overlayClassName={
-        useLiquidGlass ? "!bg-transparent" : "bg-black/40 backdrop-blur-sm"
+        useLiquidGlass ? "bg-transparent!" : "bg-black/40 backdrop-blur-xs"
       }
       className={cn(
         "fixed left-1/2 top-[15%] z-50 w-full max-w-[560px] -translate-x-1/2",
@@ -116,7 +116,7 @@ export function CommandPalette({
           className={cn(
             "flex-1 h-12 px-3 text-[14px] bg-transparent",
             "placeholder:text-muted-foreground/50",
-            "focus:outline-none"
+            "focus:outline-hidden"
           )}
         />
       </div>
@@ -125,10 +125,10 @@ export function CommandPalette({
         className={cn(
           "max-h-[400px] overflow-y-auto",
           useLiquidGlass ? "p-1" : "p-2",
-          "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5",
-          "[&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium",
-          "[&_[cmdk-group-heading]]:text-muted-foreground/60 [&_[cmdk-group-heading]]:uppercase",
-          "[&_[cmdk-group-heading]]:tracking-wide"
+          "**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5",
+          "**:[[cmdk-group-heading]]:text-[11px] **:[[cmdk-group-heading]]:font-medium",
+          "**:[[cmdk-group-heading]]:text-muted-foreground/60 **:[[cmdk-group-heading]]:uppercase",
+          "**:[[cmdk-group-heading]]:tracking-wide"
         )}
       >
         <Command.Empty className="py-6 text-center text-[13px] text-muted-foreground/60">

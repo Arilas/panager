@@ -284,7 +284,7 @@ export function FixDiagnosticDialog({
 
         <div className="py-4">
           {/* Issue Details */}
-          <div className="mb-4 p-3 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+          <div className="mb-4 p-3 rounded-lg bg-black/2 dark:bg-white/2 border border-black/5 dark:border-white/5">
             <p className="text-[12px] text-muted-foreground">
               {issue.description}
             </p>

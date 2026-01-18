@@ -65,7 +65,7 @@ export function GoToLineDialog() {
             onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
             onKeyDown={handleKeyDown}
             placeholder="Enter line number"
-            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:border-neutral-600"
+            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-hidden focus:border-neutral-600"
           />
         </div>
 

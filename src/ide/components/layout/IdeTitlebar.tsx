@@ -46,8 +46,8 @@ export function IdeTitlebar() {
               ? "liquid-glass-input"
               : [
                   isDark
-                    ? "bg-white/[0.06] hover:bg-white/[0.08]"
-                    : "bg-black/[0.04] hover:bg-black/[0.06]",
+                    ? "bg-white/6 hover:bg-white/8"
+                    : "bg-black/4 hover:bg-black/6",
                 ]
           )}
         >
@@ -69,8 +69,8 @@ export function IdeTitlebar() {
             className={cn(
               "px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0",
               isDark
-                ? "bg-white/[0.08] text-neutral-500"
-                : "bg-black/[0.06] text-neutral-400"
+                ? "bg-white/8 text-neutral-500"
+                : "bg-black/6 text-neutral-400"
             )}
           >
             {navigator.platform.includes("Mac") ? "⌘" : "Ctrl"}P
