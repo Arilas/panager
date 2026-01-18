@@ -2,12 +2,15 @@
  * Status Bar - Bottom bar with file info
  *
  * Styled with glass effects and theme support to match Panager's design.
+ * Displays plugin status bar items (like TypeScript version) from the plugins store.
  */
 
+import { useMemo } from "react";
 import { GitBranch } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useFilesStore } from "../../stores/files";
 import { useGitStore } from "../../stores/git";
+import { usePluginsStore } from "../../stores/plugins";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
 
@@ -16,7 +19,18 @@ export function StatusBar() {
   const activeFilePath = useFilesStore((s) => s.activeFilePath);
   const openFiles = useFilesStore((s) => s.openFiles);
   const branch = useGitStore((s) => s.branch);
+  const statusBarItems = usePluginsStore((s) => s.statusBarItems);
   const { useLiquidGlass, effectiveTheme } = useIdeSettingsContext();
+
+  // Memoize filtered items to avoid re-renders
+  const leftStatusItems = useMemo(
+    () => statusBarItems.filter((item) => item.alignment === "left"),
+    [statusBarItems]
+  );
+  const rightStatusItems = useMemo(
+    () => statusBarItems.filter((item) => item.alignment === "right"),
+    [statusBarItems]
+  );
 
   const isDark = effectiveTheme === "dark";
   const activeFile = openFiles.find((f) => f.path === activeFilePath);
@@ -34,8 +48,8 @@ export function StatusBar() {
         isDark ? "text-neutral-400" : "text-neutral-600"
       )}
     >
-      {/* Left section - Git branch */}
-      <div className="flex items-center gap-2">
+      {/* Left section - Git branch and plugin items */}
+      <div className="flex items-center gap-3">
         {branch && (
           <div className="flex items-center gap-1.5">
             <GitBranch className="w-3.5 h-3.5" />
@@ -48,12 +62,23 @@ export function StatusBar() {
             )}
           </div>
         )}
+
+        {/* Left-aligned plugin status bar items */}
+        {leftStatusItems.map((item) => (
+          <div
+            key={item.id}
+            className="flex items-center gap-1 cursor-default"
+            title={item.tooltip}
+          >
+            <span>{item.text}</span>
+          </div>
+        ))}
       </div>
 
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Right section - File info */}
+      {/* Right section - File info and plugin items */}
       <div className="flex items-center gap-4">
         {/* Cursor position */}
         {cursorPosition && (
@@ -69,6 +94,17 @@ export function StatusBar() {
 
         {/* Encoding */}
         <span>UTF-8</span>
+
+        {/* Right-aligned plugin status bar items (e.g., TypeScript version) */}
+        {rightStatusItems.map((item) => (
+          <div
+            key={item.id}
+            className="flex items-center gap-1 cursor-default"
+            title={item.tooltip}
+          >
+            <span>{item.text}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
