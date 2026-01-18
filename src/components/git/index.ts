@@ -1,0 +1,1 @@
+export { GitConfigDialog } from "./GitConfigDialog";

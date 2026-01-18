@@ -1,62 +1,27 @@
 import type { ReactElement } from "react";
-import {
-  AlertCircle,
-  AlertTriangle,
-  Info,
-  Eye,
-  EyeOff,
-  Wrench,
-  ChevronRight,
-} from "lucide-react";
+import { Eye, EyeOff, Wrench, ChevronRight } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
-import type { DiagnosticIssue, Severity } from "../../types";
+import type { DiagnosticIssue } from "../../types";
 import { useDiagnosticsStore } from "../../stores/diagnostics";
 import { useProjectsStore } from "../../stores/projects";
+import { SeverityIcon, getSeverityConfig } from "../common/Severity";
+
+type IssueCardVariant = "default" | "compact";
 
 interface DiagnosticsIssueCardProps {
   issue: DiagnosticIssue;
+  variant?: IssueCardVariant;
   onFix?: (issue: DiagnosticIssue) => void;
+  onClick?: () => void;
   showProject?: boolean;
-}
-
-const severityConfig: Record<Severity, {
-  icon: typeof AlertCircle;
-  borderStyle: string;
-  iconStyle: string;
-  textColor: string;
-  badgeStyle: string;
-}> = {
-  error: {
-    icon: AlertCircle,
-    borderStyle: "border-red-500/20",
-    iconStyle: "bg-red-500/10 text-red-600 dark:text-red-400",
-    textColor: "text-red-600 dark:text-red-400",
-    badgeStyle: "bg-red-500/10 text-red-600 dark:text-red-400",
-  },
-  warning: {
-    icon: AlertTriangle,
-    borderStyle: "border-amber-500/20",
-    iconStyle: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-    textColor: "text-amber-600 dark:text-amber-400",
-    badgeStyle: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  },
-  info: {
-    icon: Info,
-    borderStyle: "border-blue-500/20",
-    iconStyle: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-    textColor: "text-blue-600 dark:text-blue-400",
-    badgeStyle: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  },
-};
-
-function getSeverityConfig(severity: Severity) {
-  return severityConfig[severity];
 }
 
 export function DiagnosticsIssueCard({
   issue,
+  variant = "default",
   onFix,
+  onClick,
   showProject = true,
 }: DiagnosticsIssueCardProps): ReactElement {
   const { dismissIssue, undismissIssue, getRuleMetadataById } = useDiagnosticsStore();
@@ -78,6 +43,40 @@ export function DiagnosticsIssueCard({
     }
   }
 
+  // Compact variant - clickable list item
+  if (variant === "compact") {
+    return (
+      <button
+        onClick={onClick}
+        className={cn(
+          "w-full p-2.5 text-left rounded-lg transition-colors",
+          "hover:bg-black/[0.04] dark:hover:bg-white/[0.04]",
+          "border border-transparent",
+          !issue.dismissed && config.borderStyle
+        )}
+      >
+        <div className="flex items-center gap-2.5">
+          <SeverityIcon
+            severity={issue.severity}
+            className={cn("h-3.5 w-3.5 shrink-0", config.textColor)}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-medium text-foreground/90 truncate">
+              {issue.title}
+            </p>
+            {project && (
+              <p className="text-[10px] text-muted-foreground truncate">
+                {project.project.name}
+              </p>
+            )}
+          </div>
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+        </div>
+      </button>
+    );
+  }
+
+  // Default variant - full detail card
   return (
     <div
       className={cn(
@@ -185,83 +184,3 @@ export function DiagnosticsIssueCard({
   );
 }
 
-/**
- * A compact version of the issue card for list views.
- */
-export function DiagnosticsIssueCardCompact({
-  issue,
-  onClick,
-}: {
-  issue: DiagnosticIssue;
-  onClick?: () => void;
-}): ReactElement {
-  const { allProjects } = useProjectsStore();
-  const project = issue.projectId
-    ? allProjects.find((p) => p.project.id === issue.projectId)
-    : null;
-
-  const config = getSeverityConfig(issue.severity);
-
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "w-full p-2.5 text-left rounded-lg transition-colors",
-        "hover:bg-black/[0.04] dark:hover:bg-white/[0.04]",
-        "border border-transparent",
-        !issue.dismissed && config.borderStyle
-      )}
-    >
-      <div className="flex items-center gap-2.5">
-        <SeverityIcon
-          severity={issue.severity}
-          className={cn("h-3.5 w-3.5 shrink-0", config.textColor)}
-        />
-        <div className="flex-1 min-w-0">
-          <p className="text-[12px] font-medium text-foreground/90 truncate">
-            {issue.title}
-          </p>
-          {project && (
-            <p className="text-[10px] text-muted-foreground truncate">
-              {project.project.name}
-            </p>
-          )}
-        </div>
-        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
-      </div>
-    </button>
-  );
-}
-
-export function SeverityIcon({
-  severity,
-  className,
-}: {
-  severity: Severity;
-  className?: string;
-}): ReactElement {
-  const Icon = getSeverityConfig(severity).icon;
-  return <Icon className={className} />;
-}
-
-export function SeverityBadge({
-  severity,
-  className,
-}: {
-  severity: Severity;
-  className?: string;
-}): ReactElement {
-  const config = getSeverityConfig(severity);
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
-        config.badgeStyle,
-        className
-      )}
-    >
-      <SeverityIcon severity={severity} className="h-2.5 w-2.5" />
-      {severity.charAt(0).toUpperCase() + severity.slice(1)}
-    </span>
-  );
-}

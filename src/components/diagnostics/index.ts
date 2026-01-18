@@ -1,5 +1,5 @@
-export { DiagnosticsBadge, DiagnosticsBadgeCompact } from "./DiagnosticsBadge";
+export { DiagnosticsBadge } from "./DiagnosticsBadge";
 export { DiagnosticsDialog } from "./DiagnosticsDialog";
-export { DiagnosticsIssueCard, DiagnosticsIssueCardCompact, SeverityBadge, SeverityIcon } from "./DiagnosticsIssueCard";
+export { DiagnosticsIssueCard } from "./DiagnosticsIssueCard";
 export { DiagnosticsIssueList } from "./DiagnosticsIssueList";
 export { FixDiagnosticDialog } from "./FixDiagnosticDialog";

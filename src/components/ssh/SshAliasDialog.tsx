@@ -273,18 +273,14 @@ export function SshAliasDialog({
                     className="pl-9"
                   />
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={handleBrowseKey}
-                  className={cn(
-                    "px-3 py-2 rounded-md text-[12px]",
-                    "bg-black/5 dark:bg-white/10",
-                    "hover:bg-black/10 dark:hover:bg-white/15",
-                    "transition-colors shrink-0"
-                  )}
                 >
                   Browse
-                </button>
+                </Button>
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Path to your SSH private key file

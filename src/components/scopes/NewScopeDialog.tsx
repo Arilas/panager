@@ -1,13 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "../ui/Dialog";
-import { Button } from "../ui/Button";
+import { FormDialog } from "../ui/FormDialog";
 import { useScopesStore } from "../../stores/scopes";
 import { useSshStore } from "../../stores/ssh";
 import { useSettingsStore } from "../../stores/settings";
@@ -86,52 +78,38 @@ export function NewScopeDialog({ open, onOpenChange }: NewScopeDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px] max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>New Scope</DialogTitle>
-          <DialogDescription>
-            Create a new scope to organize your projects.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title="New Scope"
+        description="Create a new scope to organize your projects."
+        submitLabel={loading ? "Creating..." : "Create Scope"}
+        loading={loading}
+        disabled={!name.trim()}
+        onSubmit={handleSubmit}
+      >
+        <NameField value={name} onChange={setName} autoFocus />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <NameField value={name} onChange={setName} autoFocus />
+        <ColorField value={color} onChange={setColor} />
 
-          <ColorField value={color} onChange={setColor} />
+        <FolderField
+          value={defaultFolder}
+          onChange={setDefaultFolder}
+          onBrowse={handleBrowseFolder}
+          optional
+        />
 
-          <FolderField
-            value={defaultFolder}
-            onChange={setDefaultFolder}
-            onBrowse={handleBrowseFolder}
+        {settings.max_ssh_integration && (
+          <SshAliasField
+            value={sshAlias}
+            onChange={setSshAlias}
+            aliases={aliases}
+            onNewAlias={() => setShowSshAliasDialog(true)}
             optional
           />
-
-          {settings.max_ssh_integration && (
-            <SshAliasField
-              value={sshAlias}
-              onChange={setSshAlias}
-              aliases={aliases}
-              onNewAlias={() => setShowSshAliasDialog(true)}
-              optional
-            />
-          )}
-
-          <DialogFooter className="pt-4">
-            <Button variant="glass" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={!name.trim()}
-              loading={loading}
-              variant="glass-scope"
-            >
-              {loading ? "Creating..." : "Create Scope"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
+        )}
+      </FormDialog>
 
       {/* SSH Alias Creation Dialog */}
       <SshAliasDialog
@@ -142,6 +120,6 @@ export function NewScopeDialog({ open, onOpenChange }: NewScopeDialogProps) {
           fetchAliases();
         }}
       />
-    </Dialog>
+    </>
   );
 }

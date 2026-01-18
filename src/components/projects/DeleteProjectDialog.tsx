@@ -1,16 +1,8 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "../ui/Dialog";
-import { Button } from "../ui/Button";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { useProjectsStore } from "../../stores/projects";
 import { useState } from "react";
 import type { ProjectWithStatus } from "../../types";
-import { AlertTriangle, Folder } from "lucide-react";
+import { Folder } from "lucide-react";
 
 interface DeleteProjectDialogProps {
   project: ProjectWithStatus | null;
@@ -44,57 +36,35 @@ export function DeleteProjectDialog({
     .replace(/^\/Users\/[^/]+/, "~");
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px]">
-        <DialogHeader>
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-red-500/10 flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-            </div>
-            <div>
-              <DialogTitle>Remove Project</DialogTitle>
-              <DialogDescription>
-                This action cannot be undone.
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Remove Project"
+      description="This action cannot be undone."
+      variant="danger"
+      confirmLabel={loading ? "Removing..." : "Remove"}
+      loading={loading}
+      onConfirm={handleDelete}
+      maxWidth="sm:max-w-[450px]"
+    >
+      <div className="space-y-3">
+        <p className="text-[13px] text-foreground/80">
+          Are you sure you want to remove{" "}
+          <span className="font-semibold">{project?.project.name}</span>?
+        </p>
 
-        <div className="py-4 space-y-3">
-          <p className="text-[13px] text-foreground/80">
-            Are you sure you want to remove{" "}
-            <span className="font-semibold">{project?.project.name}</span>?
-          </p>
-
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/5 border border-red-500/10">
-            <Folder className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-[12px] font-medium text-red-600 dark:text-red-400">
-                The folder will be permanently deleted
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-1 break-all">
-                {displayPath}
-              </p>
-            </div>
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+          <Folder className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[12px] font-medium text-red-600 dark:text-red-400">
+              The folder will be permanently deleted
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-1 break-all">
+              {displayPath}
+            </p>
           </div>
         </div>
-
-        <DialogFooter>
-          <Button
-            variant="secondary"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleDelete}
-            loading={loading}
-          >
-            {loading ? "Removing..." : "Remove"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </ConfirmDialog>
   );
 }

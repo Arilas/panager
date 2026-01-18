@@ -10,7 +10,6 @@ import {
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { SelectableOptionCard } from "../ui/SelectableOptionCard";
-import { cn } from "../../lib/utils";
 import { useProjectsStore } from "../../stores/projects";
 import { useScopesStore } from "../../stores/scopes";
 import { checkFolderExists } from "../../lib/tauri";
@@ -311,18 +310,14 @@ export function MoveProjectDialog({
                       className="flex-1"
                       readOnly
                     />
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={handleBrowseFolder}
-                      className={cn(
-                        "px-3 py-2 rounded-md text-[12px] font-medium shrink-0",
-                        "bg-black/5 dark:bg-white/10",
-                        "hover:bg-black/10 dark:hover:bg-white/15",
-                        "transition-colors"
-                      )}
                     >
                       Browse
-                    </button>
+                    </Button>
                   </div>
                 )}
               </SelectableOptionCard>
@@ -343,18 +338,14 @@ export function MoveProjectDialog({
                       className="flex-1"
                       readOnly
                     />
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={handleBrowseFolder}
-                      className={cn(
-                        "px-3 py-2 rounded-md text-[12px] font-medium shrink-0",
-                        "bg-black/5 dark:bg-white/10",
-                        "hover:bg-black/10 dark:hover:bg-white/15",
-                        "transition-colors"
-                      )}
                     >
                       Browse
-                    </button>
+                    </Button>
                   </div>
                 )}
               </SelectableOptionCard>
