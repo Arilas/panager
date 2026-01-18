@@ -21,6 +21,8 @@ pub struct FileEntry {
     pub extension: Option<String>,
     /// Whether this is a hidden file (starts with .)
     pub is_hidden: bool,
+    /// Whether this file/directory is ignored by .gitignore
+    pub is_gitignored: bool,
 }
 
 /// Represents a file change in git

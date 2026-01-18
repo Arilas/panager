@@ -128,6 +128,7 @@ function FileTreeNode({ entry, depth, guideLines, isLast }: FileTreeNodeProps) {
   const loadingPaths = useFilesStore((s) => s.loadingPaths);
   const toggleDirectory = useFilesStore((s) => s.toggleDirectory);
   const openFile = useFilesStore((s) => s.openFile);
+  const openFilePreview = useFilesStore((s) => s.openFilePreview);
   const activeFilePath = useFilesStore((s) => s.activeFilePath);
   const { effectiveTheme } = useIdeSettingsContext();
 
@@ -135,13 +136,22 @@ function FileTreeNode({ entry, depth, guideLines, isLast }: FileTreeNodeProps) {
   const isExpanded = expandedPaths.has(entry.path);
   const isLoading = loadingPaths.has(entry.path);
   const isActive = activeFilePath === entry.path;
+  const isDimmed = entry.isHidden || entry.isGitignored;
 
+  // Single click - preview for files, toggle for directories
   const handleClick = () => {
     if (entry.isDirectory) {
       if (projectContext) {
         toggleDirectory(entry.path, projectContext.projectPath);
       }
     } else {
+      openFilePreview(entry.path);
+    }
+  };
+
+  // Double click - permanent tab for files
+  const handleDoubleClick = () => {
+    if (!entry.isDirectory) {
       openFile(entry.path);
     }
   };
@@ -169,6 +179,7 @@ function FileTreeNode({ entry, depth, guideLines, isLast }: FileTreeNodeProps) {
     <div>
       <div
         onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
         className={cn(
           "flex items-center py-0.5 pr-2 cursor-pointer text-sm relative",
           "transition-colors",
@@ -218,15 +229,31 @@ function FileTreeNode({ entry, depth, guideLines, isLast }: FileTreeNodeProps) {
         {/* Icon */}
         {entry.isDirectory ? (
           isExpanded ? (
-            <FolderOpen className="w-4 h-4 text-amber-500/80 shrink-0" />
+            <FolderOpen
+              className={cn(
+                "w-4 h-4 shrink-0",
+                isDimmed ? "text-amber-500/40" : "text-amber-500/80"
+              )}
+            />
           ) : (
-            <Folder className="w-4 h-4 text-amber-500/80 shrink-0" />
+            <Folder
+              className={cn(
+                "w-4 h-4 shrink-0",
+                isDimmed ? "text-amber-500/40" : "text-amber-500/80"
+              )}
+            />
           )
         ) : (
           <File
             className={cn(
               "w-4 h-4 shrink-0",
-              isDark ? "text-neutral-500" : "text-neutral-400"
+              isDimmed
+                ? isDark
+                  ? "text-neutral-600"
+                  : "text-neutral-300"
+                : isDark
+                  ? "text-neutral-500"
+                  : "text-neutral-400"
             )}
           />
         )}
@@ -235,7 +262,7 @@ function FileTreeNode({ entry, depth, guideLines, isLast }: FileTreeNodeProps) {
         <span
           className={cn(
             "truncate ml-1",
-            entry.isHidden && (isDark ? "text-neutral-500" : "text-neutral-400")
+            isDimmed && (isDark ? "text-neutral-500" : "text-neutral-400")
           )}
         >
           {entry.name}

@@ -14,6 +14,9 @@ export function EditorTabs() {
   const activeFilePath = useFilesStore((s) => s.activeFilePath);
   const setActiveFile = useFilesStore((s) => s.setActiveFile);
   const closeFile = useFilesStore((s) => s.closeFile);
+  const convertPreviewToPermanent = useFilesStore(
+    (s) => s.convertPreviewToPermanent
+  );
   const { effectiveTheme, useLiquidGlass } = useIdeSettingsContext();
 
   const isDark = effectiveTheme === "dark";
@@ -39,6 +42,12 @@ export function EditorTabs() {
           <div
             key={file.path}
             onClick={() => setActiveFile(file.path)}
+            onDoubleClick={() => {
+              // Double-click on preview tab makes it permanent
+              if (file.isPreview) {
+                convertPreviewToPermanent(file.path);
+              }
+            }}
             className={cn(
               "group flex items-center gap-2 px-3 py-1.5 text-[13px] cursor-pointer",
               "transition-colors min-w-[120px] max-w-[200px] shrink-0",
@@ -61,7 +70,9 @@ export function EditorTabs() {
             )}
           >
             <File className="w-3.5 h-3.5 shrink-0 opacity-60" />
-            <span className="truncate">{fileName}</span>
+            <span className={cn("truncate", file.isPreview && "italic")}>
+              {fileName}
+            </span>
             {/* Close button or dirty indicator */}
             <button
               onClick={(e) => {

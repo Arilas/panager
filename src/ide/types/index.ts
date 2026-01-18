@@ -22,6 +22,7 @@ export interface FileEntry {
   children?: FileEntry[];
   extension?: string;
   isHidden: boolean;
+  isGitignored: boolean;
 }
 
 /** Git file change status */
@@ -86,6 +87,7 @@ export interface OpenFile {
   content: string;
   language: string;
   isDirty: boolean;
+  isPreview: boolean;
 }
 
 /** Editor cursor position */

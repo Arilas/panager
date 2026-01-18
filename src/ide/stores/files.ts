@@ -50,11 +50,13 @@ interface FilesState {
   toggleDirectory: (path: string, projectPath: string) => Promise<void>;
 
   openFile: (path: string) => Promise<void>;
+  openFilePreview: (path: string) => Promise<void>;
   openFileAtPosition: (path: string, position: FilePosition) => Promise<void>;
   closeFile: (path: string) => void;
   closeOtherFiles: (path: string) => void;
   closeAllFiles: () => void;
   setActiveFile: (path: string | null) => void;
+  convertPreviewToPermanent: (path: string) => void;
   updateFileContent: (path: string, content: string) => void;
   saveFile: (path: string) => Promise<void>;
   saveActiveFile: () => Promise<void>;
@@ -145,9 +147,20 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     const { openFiles } = get();
 
     // Check if already open
-    const existing = openFiles.find((f) => f.path === path);
-    if (existing) {
-      set({ activeFilePath: path });
+    const existingIndex = openFiles.findIndex((f) => f.path === path);
+    if (existingIndex >= 0) {
+      const existing = openFiles[existingIndex];
+      // If it was a preview, convert to permanent
+      if (existing.isPreview) {
+        set({
+          openFiles: openFiles.map((f, i) =>
+            i === existingIndex ? { ...f, isPreview: false } : f
+          ),
+          activeFilePath: path,
+        });
+      } else {
+        set({ activeFilePath: path });
+      }
       return;
     }
 
@@ -165,10 +178,65 @@ export const useFilesStore = create<FilesState>((set, get) => ({
         content: fileContent.content,
         language: fileContent.language,
         isDirty: false,
+        isPreview: false,
       };
 
       set({
         openFiles: [...openFiles, newFile],
+        activeFilePath: path,
+      });
+    } catch (error) {
+      console.error("Failed to open file:", error);
+    }
+  },
+
+  openFilePreview: async (path) => {
+    const { openFiles } = get();
+
+    // Check if file is already open
+    const existing = openFiles.find((f) => f.path === path);
+    if (existing) {
+      // If already permanent, just activate it
+      // If it's already the preview tab, just activate it
+      set({ activeFilePath: path });
+      return;
+    }
+
+    try {
+      const fileContent = await readFile(path);
+
+      if (fileContent.isBinary) {
+        console.warn("Cannot open binary file:", path);
+        return;
+      }
+
+      const newFile: OpenFile = {
+        path,
+        content: fileContent.content,
+        language: fileContent.language,
+        isDirty: false,
+        isPreview: true,
+      };
+
+      // Find and replace existing preview tab, or add new
+      const existingPreviewIndex = openFiles.findIndex((f) => f.isPreview);
+
+      let newOpenFiles: OpenFile[];
+      if (existingPreviewIndex >= 0) {
+        // Close the old preview (notify plugins)
+        const oldPreview = openFiles[existingPreviewIndex];
+        notifyFileClosed(oldPreview.path).catch(console.error);
+
+        // Replace preview tab at same position
+        newOpenFiles = [...openFiles];
+        newOpenFiles[existingPreviewIndex] = newFile;
+      } else {
+        // Add new preview tab at the end
+        newOpenFiles = [...openFiles, newFile];
+      }
+
+      set({
+        openFiles: newOpenFiles,
         activeFilePath: path,
       });
     } catch (error) {
@@ -243,13 +311,22 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     set({ activeFilePath: path });
   },
 
+  convertPreviewToPermanent: (path) => {
+    set((state) => ({
+      openFiles: state.openFiles.map((f) =>
+        f.path === path && f.isPreview ? { ...f, isPreview: false } : f
+      ),
+    }));
+  },
+
   updateFileContent: (path, content) => {
     // Notify plugins about the content change
     notifyFileChanged(path, content).catch(console.error);
 
+    // Auto-convert preview to permanent when editing
     set((state) => ({
       openFiles: state.openFiles.map((f) =>
-        f.path === path ? { ...f, content, isDirty: true } : f
+        f.path === path ? { ...f, content, isDirty: true, isPreview: false } : f
       ),
     }));
   },

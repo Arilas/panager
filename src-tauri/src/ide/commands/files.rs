@@ -3,6 +3,7 @@
 use crate::ide::types::{FileContent, FileEntry};
 use crate::plugins::host::PluginHost;
 use crate::plugins::types::HostEvent;
+use ignore::gitignore::GitignoreBuilder;
 use ignore::WalkBuilder;
 use std::fs;
 use std::path::Path;
@@ -42,17 +43,21 @@ pub fn ide_read_directory(
 fn read_directory_entries(
     dir_path: &Path,
     max_depth: usize,
-    include_hidden: bool,
+    _include_hidden: bool,
 ) -> Result<Vec<FileEntry>, String> {
     let mut entries: Vec<FileEntry> = Vec::new();
 
-    // Use ignore crate to respect .gitignore
+    // Build gitignore matcher to detect ignored files
+    let gitignore = build_gitignore_matcher(dir_path);
+
+    // Walk directory - show ALL files including hidden and gitignored
+    // We'll mark gitignored files with a flag instead of filtering them
     let walker = WalkBuilder::new(dir_path)
         .max_depth(Some(max_depth + 1)) // +1 because root is depth 0
-        .hidden(!include_hidden)
-        .git_ignore(true)
-        .git_global(true)
-        .git_exclude(true)
+        .hidden(false) // Always show hidden files (dotfiles)
+        .git_ignore(false) // Don't filter gitignored - we mark them instead
+        .git_global(false)
+        .git_exclude(false)
         .build();
 
     let root_depth = dir_path.components().count();
@@ -64,6 +69,15 @@ fn read_directory_entries(
 
                 // Skip the root directory itself
                 if entry_path == dir_path {
+                    continue;
+                }
+
+                // Skip .git directory entirely
+                if entry_path
+                    .file_name()
+                    .map(|n| n == ".git")
+                    .unwrap_or(false)
+                {
                     continue;
                 }
 
@@ -89,6 +103,12 @@ fn read_directory_entries(
                 let is_hidden = name.starts_with('.');
                 let is_directory = entry_path.is_dir();
 
+                // Check if this entry is gitignored
+                let is_gitignored = gitignore
+                    .as_ref()
+                    .map(|gi| gi.matched(entry_path, is_directory).is_ignore())
+                    .unwrap_or(false);
+
                 let extension = if !is_directory {
                     entry_path
                         .extension()
@@ -104,6 +124,7 @@ fn read_directory_entries(
                     children: None, // Children loaded on demand
                     extension,
                     is_hidden,
+                    is_gitignored,
                 });
             }
             Err(e) => {
@@ -122,6 +143,46 @@ fn read_directory_entries(
     });
 
     Ok(entries)
+}
+
+/// Build a gitignore matcher by finding .gitignore files from git root
+fn build_gitignore_matcher(dir_path: &Path) -> Option<ignore::gitignore::Gitignore> {
+    // Find the git root (contains .git directory)
+    let mut current = dir_path;
+    let git_root = loop {
+        if current.join(".git").exists() {
+            break Some(current);
+        }
+        match current.parent() {
+            Some(parent) => current = parent,
+            None => break None,
+        }
+    };
+
+    let git_root = git_root?;
+    let mut builder = GitignoreBuilder::new(git_root);
+
+    // Add .gitignore from git root
+    let gitignore_path = git_root.join(".gitignore");
+    if gitignore_path.exists() {
+        let _ = builder.add(&gitignore_path);
+    }
+
+    // Add .git/info/exclude
+    let exclude_path = git_root.join(".git/info/exclude");
+    if exclude_path.exists() {
+        let _ = builder.add(&exclude_path);
+    }
+
+    // If we're in a subdirectory, also check for .gitignore there
+    if dir_path != git_root {
+        let local_gitignore = dir_path.join(".gitignore");
+        if local_gitignore.exists() {
+            let _ = builder.add(&local_gitignore);
+        }
+    }
+
+    builder.build().ok()
 }
 
 /// Reads the content of a file
