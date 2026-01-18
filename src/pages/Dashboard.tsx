@@ -40,7 +40,7 @@ import { cn } from "../lib/utils";
 import { Button } from "../components/ui/Button";
 import { useSettingsStore } from "../stores/settings";
 import type { ProjectWithStatus } from "../types";
-import { openTerminal } from "../lib/tauri";
+import { openTerminal, openIdeWindow } from "../lib/tauri";
 
 interface DashboardProps {
   onNewScopeClick: () => void;
@@ -468,6 +468,18 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
     }
   };
 
+  const handleViewFiles = async (
+    projectId: string,
+    projectPath: string,
+    projectName: string
+  ) => {
+    try {
+      await openIdeWindow(projectId, projectPath, projectName);
+    } catch (e) {
+      console.error("Failed to open IDE window:", e);
+    }
+  };
+
   const handleMoveToScope = (project: ProjectWithStatus, scopeId: string) => {
     setProjectToMove({ project, targetScopeId: scopeId });
   };
@@ -756,6 +768,13 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                     onOpenTerminal={() =>
                       handleOpenTerminal(project.project.path)
                     }
+                    onViewFiles={() =>
+                      handleViewFiles(
+                        project.project.id,
+                        project.project.path,
+                        project.project.name
+                      )
+                    }
                     onMoveToScope={(scopeId) =>
                       handleMoveToScope(project, scopeId)
                     }
@@ -947,6 +966,13 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                               onOpenTerminal={() =>
                                 handleOpenTerminal(project.project.path)
                               }
+                              onViewFiles={() =>
+                                handleViewFiles(
+                                  project.project.id,
+                                  project.project.path,
+                                  project.project.name
+                                )
+                              }
                               onMoveToScope={(scopeId) =>
                                 handleMoveToScope(project, scopeId)
                               }
@@ -1031,6 +1057,13 @@ export function Dashboard({ onNewScopeClick }: DashboardProps) {
                           }
                           onOpenTerminal={() =>
                             handleOpenTerminal(project.project.path)
+                          }
+                          onViewFiles={() =>
+                            handleViewFiles(
+                              project.project.id,
+                              project.project.path,
+                              project.project.name
+                            )
                           }
                           onMoveToScope={(scopeId) =>
                             handleMoveToScope(project, scopeId)

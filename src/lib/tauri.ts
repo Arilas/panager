@@ -633,3 +633,12 @@ export async function getDiagnosticRuleMetadata(): Promise<RuleMetadata[]> {
 export async function fixDiagnosticIssue(fix: DiagnosticFix): Promise<void> {
   return invoke("fix_diagnostic_issue", { fix });
 }
+
+// IDE Window
+export async function openIdeWindow(
+  projectId: string,
+  projectPath: string,
+  projectName: string
+): Promise<void> {
+  return invoke("ide_open_window", { projectId, projectPath, projectName });
+}

@@ -39,6 +39,7 @@ interface ProjectCardProps {
   onPin?: () => void;
   onUnpin?: () => void;
   onOpenTerminal?: () => void;
+  onViewFiles?: () => void;
 }
 
 export function ProjectCard({
@@ -63,6 +64,7 @@ export function ProjectCard({
   onPin,
   onUnpin,
   onOpenTerminal,
+  onViewFiles,
 }: ProjectCardProps) {
   const { project: p, tags, gitStatus } = project;
   const { settings } = useSettingsStore();
@@ -162,6 +164,7 @@ export function ProjectCard({
             onPin={onPin}
             onUnpin={onUnpin}
             onOpenTerminal={onOpenTerminal}
+            onViewFiles={onViewFiles}
             onMoveToScope={onMoveToScope}
             onDelete={onDelete}
             onDeleteWithFolder={onDeleteWithFolder}

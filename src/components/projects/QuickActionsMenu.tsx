@@ -10,6 +10,7 @@ import {
   Star,
   Terminal,
   Trash2,
+  FileCode2,
 } from "lucide-react";
 import type { Editor, ScopeWithLinks } from "../../types";
 import {
@@ -44,6 +45,7 @@ interface QuickActionsMenuProps {
   onPin?: () => void;
   onUnpin?: () => void;
   onOpenTerminal?: () => void;
+  onViewFiles?: () => void;
   onMoveToScope?: (scopeId: string) => void;
   onDelete?: () => void;
   onDeleteWithFolder?: () => void;
@@ -68,6 +70,7 @@ export function QuickActionsMenu({
   onPin,
   onUnpin,
   onOpenTerminal,
+  onViewFiles,
   onMoveToScope,
   onDelete,
   onDeleteWithFolder,
@@ -119,6 +122,13 @@ export function QuickActionsMenu({
         <DropdownMenuItem onClick={onOpenTerminal}>
           <Terminal className="h-3.5 w-3.5 mr-2" />
           Open Terminal
+        </DropdownMenuItem>
+      )}
+
+      {onViewFiles && (
+        <DropdownMenuItem onClick={onViewFiles}>
+          <FileCode2 className="h-3.5 w-3.5 mr-2" />
+          View Files
         </DropdownMenuItem>
       )}
 

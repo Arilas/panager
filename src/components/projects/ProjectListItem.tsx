@@ -62,6 +62,7 @@ interface ProjectListItemProps {
   onPin?: () => void;
   onUnpin?: () => void;
   onOpenTerminal?: () => void;
+  onViewFiles?: () => void;
 }
 
 export function ProjectListItem({
@@ -86,6 +87,7 @@ export function ProjectListItem({
   onPin,
   onUnpin,
   onOpenTerminal,
+  onViewFiles,
 }: ProjectListItemProps) {
   const { project: p, tags, gitStatus } = project;
   const { getScopeIssues } = useDiagnosticsStore();
@@ -462,6 +464,7 @@ export function ProjectListItem({
                 onPin={onPin}
                 onUnpin={onUnpin}
                 onOpenTerminal={onOpenTerminal}
+                onViewFiles={onViewFiles}
                 onMoveToScope={onMoveToScope}
                 onDelete={onDelete}
                 onDeleteWithFolder={onDeleteWithFolder}

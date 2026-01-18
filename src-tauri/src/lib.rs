@@ -8,6 +8,7 @@ pub mod db;
 pub mod error;
 pub mod events;
 pub mod git;
+pub mod ide;
 pub mod logging;
 mod platform;
 pub mod services;
@@ -150,6 +151,22 @@ pub fn run() {
             commands::terminals::detect_terminals,
             commands::terminals::sync_terminals,
             commands::terminals::get_terminals,
+            // IDE
+            ide::commands::ide_open_window,
+            ide::commands::ide_close_window,
+            ide::commands::ide_read_directory,
+            ide::commands::ide_read_file,
+            ide::commands::ide_get_file_language,
+            ide::commands::ide_get_git_changes,
+            ide::commands::ide_get_file_diff,
+            ide::commands::ide_get_git_branch,
+            ide::commands::ide_stage_file,
+            ide::commands::ide_unstage_file,
+            ide::commands::ide_discard_changes,
+            ide::commands::ide_search_file_names,
+            ide::commands::ide_search_files,
+            ide::commands::ide_start_watcher,
+            ide::commands::ide_stop_watcher,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -64,6 +64,12 @@ ssh2-config = "0.6"
 home = "0.5"
 regex = "1"
 
+# URL encoding for IDE window parameters
+urlencoding = "2"
+
+# File system watching for IDE
+notify = "7"
+
 # macOS Liquid Glass support
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
