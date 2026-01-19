@@ -38,7 +38,7 @@ services:
       - ./build-output:/app/build-output
     command: >
       sh -c "
-        npm run tauri build &&
+        yarn tauri build &&
         mkdir -p /app/build-output &&
         cp -r src-tauri/target/release/bundle/* /app/build-output/ 2>/dev/null || true &&
         echo 'Build artifacts copied to ./build-output/'
@@ -70,7 +70,7 @@ services:
     working_dir: /app
     command: >
       sh -c "
-        npm ci &&
+        yarn install &&
         cd src-tauri &&
         cargo check
       "
