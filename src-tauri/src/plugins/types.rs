@@ -383,6 +383,26 @@ pub struct LspCommand {
     pub arguments: Option<Vec<serde_json::Value>>,
 }
 
+/// LSP Document Symbol - represents a symbol (function, class, etc.) in a document
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LspDocumentSymbol {
+    /// Symbol name
+    pub name: String,
+    /// Symbol kind (1=File, 5=Class, 6=Method, 12=Function, 13=Variable, etc.)
+    pub kind: u32,
+    /// The range enclosing this symbol (full extent)
+    pub range: LspRange,
+    /// The range that should be selected when navigating to this symbol
+    pub selection_range: LspRange,
+    /// Additional detail (e.g., signature)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    /// Children symbols (nested declarations)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub children: Option<Vec<LspDocumentSymbol>>,
+}
+
 // ============================================================================
 // LSP Provider Trait
 // ============================================================================
@@ -443,4 +463,7 @@ pub trait LspProvider: Send + Sync {
         end_character: u32,
         diagnostics: Vec<serde_json::Value>,
     ) -> Result<Vec<LspCodeAction>, String>;
+
+    /// Get document symbols (functions, classes, etc.)
+    async fn document_symbols(&self, path: &PathBuf) -> Result<Vec<LspDocumentSymbol>, String>;
 }

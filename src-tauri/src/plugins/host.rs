@@ -16,8 +16,8 @@ use std::path::PathBuf;
 
 use super::context::PluginContext;
 use super::types::{
-    HostEvent, LspCodeAction, LspCompletionList, LspHover, LspLocation, LspWorkspaceEdit, Plugin,
-    PluginEvent, PluginManifest, PluginState,
+    HostEvent, LspCodeAction, LspCompletionList, LspDocumentSymbol, LspHover, LspLocation,
+    LspWorkspaceEdit, Plugin, PluginEvent, PluginManifest, PluginState,
 };
 
 /// A registered plugin instance with its state
@@ -396,6 +396,18 @@ impl PluginHost {
         provider
             .code_action(path, start_line, start_character, end_line, end_character, diagnostics)
             .await
+    }
+
+    /// Get document symbols
+    pub async fn lsp_document_symbols(
+        &self,
+        language: &str,
+        path: &PathBuf,
+    ) -> Result<Vec<LspDocumentSymbol>, String> {
+        let plugins = self.plugins.read().await;
+        let provider = Self::find_lsp_provider_for_language(&plugins, language)
+            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
+        provider.document_symbols(path).await
     }
 }
 

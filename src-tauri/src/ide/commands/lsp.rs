@@ -9,7 +9,7 @@ use tauri::State;
 
 use crate::plugins::host::PluginHost;
 use crate::plugins::types::{
-    LspCodeAction, LspCompletionList, LspHover, LspLocation, LspWorkspaceEdit,
+    LspCodeAction, LspCompletionList, LspDocumentSymbol, LspHover, LspLocation, LspWorkspaceEdit,
 };
 
 /// Get language ID from file path
@@ -123,4 +123,15 @@ pub async fn ide_lsp_code_action(
         diagnostics,
     )
     .await
+}
+
+/// Get document symbols (functions, classes, etc.)
+#[tauri::command]
+pub async fn ide_lsp_document_symbols(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+) -> Result<Vec<LspDocumentSymbol>, String> {
+    let language = get_language_from_path(&file_path);
+    let path = PathBuf::from(&file_path);
+    host.lsp_document_symbols(&language, &path).await
 }

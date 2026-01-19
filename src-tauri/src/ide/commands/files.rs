@@ -569,6 +569,35 @@ pub fn ide_rename_file(old_path: String, new_path: String) -> Result<(), String>
     fs::rename(from, to).map_err(|e| format!("Failed to rename: {}", e))
 }
 
+/// Notifies plugins that a file has been opened
+///
+/// This should be called by the frontend when the user opens a file in the editor.
+/// This triggers LSP didOpen notification.
+#[tauri::command]
+#[specta::specta]
+pub async fn ide_notify_file_opened(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    content: String,
+) -> Result<(), String> {
+    let path = Path::new(&file_path);
+    let language = detect_language(&file_path);
+
+    info!("ide_notify_file_opened: {} (language: {})", file_path, language);
+
+    host.broadcast(
+        HostEvent::FileOpened {
+            path: path.to_path_buf(),
+            content,
+            language: language.clone(),
+        },
+        Some(&language),
+    )
+    .await;
+
+    Ok(())
+}
+
 /// Notifies plugins that a file's content has changed
 ///
 /// This should be called by the frontend when the user edits a file in the editor.

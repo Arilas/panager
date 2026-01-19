@@ -17,8 +17,8 @@ use serde::de::DeserializeOwned;
 use crate::plugins::context::PluginContext;
 use crate::plugins::types::{
     Diagnostic, DiagnosticSeverity, LspCodeAction, LspCompletionItem, LspCompletionList,
-    LspHover, LspLocation, LspMarkupContent, LspPosition, LspRange, LspTextEdit,
-    LspWorkspaceEdit,
+    LspDocumentSymbol, LspHover, LspLocation, LspMarkupContent, LspPosition, LspRange,
+    LspTextEdit, LspWorkspaceEdit,
 };
 
 /// LSP message ID counter
@@ -213,6 +213,35 @@ impl LspClient {
                             "didSave": true,
                             "willSave": false,
                             "willSaveWaitUntil": false
+                        },
+                        "documentSymbol": {
+                            "hierarchicalDocumentSymbolSupport": true,
+                            "symbolKind": {
+                                "valueSet": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
+                            }
+                        },
+                        "hover": {
+                            "contentFormat": ["markdown", "plaintext"]
+                        },
+                        "completion": {
+                            "completionItem": {
+                                "snippetSupport": true,
+                                "documentationFormat": ["markdown", "plaintext"]
+                            }
+                        },
+                        "definition": {
+                            "linkSupport": true
+                        },
+                        "references": {},
+                        "rename": {
+                            "prepareSupport": true
+                        },
+                        "codeAction": {
+                            "codeActionLiteralSupport": {
+                                "codeActionKind": {
+                                    "valueSet": ["quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports"]
+                                }
+                            }
                         }
                     },
                     "workspace": {
@@ -562,6 +591,29 @@ impl LspClient {
         Self::parse_code_actions(result)
     }
 
+    /// Get document symbols (functions, classes, etc.)
+    pub async fn document_symbols(
+        &self,
+        path: &PathBuf,
+    ) -> Result<Vec<LspDocumentSymbol>, String> {
+        let uri = format!("file://{}", path.display());
+
+        debug!("Requesting documentSymbol for URI: {}", uri);
+
+        let result: serde_json::Value = self
+            .request(
+                "textDocument/documentSymbol",
+                serde_json::json!({
+                    "textDocument": { "uri": uri }
+                }),
+            )
+            .await?;
+
+        debug!("documentSymbol raw response: {:?}", result);
+
+        Self::parse_document_symbols(result)
+    }
+
     // =========================================================================
     // Response Parsing Helpers
     // =========================================================================
@@ -851,6 +903,45 @@ impl LspClient {
             .collect();
 
         Ok(actions)
+    }
+
+    fn parse_document_symbols(value: serde_json::Value) -> Result<Vec<LspDocumentSymbol>, String> {
+        if value.is_null() {
+            return Ok(vec![]);
+        }
+
+        let arr = value.as_array().ok_or("Expected array of document symbols")?;
+
+        let symbols: Vec<LspDocumentSymbol> = arr
+            .iter()
+            .filter_map(|item| Self::parse_document_symbol(item))
+            .collect();
+
+        Ok(symbols)
+    }
+
+    fn parse_document_symbol(value: &serde_json::Value) -> Option<LspDocumentSymbol> {
+        let name = value.get("name")?.as_str()?.to_string();
+        let kind = value.get("kind")?.as_u64()? as u32;
+        let range = Self::parse_range(value.get("range")?)?;
+        let selection_range = Self::parse_range(value.get("selectionRange")?)?;
+        let detail = value.get("detail").and_then(|d| d.as_str()).map(|s| s.to_string());
+        let children = value.get("children").and_then(|c| {
+            c.as_array().map(|arr| {
+                arr.iter()
+                    .filter_map(|child| Self::parse_document_symbol(child))
+                    .collect()
+            })
+        });
+
+        Some(LspDocumentSymbol {
+            name,
+            kind,
+            range,
+            selection_range,
+            detail,
+            children,
+        })
     }
 
     // =========================================================================

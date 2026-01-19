@@ -1098,3 +1098,27 @@
 .dark.no-glass .liquid-glass-dropdown {
   background: hsl(var(--card));
 }
+
+/* ============================================
+   GIT BLAME INLINE DECORATION
+   VS Code-style blame at end of current line
+   ============================================ */
+
+.git-blame-inline-decoration {
+  color: #6b7280;
+  font-size: 0.85em;
+  font-style: italic;
+  opacity: 0.7;
+  padding-left: 2em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.dark .git-blame-inline-decoration {
+  color: #9ca3af;
+}
+
+/* Hover effect for blame - requires JS to work properly */
+.git-blame-inline-decoration:hover {
+  opacity: 1;
+}

@@ -4,6 +4,7 @@
  * Styled with theme support to match Panager's design.
  */
 
+import { useMemo } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -14,18 +15,53 @@ import {
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useFilesStore } from "../../stores/files";
+import { useGitStore } from "../../stores/git";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
-import type { FileEntry } from "../../types";
+import type { FileEntry, GitFileStatus } from "../../types";
+
+/** Map of file paths to their git status */
+type GitStatusMap = Map<string, GitFileStatus>;
 
 export function FileTreePanel() {
   const projectContext = useIdeStore((s) => s.projectContext);
   const tree = useFilesStore((s) => s.tree);
   const treeLoading = useFilesStore((s) => s.treeLoading);
   const loadFileTree = useFilesStore((s) => s.loadFileTree);
+  const gitChanges = useGitStore((s) => s.changes);
   const { effectiveTheme } = useIdeSettingsContext();
 
   const isDark = effectiveTheme === "dark";
+
+  // Build a map of file paths to their git status for quick lookup
+  // Also propagate status to parent folders
+  const gitStatusMap = useMemo<GitStatusMap>(() => {
+    const map = new Map<string, GitFileStatus>();
+    const projectRoot = projectContext?.projectPath ?? "";
+
+    for (const change of gitChanges) {
+      // Use the full path for matching
+      const fullPath = projectRoot ? `${projectRoot}/${change.path}` : change.path;
+      map.set(fullPath, change.status);
+
+      // Propagate status to all parent directories
+      // Parent folders show "modified" if they contain any changed files
+      let parentPath = fullPath;
+      while (true) {
+        const lastSlash = parentPath.lastIndexOf("/");
+        if (lastSlash <= 0 || (projectRoot && parentPath === projectRoot)) break;
+
+        parentPath = parentPath.substring(0, lastSlash);
+
+        // Only set if not already set (first change wins for folders)
+        // Use "modified" as the generic status for folders with changes
+        if (!map.has(parentPath)) {
+          map.set(parentPath, "modified");
+        }
+      }
+    }
+    return map;
+  }, [gitChanges, projectContext]);
 
   const handleRefresh = () => {
     if (projectContext) {
@@ -107,6 +143,7 @@ export function FileTreePanel() {
               depth={0}
               guideLines={[]}
               isLast={index === tree.length - 1}
+              gitStatusMap={gitStatusMap}
             />
           ))
         )}
@@ -115,14 +152,58 @@ export function FileTreePanel() {
   );
 }
 
+/** Get color class for git status */
+function getGitStatusColor(status: GitFileStatus | undefined): string | undefined {
+  if (!status) return undefined;
+
+  switch (status) {
+    case "modified":
+      return "text-amber-500";
+    case "added":
+    case "untracked":
+      return "text-green-500";
+    case "deleted":
+      return "text-red-500";
+    case "renamed":
+      return "text-blue-500";
+    case "conflicted":
+      return "text-red-600";
+    default:
+      return undefined;
+  }
+}
+
+/** Get status indicator letter for git status */
+function getGitStatusIndicator(status: GitFileStatus | undefined): string | undefined {
+  if (!status) return undefined;
+
+  switch (status) {
+    case "modified":
+      return "M";
+    case "added":
+      return "A";
+    case "untracked":
+      return "U";
+    case "deleted":
+      return "D";
+    case "renamed":
+      return "R";
+    case "conflicted":
+      return "C";
+    default:
+      return undefined;
+  }
+}
+
 interface FileTreeNodeProps {
   entry: FileEntry;
   depth: number;
   guideLines: boolean[]; // Array tracking which levels should show guide lines
   isLast: boolean; // Whether this is the last item in its parent
+  gitStatusMap: GitStatusMap;
 }
 
-function FileTreeNode({ entry, depth, guideLines, isLast }: FileTreeNodeProps) {
+function FileTreeNode({ entry, depth, guideLines, isLast, gitStatusMap }: FileTreeNodeProps) {
   const projectContext = useIdeStore((s) => s.projectContext);
   const expandedPaths = useFilesStore((s) => s.expandedPaths);
   const loadingPaths = useFilesStore((s) => s.loadingPaths);
@@ -137,6 +218,12 @@ function FileTreeNode({ entry, depth, guideLines, isLast }: FileTreeNodeProps) {
   const isLoading = loadingPaths.has(entry.path);
   const isActive = activeFilePath === entry.path;
   const isDimmed = entry.isHidden || entry.isGitignored;
+
+  // Get git status for this file/folder
+  const gitStatus = gitStatusMap.get(entry.path);
+  const gitStatusColor = getGitStatusColor(gitStatus);
+  // Only show indicator letter for files, not folders
+  const gitStatusIndicator = entry.isDirectory ? undefined : getGitStatusIndicator(gitStatus);
 
   // Single click - preview for files, toggle for directories
   const handleClick = () => {
@@ -262,11 +349,24 @@ function FileTreeNode({ entry, depth, guideLines, isLast }: FileTreeNodeProps) {
         <span
           className={cn(
             "truncate ml-1",
-            isDimmed && (isDark ? "text-neutral-500" : "text-neutral-400")
+            isDimmed && (isDark ? "text-neutral-500" : "text-neutral-400"),
+            gitStatusColor
           )}
         >
           {entry.name}
         </span>
+
+        {/* Git status indicator */}
+        {gitStatusIndicator && (
+          <span
+            className={cn(
+              "ml-auto pl-2 text-xs font-medium shrink-0",
+              gitStatusColor
+            )}
+          >
+            {gitStatusIndicator}
+          </span>
+        )}
       </div>
 
       {/* Children */}
@@ -279,6 +379,7 @@ function FileTreeNode({ entry, depth, guideLines, isLast }: FileTreeNodeProps) {
               depth={depth + 1}
               guideLines={[...guideLines, !isLast]}
               isLast={index === entry.children!.length - 1}
+              gitStatusMap={gitStatusMap}
             />
           ))}
         </div>

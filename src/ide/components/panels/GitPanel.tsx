@@ -4,7 +4,7 @@
  * Styled with theme support to match Panager's design.
  */
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   RefreshCw,
   ChevronDown,
@@ -14,19 +14,34 @@ import {
   FilePen,
   FileQuestion,
   AlertTriangle,
+  File,
+  Plus,
+  Minus,
+  Undo2,
+  Package,
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useGitStore } from "../../stores/git";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
 import type { GitFileChange, GitFileStatus } from "../../types";
-import { useState } from "react";
+import { CommitInput } from "../git/CommitInput";
+import { StashPanel } from "../git/StashPanel";
+import { stageFile, unstageFile, discardChanges } from "../../lib/tauri-ide";
 
 export function GitPanel() {
   const projectContext = useIdeStore((s) => s.projectContext);
   const activePanel = useIdeStore((s) => s.activePanel);
-  const { changes, branch, loading, loadGitStatus, selectFileForDiff, selectedFilePath } =
-    useGitStore();
+  const {
+    changes,
+    branch,
+    loading,
+    loadGitStatus,
+    selectFileForDiff,
+    selectedFilePath,
+    refresh,
+    stashSave,
+  } = useGitStore();
   const { effectiveTheme } = useIdeSettingsContext();
 
   const isDark = effectiveTheme === "dark";
@@ -44,6 +59,15 @@ export function GitPanel() {
     }
   };
 
+  const handleStashAll = async () => {
+    if (!projectContext) return;
+    try {
+      await stashSave(projectContext.projectPath, undefined, true);
+    } catch (error) {
+      console.error("Failed to stash:", error);
+    }
+  };
+
   const stagedChanges = changes.filter((c) => c.staged);
   const unstagedChanges = changes.filter(
     (c) => !c.staged && c.status !== "untracked"
@@ -54,6 +78,61 @@ export function GitPanel() {
     if (projectContext) {
       selectFileForDiff(projectContext.projectPath, file.path, file.staged);
     }
+  };
+
+  const handleStageFile = async (file: GitFileChange) => {
+    if (!projectContext) return;
+    try {
+      await stageFile(projectContext.projectPath, file.path);
+      await refresh(projectContext.projectPath);
+    } catch (error) {
+      console.error("Failed to stage file:", error);
+    }
+  };
+
+  const handleUnstageFile = async (file: GitFileChange) => {
+    if (!projectContext) return;
+    try {
+      await unstageFile(projectContext.projectPath, file.path);
+      await refresh(projectContext.projectPath);
+    } catch (error) {
+      console.error("Failed to unstage file:", error);
+    }
+  };
+
+  const handleDiscardChanges = async (file: GitFileChange) => {
+    if (!projectContext) return;
+    try {
+      await discardChanges(projectContext.projectPath, file.path);
+      await refresh(projectContext.projectPath);
+    } catch (error) {
+      console.error("Failed to discard changes:", error);
+    }
+  };
+
+  const handleStageAll = async () => {
+    if (!projectContext) return;
+    const filesToStage = [...unstagedChanges, ...untrackedChanges];
+    for (const file of filesToStage) {
+      try {
+        await stageFile(projectContext.projectPath, file.path);
+      } catch (error) {
+        console.error(`Failed to stage ${file.path}:`, error);
+      }
+    }
+    await refresh(projectContext.projectPath);
+  };
+
+  const handleUnstageAll = async () => {
+    if (!projectContext) return;
+    for (const file of stagedChanges) {
+      try {
+        await unstageFile(projectContext.projectPath, file.path);
+      } catch (error) {
+        console.error(`Failed to unstage ${file.path}:`, error);
+      }
+    }
+    await refresh(projectContext.projectPath);
   };
 
   return (
@@ -73,22 +152,42 @@ export function GitPanel() {
         >
           Source Control
         </span>
-        <button
-          onClick={handleRefresh}
-          className={cn(
-            "p-1 rounded transition-colors",
-            isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+        <div className="flex items-center gap-1">
+          {/* Stash button */}
+          {changes.length > 0 && (
+            <button
+              onClick={handleStashAll}
+              className={cn(
+                "p-1 rounded transition-colors",
+                isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+              )}
+              title="Stash all changes"
+            >
+              <Package
+                className={cn(
+                  "w-3.5 h-3.5",
+                  isDark ? "text-neutral-500" : "text-neutral-400"
+                )}
+              />
+            </button>
           )}
-          title="Refresh"
-        >
-          <RefreshCw
+          <button
+            onClick={handleRefresh}
             className={cn(
-              "w-3.5 h-3.5",
-              isDark ? "text-neutral-500" : "text-neutral-400",
-              loading && "animate-spin"
+              "p-1 rounded transition-colors",
+              isDark ? "hover:bg-white/10" : "hover:bg-black/10"
             )}
-          />
-        </button>
+            title="Refresh"
+          >
+            <RefreshCw
+              className={cn(
+                "w-3.5 h-3.5",
+                isDark ? "text-neutral-500" : "text-neutral-400",
+                loading && "animate-spin"
+              )}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Branch info */}
@@ -112,6 +211,9 @@ export function GitPanel() {
           </span>
         </div>
       )}
+
+      {/* Commit input */}
+      <CommitInput stagedCount={stagedChanges.length} />
 
       {/* Changes */}
       <div className="flex-1 overflow-auto py-1">
@@ -142,6 +244,12 @@ export function GitPanel() {
                 changes={stagedChanges}
                 onFileClick={handleFileClick}
                 selectedPath={selectedFilePath}
+                onStage={handleStageFile}
+                onUnstage={handleUnstageFile}
+                onDiscard={handleDiscardChanges}
+                onStageAll={handleStageAll}
+                onUnstageAll={handleUnstageAll}
+                isStaged
               />
             )}
 
@@ -152,6 +260,11 @@ export function GitPanel() {
                 changes={unstagedChanges}
                 onFileClick={handleFileClick}
                 selectedPath={selectedFilePath}
+                onStage={handleStageFile}
+                onUnstage={handleUnstageFile}
+                onDiscard={handleDiscardChanges}
+                onStageAll={handleStageAll}
+                onUnstageAll={handleUnstageAll}
               />
             )}
 
@@ -162,8 +275,16 @@ export function GitPanel() {
                 changes={untrackedChanges}
                 onFileClick={handleFileClick}
                 selectedPath={selectedFilePath}
+                onStage={handleStageFile}
+                onUnstage={handleUnstageFile}
+                onDiscard={handleDiscardChanges}
+                onStageAll={handleStageAll}
+                onUnstageAll={handleUnstageAll}
               />
             )}
+
+            {/* Stash panel */}
+            <StashPanel />
           </>
         )}
       </div>
@@ -176,6 +297,12 @@ interface ChangeSectionProps {
   changes: GitFileChange[];
   onFileClick: (file: GitFileChange) => void;
   selectedPath: string | null;
+  onStage: (file: GitFileChange) => void;
+  onUnstage: (file: GitFileChange) => void;
+  onDiscard: (file: GitFileChange) => void;
+  onStageAll: () => void;
+  onUnstageAll: () => void;
+  isStaged?: boolean;
 }
 
 function ChangeSection({
@@ -183,6 +310,12 @@ function ChangeSection({
   changes,
   onFileClick,
   selectedPath,
+  onStage,
+  onUnstage,
+  onDiscard,
+  onStageAll,
+  onUnstageAll,
+  isStaged = false,
 }: ChangeSectionProps) {
   const [expanded, setExpanded] = useState(true);
   const { effectiveTheme } = useIdeSettingsContext();
@@ -191,55 +324,171 @@ function ChangeSection({
 
   return (
     <div>
-      <button
-        onClick={() => setExpanded(!expanded)}
+      <div
         className={cn(
-          "flex items-center gap-1 w-full px-3 py-1.5 text-xs font-medium",
-          isDark
-            ? "text-neutral-400 hover:bg-white/5"
-            : "text-neutral-500 hover:bg-black/5"
+          "flex items-center w-full px-3 py-1.5 text-xs font-medium",
+          isDark ? "text-neutral-400" : "text-neutral-500"
         )}
       >
-        {expanded ? (
-          <ChevronDown className="w-3.5 h-3.5" />
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className={cn(
+            "flex items-center gap-1 flex-1",
+            isDark ? "hover:text-neutral-300" : "hover:text-neutral-600"
+          )}
+        >
+          {expanded ? (
+            <ChevronDown className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5" />
+          )}
+          {title}
+          <span className={cn("ml-1", isDark ? "text-neutral-500" : "text-neutral-400")}>
+            ({changes.length})
+          </span>
+        </button>
+
+        {/* Section actions */}
+        {isStaged ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onUnstageAll();
+            }}
+            className={cn(
+              "p-0.5 rounded transition-colors",
+              isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+            )}
+            title="Unstage all"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
         ) : (
-          <ChevronRight className="w-3.5 h-3.5" />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onStageAll();
+            }}
+            className={cn(
+              "p-0.5 rounded transition-colors",
+              isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+            )}
+            title="Stage all"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
         )}
-        {title}
-        <span className={cn("ml-1", isDark ? "text-neutral-500" : "text-neutral-400")}>
-          ({changes.length})
-        </span>
-      </button>
+      </div>
 
       {expanded && (
         <div>
           {changes.map((change) => (
-            <div
+            <FileChangeItem
               key={`${change.path}-${change.staged}`}
-              onClick={() => onFileClick(change)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-1 cursor-pointer text-sm",
-                "transition-colors",
-                isDark ? "hover:bg-white/5" : "hover:bg-black/5",
-                selectedPath === change.path && [
-                  isDark ? "bg-white/10" : "bg-black/10",
-                ]
-              )}
-            >
-              <StatusIcon status={change.status} />
-              <span className="truncate flex-1">{getFileName(change.path)}</span>
-              <span
-                className={cn(
-                  "text-xs truncate max-w-[100px]",
-                  isDark ? "text-neutral-600" : "text-neutral-400"
-                )}
-              >
-                {getParentPath(change.path)}
-              </span>
-            </div>
+              change={change}
+              isSelected={selectedPath === change.path}
+              isDark={isDark}
+              onFileClick={() => onFileClick(change)}
+              onStage={() => onStage(change)}
+              onUnstage={() => onUnstage(change)}
+              onDiscard={() => onDiscard(change)}
+            />
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+interface FileChangeItemProps {
+  change: GitFileChange;
+  isSelected: boolean;
+  isDark: boolean;
+  onFileClick: () => void;
+  onStage: () => void;
+  onUnstage: () => void;
+  onDiscard: () => void;
+}
+
+function FileChangeItem({
+  change,
+  isSelected,
+  isDark,
+  onFileClick,
+  onStage,
+  onUnstage,
+  onDiscard,
+}: FileChangeItemProps) {
+  return (
+    <div
+      className={cn(
+        "group flex items-center gap-2 px-4 py-1 cursor-pointer text-sm",
+        "transition-colors",
+        isDark ? "hover:bg-white/5" : "hover:bg-black/5",
+        isSelected && [isDark ? "bg-white/10" : "bg-black/10"]
+      )}
+      onClick={onFileClick}
+    >
+      <StatusIcon status={change.status} />
+      <span className="truncate flex-1">{getFileName(change.path)}</span>
+      <span
+        className={cn(
+          "text-xs truncate max-w-[100px]",
+          isDark ? "text-neutral-600" : "text-neutral-400"
+        )}
+      >
+        {getParentPath(change.path)}
+      </span>
+
+      {/* File actions */}
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        {change.staged ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onUnstage();
+            }}
+            className={cn(
+              "p-0.5 rounded",
+              isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+            )}
+            title="Unstage"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onStage();
+              }}
+              className={cn(
+                "p-0.5 rounded",
+                isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+              )}
+              title="Stage"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+            {change.status !== "untracked" && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDiscard();
+                }}
+                className={cn(
+                  "p-0.5 rounded text-red-500",
+                  isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                )}
+                title="Discard changes"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -262,8 +511,6 @@ function StatusIcon({ status }: { status: GitFileStatus }) {
       return <File className="w-4 h-4 text-neutral-500 shrink-0" />;
   }
 }
-
-import { File } from "lucide-react";
 
 function getFileName(path: string): string {
   return path.split("/").pop() || path;

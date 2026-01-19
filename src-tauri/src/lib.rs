@@ -174,6 +174,7 @@ pub fn run() {
             ide::commands::ide_delete_file,
             ide::commands::ide_rename_file,
             // IDE - Plugin notifications (for LSP/plugins)
+            ide::commands::ide_notify_file_opened,
             ide::commands::ide_notify_file_changed,
             ide::commands::ide_notify_file_closed,
             ide::commands::ide_notify_project_opened,
@@ -190,6 +191,23 @@ pub fn run() {
             ide::commands::ide_lsp_references,
             ide::commands::ide_lsp_rename,
             ide::commands::ide_lsp_code_action,
+            ide::commands::ide_lsp_document_symbols,
+            // IDE - Git commands (extended)
+            ide::commands::ide_git_commit,
+            ide::commands::ide_git_get_staged_summary,
+            ide::commands::ide_git_list_branches,
+            ide::commands::ide_git_create_branch,
+            ide::commands::ide_git_switch_branch,
+            ide::commands::ide_git_delete_branch,
+            ide::commands::ide_git_check_uncommitted_changes,
+            ide::commands::ide_git_stash_save,
+            ide::commands::ide_git_stash_list,
+            ide::commands::ide_git_stash_pop,
+            ide::commands::ide_git_stash_apply,
+            ide::commands::ide_git_stash_drop,
+            ide::commands::ide_git_blame,
+            ide::commands::ide_git_blame_line,
+            ide::commands::ide_git_show_head,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

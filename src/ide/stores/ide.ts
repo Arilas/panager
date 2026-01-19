@@ -27,6 +27,9 @@ interface IdeState {
   // Editor state
   cursorPosition: CursorPosition | null;
 
+  // Git blame
+  gitBlameEnabled: boolean;
+
   // Dialogs
   showQuickOpen: boolean;
   showGoToLine: boolean;
@@ -47,6 +50,10 @@ interface IdeState {
   setBottomPanelTab: (tab: BottomPanelTab) => void;
   setBottomPanelHeight: (height: number) => void;
   openBottomPanelTab: (tab: BottomPanelTab) => void;
+
+  // Git blame actions
+  setGitBlameEnabled: (enabled: boolean) => void;
+  toggleGitBlame: () => void;
 }
 
 export const useIdeStore = create<IdeState>((set, get) => ({
@@ -59,6 +66,7 @@ export const useIdeStore = create<IdeState>((set, get) => ({
   bottomPanelTab: "problems",
   bottomPanelHeight: 200,
   cursorPosition: null,
+  gitBlameEnabled: true,
   showQuickOpen: false,
   showGoToLine: false,
 
@@ -98,4 +106,8 @@ export const useIdeStore = create<IdeState>((set, get) => ({
   setBottomPanelHeight: (height) => set({ bottomPanelHeight: height }),
 
   openBottomPanelTab: (tab) => set({ bottomPanelOpen: true, bottomPanelTab: tab }),
+
+  // Git blame actions
+  setGitBlameEnabled: (enabled) => set({ gitBlameEnabled: enabled }),
+  toggleGitBlame: () => set((state) => ({ gitBlameEnabled: !state.gitBlameEnabled })),
 }));

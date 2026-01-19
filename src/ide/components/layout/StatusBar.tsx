@@ -6,19 +6,17 @@
  */
 
 import { useMemo } from "react";
-import { GitBranch } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useFilesStore } from "../../stores/files";
-import { useGitStore } from "../../stores/git";
 import { usePluginsStore } from "../../stores/plugins";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
+import { BranchSelector } from "../git/BranchSelector";
 
 export function StatusBar() {
   const cursorPosition = useIdeStore((s) => s.cursorPosition);
   const activeFilePath = useFilesStore((s) => s.activeFilePath);
   const openFiles = useFilesStore((s) => s.openFiles);
-  const branch = useGitStore((s) => s.branch);
   const statusBarItems = usePluginsStore((s) => s.statusBarItems);
   const { useLiquidGlass, effectiveTheme } = useIdeSettingsContext();
 
@@ -48,20 +46,9 @@ export function StatusBar() {
         isDark ? "text-neutral-400" : "text-neutral-600"
       )}
     >
-      {/* Left section - Git branch and plugin items */}
+      {/* Left section - Git branch selector and plugin items */}
       <div className="flex items-center gap-3">
-        {branch && (
-          <div className="flex items-center gap-1.5">
-            <GitBranch className="w-3.5 h-3.5" />
-            <span className="font-medium">{branch.name}</span>
-            {(branch.ahead > 0 || branch.behind > 0) && (
-              <span className="opacity-60">
-                {branch.ahead > 0 && `↑${branch.ahead}`}
-                {branch.behind > 0 && `↓${branch.behind}`}
-              </span>
-            )}
-          </div>
-        )}
+        <BranchSelector compact />
 
         {/* Left-aligned plugin status bar items */}
         {leftStatusItems.map((item) => (

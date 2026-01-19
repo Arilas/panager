@@ -9,6 +9,7 @@ import {
   readFile,
   writeFile,
   notifyFileClosed,
+  notifyFileOpened,
   notifyFileChanged,
 } from "../lib/tauri-ide";
 
@@ -196,9 +197,10 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     // Check if file is already open
     const existing = openFiles.find((f) => f.path === path);
     if (existing) {
-      // If already permanent, just activate it
-      // If it's already the preview tab, just activate it
+      // File is already open - activate it and ensure LSP knows about it
       set({ activeFilePath: path });
+      // Re-notify LSP in case it wasn't notified before (e.g., LSP started after file was opened)
+      notifyFileOpened(path, existing.content).catch(console.error);
       return;
     }
 
@@ -217,6 +219,10 @@ export const useFilesStore = create<FilesState>((set, get) => ({
         isDirty: false,
         isPreview: true,
       };
+
+      // Notify plugins (including LSP) about the file being opened
+      // This triggers LSP didOpen which is required for document symbols, etc.
+      notifyFileOpened(path, fileContent.content).catch(console.error);
 
       // Find and replace existing preview tab, or add new
       const existingPreviewIndex = openFiles.findIndex((f) => f.isPreview);

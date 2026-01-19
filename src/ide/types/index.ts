@@ -74,6 +74,66 @@ export interface GitBranchInfo {
   behind: number;
 }
 
+/** Git commit information */
+export interface GitCommitInfo {
+  oid: string;
+  shortId: string;
+  message: string;
+  authorName: string;
+  authorEmail: string;
+  authorTime: number;
+}
+
+/** Options for creating a commit */
+export interface CommitOptions {
+  message: string;
+  amend: boolean;
+}
+
+/** Git stash entry */
+export interface GitStashEntry {
+  index: number;
+  message: string;
+  oid: string;
+  time: number;
+}
+
+/** Local branch information */
+export interface GitLocalBranch {
+  name: string;
+  isCurrent: boolean;
+  upstream?: string;
+  ahead: number;
+  behind: number;
+  lastCommit?: GitCommitInfo;
+}
+
+/** Git blame information for a single line */
+export interface GitBlameLine {
+  lineNumber: number;
+  commitId: string;
+  author: string;
+  authorEmail: string;
+  timestamp: number;
+  originalLineNumber: number;
+  summary: string;
+}
+
+/** Git blame result for a file */
+export interface GitBlameResult {
+  filePath: string;
+  lines: GitBlameLine[];
+}
+
+/** Git operation progress */
+export interface GitProgress {
+  operation: string;
+  stage: string;
+  current: number;
+  total: number;
+  message?: string;
+}
+
 /** File system event */
 export type IdeFileEvent =
   | { type: "created"; path: string }

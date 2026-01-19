@@ -7,13 +7,16 @@
  * Integrates with backend LSP for intelligent features (go to definition, hover, completion, etc.)
  */
 
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import Editor, { OnMount, OnChange, loader, Monaco } from "@monaco-editor/react";
 import type { editor, languages, IDisposable, Position, CancellationToken, IRange } from "monaco-editor";
 import { useIdeStore } from "../../stores/ide";
 import { useFilesStore, consumePendingNavigation } from "../../stores/files";
 import { useProblemsStore } from "../../stores/problems";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useGitBlame } from "../../hooks/useGitBlame";
+import { useCodeLensBlame } from "../../hooks/useCodeLensBlame";
+import { useGitGutter } from "../../hooks/useGitGutter";
 import { cn } from "../../../lib/utils";
 import type { DiagnosticSeverity } from "../../types/problems";
 import * as lspApi from "../../lib/tauri-ide";
@@ -46,6 +49,31 @@ export function setFileOpener(
 
 // Track if editor opener is registered
 let editorOpenerRegistered = false;
+
+// Track if git blame styles are injected
+let gitBlameStylesInjected = false;
+
+/**
+ * Inject CSS styles for git blame decorations into the document.
+ * Monaco requires styles to be in the DOM, not just in external CSS files.
+ */
+function injectGitBlameStyles() {
+  if (gitBlameStylesInjected) return;
+  gitBlameStylesInjected = true;
+
+  const style = document.createElement("style");
+  style.id = "git-blame-monaco-styles";
+  // Monaco wraps injected text (from decoration options.after.content) in a span
+  // with the class specified in options.after.inlineClassName
+  style.textContent = `
+    .git-blame-decoration {
+      color: rgba(139, 148, 158, 0.6) !important;
+      font-style: italic !important;
+    }
+  `;
+  document.head.appendChild(style);
+  console.log("[MonacoEditor] Injected git blame styles");
+}
 
 /**
  * Register an editor opener to intercept Monaco's file opening requests.
@@ -89,11 +117,42 @@ function registerEditorOpener(monaco: Monaco): IDisposable | null {
 }
 
 /**
- * Disable Monaco's built-in TypeScript/JavaScript validation.
- * We use the backend LSP for diagnostics instead to avoid duplicate errors.
+ * Configure Monaco's built-in TypeScript/JavaScript support.
+ * - Disables validation (we use backend LSP instead)
+ * - Enables JSX syntax highlighting for TSX/JSX files
  */
-function disableBuiltInValidation(monaco: Monaco) {
-  // Disable TypeScript validation
+function configureTypeScriptSupport(monaco: Monaco) {
+  // Configure TypeScript compiler options for JSX support
+  monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+    target: monaco.languages.typescript.ScriptTarget.Latest,
+    module: monaco.languages.typescript.ModuleKind.ESNext,
+    moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+    jsx: monaco.languages.typescript.JsxEmit.React,
+    jsxFactory: "React.createElement",
+    reactNamespace: "React",
+    allowNonTsExtensions: true,
+    allowJs: true,
+    esModuleInterop: true,
+    noEmit: true,
+    strict: true,
+  });
+
+  // Configure JavaScript compiler options for JSX support
+  monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+    target: monaco.languages.typescript.ScriptTarget.Latest,
+    module: monaco.languages.typescript.ModuleKind.ESNext,
+    moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+    jsx: monaco.languages.typescript.JsxEmit.React,
+    jsxFactory: "React.createElement",
+    reactNamespace: "React",
+    allowNonTsExtensions: true,
+    allowJs: true,
+    checkJs: true,
+    esModuleInterop: true,
+    noEmit: true,
+  });
+
+  // Disable TypeScript validation (we use backend LSP for diagnostics)
   monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
     noSemanticValidation: true,
     noSyntaxValidation: true,
@@ -105,7 +164,7 @@ function disableBuiltInValidation(monaco: Monaco) {
     noSyntaxValidation: true,
   });
 
-  console.log("[MonacoEditor] Disabled built-in TS/JS validation");
+  console.log("[MonacoEditor] Configured TypeScript/JavaScript support with JSX");
 }
 
 /**
@@ -473,15 +532,42 @@ export function MonacoEditor({
 }: MonacoEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
+  const [editorInstance, setEditorInstance] = useState<editor.IStandaloneCodeEditor | null>(null);
+  const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
   const setCursorPosition = useIdeStore((s) => s.setCursorPosition);
   const updateFileContent = useFilesStore((s) => s.updateFileContent);
   const openFileAtPosition = useFilesStore((s) => s.openFileAtPosition);
   const getDiagnosticsForFile = useProblemsStore((s) => s.getDiagnosticsForFile);
   const diagnosticsByFile = useProblemsStore((s) => s.diagnosticsByFile);
   const { effectiveTheme } = useIdeSettingsContext();
+  const gitBlameEnabled = useIdeStore((s) => s.gitBlameEnabled);
 
   const isDark = effectiveTheme === "dark";
   const monacoTheme = isDark ? "vs-dark" : "vs";
+
+  // Git blame inline decorations (VS Code style)
+  useGitBlame({
+    editor: editorInstance,
+    filePath: path,
+    enabled: gitBlameEnabled,
+  });
+
+  // Git blame CodeLens above function/class declarations
+  useCodeLensBlame({
+    editor: editorInstance,
+    monaco: monacoInstance,
+    filePath: path,
+    language,
+    enabled: gitBlameEnabled,
+  });
+
+  // Git gutter decorations (green/blue bars for added/modified lines)
+  useGitGutter({
+    editor: editorInstance,
+    monaco: monacoInstance,
+    filePath: path,
+    enabled: true, // Always show git gutter
+  });
 
   // Set the file opener reference for the editor opener to use
   useEffect(() => {
@@ -492,9 +578,14 @@ export function MonacoEditor({
     (editor, monaco) => {
       editorRef.current = editor;
       monacoRef.current = monaco;
+      setEditorInstance(editor);
+      setMonacoInstance(monaco);
 
-      // Disable built-in TS/JS validation (we use backend LSP instead)
-      disableBuiltInValidation(monaco);
+      // Inject git blame styles into DOM (required for Monaco decorations)
+      injectGitBlameStyles();
+
+      // Configure TypeScript/JavaScript support (JSX highlighting, disable built-in validation)
+      configureTypeScriptSupport(monaco);
 
       // Register editor opener for file navigation (only once globally)
       registerEditorOpener(monaco);
@@ -583,6 +674,7 @@ export function MonacoEditor({
     },
     [path, content, updateFileContent]
   );
+  console.log("[MonacoEditor] Rendering editor for language:", language);
 
   return (
     <div className="h-full w-full">

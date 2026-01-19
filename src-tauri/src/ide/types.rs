@@ -117,3 +117,109 @@ pub struct GitBranchInfo {
     /// Number of commits behind remote
     pub behind: u32,
 }
+
+/// Git commit information
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GitCommitInfo {
+    /// Full commit OID
+    pub oid: String,
+    /// Short commit ID (7 chars)
+    pub short_id: String,
+    /// Commit message
+    pub message: String,
+    /// Author name
+    pub author_name: String,
+    /// Author email
+    pub author_email: String,
+    /// Author timestamp (Unix epoch seconds)
+    pub author_time: i64,
+}
+
+/// Options for creating a commit
+#[derive(Debug, Clone, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitOptions {
+    /// Commit message
+    pub message: String,
+    /// Whether to amend the previous commit
+    pub amend: bool,
+}
+
+/// Git stash entry
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GitStashEntry {
+    /// Stash index (0 = most recent)
+    pub index: usize,
+    /// Stash message
+    pub message: String,
+    /// Stash commit OID
+    pub oid: String,
+    /// Timestamp when stash was created
+    pub time: i64,
+}
+
+/// Local branch information
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GitLocalBranch {
+    /// Branch name
+    pub name: String,
+    /// Whether this is the current branch
+    pub is_current: bool,
+    /// Upstream tracking branch (if any)
+    pub upstream: Option<String>,
+    /// Commits ahead of upstream
+    pub ahead: u32,
+    /// Commits behind upstream
+    pub behind: u32,
+    /// Last commit on this branch
+    pub last_commit: Option<GitCommitInfo>,
+}
+
+/// Git blame information for a single line
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GitBlameLine {
+    /// Line number (1-indexed)
+    pub line_number: u32,
+    /// Commit ID that last modified this line
+    pub commit_id: String,
+    /// Author name
+    pub author: String,
+    /// Author email
+    pub author_email: String,
+    /// Timestamp of the commit
+    pub timestamp: i64,
+    /// Original line number in the commit
+    pub original_line_number: u32,
+    /// First line of the commit message
+    pub summary: String,
+}
+
+/// Git blame result for a file
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GitBlameResult {
+    /// Path to the blamed file
+    pub file_path: String,
+    /// Blame info for each line
+    pub lines: Vec<GitBlameLine>,
+}
+
+/// Git operation progress
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct GitProgress {
+    /// Operation name (push, pull, fetch, etc.)
+    pub operation: String,
+    /// Current stage of the operation
+    pub stage: String,
+    /// Current progress value
+    pub current: u32,
+    /// Total expected value
+    pub total: u32,
+    /// Optional message
+    pub message: Option<String>,
+}

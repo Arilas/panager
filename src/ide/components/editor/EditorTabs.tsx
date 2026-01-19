@@ -4,10 +4,35 @@
  * Styled with theme support to match Panager's design.
  */
 
+import { useMemo } from "react";
 import { X, File, Circle } from "lucide-react";
 import { useFilesStore } from "../../stores/files";
+import { useGitStore } from "../../stores/git";
+import { useIdeStore } from "../../stores/ide";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
+import type { GitFileStatus } from "../../types";
+
+/** Get color class for git status */
+function getGitStatusColor(status: GitFileStatus | undefined): string | undefined {
+  if (!status) return undefined;
+
+  switch (status) {
+    case "modified":
+      return "text-amber-500";
+    case "added":
+    case "untracked":
+      return "text-green-500";
+    case "deleted":
+      return "text-red-500";
+    case "renamed":
+      return "text-blue-500";
+    case "conflicted":
+      return "text-red-600";
+    default:
+      return undefined;
+  }
+}
 
 export function EditorTabs() {
   const openFiles = useFilesStore((s) => s.openFiles);
@@ -17,9 +42,24 @@ export function EditorTabs() {
   const convertPreviewToPermanent = useFilesStore(
     (s) => s.convertPreviewToPermanent
   );
+  const projectContext = useIdeStore((s) => s.projectContext);
+  const gitChanges = useGitStore((s) => s.changes);
   const { effectiveTheme, useLiquidGlass } = useIdeSettingsContext();
 
   const isDark = effectiveTheme === "dark";
+
+  // Build a map of file paths to their git status for quick lookup
+  const gitStatusMap = useMemo<Map<string, GitFileStatus>>(() => {
+    const map = new Map<string, GitFileStatus>();
+    const projectRoot = projectContext?.projectPath ?? "";
+
+    for (const change of gitChanges) {
+      // Use the full path for matching (tabs use full paths)
+      const fullPath = projectRoot ? `${projectRoot}/${change.path}` : change.path;
+      map.set(fullPath, change.status);
+    }
+    return map;
+  }, [gitChanges, projectContext]);
 
   return (
     <div
@@ -37,6 +77,8 @@ export function EditorTabs() {
       {openFiles.map((file) => {
         const isActive = file.path === activeFilePath;
         const fileName = file.path.split("/").pop() || file.path;
+        const gitStatus = gitStatusMap.get(file.path);
+        const gitStatusColor = getGitStatusColor(gitStatus);
 
         return (
           <div
@@ -49,7 +91,7 @@ export function EditorTabs() {
               }
             }}
             className={cn(
-              "group flex items-center gap-2 px-3 py-1.5 text-[13px] cursor-pointer",
+              "group flex items-center justify-between gap-2 px-3 py-1.5 text-[13px] cursor-pointer",
               "transition-colors min-w-[120px] max-w-[200px] shrink-0",
               "border-r border-black/5 dark:border-white/5",
               isActive
@@ -69,10 +111,12 @@ export function EditorTabs() {
                   ]
             )}
           >
-            <File className="w-3.5 h-3.5 shrink-0 opacity-60" />
-            <span className={cn("truncate", file.isPreview && "italic")}>
-              {fileName}
-            </span>
+            <div className="flex items-center gap-2">
+              <File className={cn("w-3.5 h-3.5 shrink-0 opacity-60", gitStatusColor)} />
+              <span className={cn("truncate", file.isPreview && "italic", gitStatusColor)}>
+                {fileName}
+              </span>
+            </div>
             {/* Close button or dirty indicator */}
             <button
               onClick={(e) => {

@@ -9,6 +9,12 @@ import type {
   GitFileChange,
   FileDiff,
   GitBranchInfo,
+  GitCommitInfo,
+  GitLocalBranch,
+  GitStashEntry,
+  GitBlameLine,
+  GitBlameResult,
+  CommitOptions,
   SearchResult,
 } from "../types";
 
@@ -85,6 +91,121 @@ export async function discardChanges(
   return invoke("ide_discard_changes", { projectPath, filePath });
 }
 
+// Git - Commit operations
+
+export async function gitCommit(
+  projectPath: string,
+  options: CommitOptions
+): Promise<GitCommitInfo> {
+  return invoke("ide_git_commit", { projectPath, options });
+}
+
+export async function gitGetStagedSummary(
+  projectPath: string
+): Promise<GitFileChange[]> {
+  return invoke("ide_git_get_staged_summary", { projectPath });
+}
+
+// Git - Branch operations
+
+export async function gitListBranches(
+  projectPath: string
+): Promise<GitLocalBranch[]> {
+  return invoke("ide_git_list_branches", { projectPath });
+}
+
+export async function gitCreateBranch(
+  projectPath: string,
+  name: string,
+  fromRef?: string,
+  checkout?: boolean
+): Promise<void> {
+  return invoke("ide_git_create_branch", { projectPath, name, fromRef, checkout });
+}
+
+export async function gitSwitchBranch(
+  projectPath: string,
+  name: string
+): Promise<void> {
+  return invoke("ide_git_switch_branch", { projectPath, name });
+}
+
+export async function gitDeleteBranch(
+  projectPath: string,
+  name: string,
+  force?: boolean
+): Promise<void> {
+  return invoke("ide_git_delete_branch", { projectPath, name, force });
+}
+
+export async function gitCheckUncommittedChanges(
+  projectPath: string
+): Promise<boolean> {
+  return invoke("ide_git_check_uncommitted_changes", { projectPath });
+}
+
+// Git - Stash operations
+
+export async function gitStashSave(
+  projectPath: string,
+  message?: string,
+  includeUntracked?: boolean
+): Promise<void> {
+  return invoke("ide_git_stash_save", { projectPath, message, includeUntracked });
+}
+
+export async function gitStashList(
+  projectPath: string
+): Promise<GitStashEntry[]> {
+  return invoke("ide_git_stash_list", { projectPath });
+}
+
+export async function gitStashPop(
+  projectPath: string,
+  index: number
+): Promise<void> {
+  return invoke("ide_git_stash_pop", { projectPath, index });
+}
+
+export async function gitStashApply(
+  projectPath: string,
+  index: number
+): Promise<void> {
+  return invoke("ide_git_stash_apply", { projectPath, index });
+}
+
+export async function gitStashDrop(
+  projectPath: string,
+  index: number
+): Promise<void> {
+  return invoke("ide_git_stash_drop", { projectPath, index });
+}
+
+// Git - Blame operations
+
+export async function gitBlame(
+  projectPath: string,
+  filePath: string
+): Promise<GitBlameResult> {
+  return invoke("ide_git_blame", { projectPath, filePath });
+}
+
+export async function gitBlameLine(
+  projectPath: string,
+  filePath: string,
+  line: number
+): Promise<GitBlameLine | null> {
+  return invoke("ide_git_blame_line", { projectPath, filePath, line });
+}
+
+/** Get the content of a file from HEAD (last committed version) */
+export async function gitShowHead(
+  projectPath: string,
+  filePath: string
+): Promise<string | null> {
+  return invoke("ide_git_show_head", { projectPath, filePath });
+}
+
 // Search operations
 
 export async function searchFileNames(
@@ -150,6 +271,13 @@ export async function renameFile(
 
 // Plugin notifications (for LSP/plugins)
 
+export async function notifyFileOpened(
+  filePath: string,
+  content: string
+): Promise<void> {
+  return invoke("ide_notify_file_opened", { filePath, content });
+}
+
 export async function notifyFileChanged(
   filePath: string,
   content: string
@@ -197,6 +325,7 @@ import type {
   LspCompletionList,
   LspWorkspaceEdit,
   LspCodeAction,
+  LspDocumentSymbol,
 } from "../types/lsp";
 
 export async function lspGotoDefinition(
@@ -268,4 +397,10 @@ export async function lspCodeAction(
     endCharacter,
     diagnostics,
   });
+}
+
+export async function lspDocumentSymbols(
+  filePath: string
+): Promise<LspDocumentSymbol[]> {
+  return invoke("ide_lsp_document_symbols", { filePath });
 }

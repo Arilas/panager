@@ -15,8 +15,8 @@ use tracing::{debug, info, warn};
 
 use crate::plugins::context::PluginContext;
 use crate::plugins::types::{
-    HostEvent, LspCodeAction, LspCompletionList, LspHover, LspLocation, LspProvider,
-    LspWorkspaceEdit, Plugin, PluginManifest, StatusBarAlignment, StatusBarItem,
+    HostEvent, LspCodeAction, LspCompletionList, LspDocumentSymbol, LspHover, LspLocation,
+    LspProvider, LspWorkspaceEdit, Plugin, PluginManifest, StatusBarAlignment, StatusBarItem,
 };
 
 use lsp::LspClient;
@@ -259,8 +259,12 @@ impl Plugin for TypeScriptPlugin {
                 content,
                 language,
             } => {
+                debug!("TypeScript plugin received FileOpened: {:?}, lang: {}", path, language);
                 if let Some(lsp) = self.lsp.read().await.as_ref() {
+                    debug!("Sending didOpen to LSP for: {:?}", path);
                     lsp.did_open(&path, &content, &language).await;
+                } else {
+                    warn!("LSP not running, cannot send didOpen for: {:?}", path);
                 }
             }
 
@@ -364,5 +368,14 @@ impl LspProvider for TypeScriptPlugin {
         let lsp = lsp.as_ref().ok_or("LSP not running")?;
         lsp.code_action(path, start_line, start_character, end_line, end_character, diagnostics)
             .await
+    }
+
+    async fn document_symbols(&self, path: &PathBuf) -> Result<Vec<LspDocumentSymbol>, String> {
+        debug!("document_symbols called for: {:?}", path);
+        let lsp = self.lsp.read().await;
+        let lsp = lsp.as_ref().ok_or("LSP not running")?;
+        let result = lsp.document_symbols(path).await;
+        debug!("document_symbols result: {:?} symbols", result.as_ref().map(|v| v.len()));
+        result
     }
 }
