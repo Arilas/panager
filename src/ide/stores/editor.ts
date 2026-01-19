@@ -35,10 +35,15 @@ export interface MonacoInitState {
   error: string | null;
 }
 
-/** Per-file editor state */
-export interface FileEditorState {
+/** Base tab state shared by all tab types */
+interface BaseTabState {
   path: string;
   language: string;
+}
+
+/** Regular file editor state */
+export interface FileTabState extends BaseTabState {
+  type: "file";
   content: string;
   savedContent: string; // For dirty detection
   headContent: string | null; // From git HEAD
@@ -54,7 +59,26 @@ export interface FileEditorState {
   foldedRegions: number[];
 }
 
-/** Persisted session data (subset of FileEditorState) */
+/** Diff tab state for viewing git diffs */
+export interface DiffTabState extends BaseTabState {
+  type: "diff";
+  /** Display name for the tab */
+  fileName: string;
+  /** Original content (from HEAD) */
+  originalContent: string;
+  /** Modified content (current working tree or staged) */
+  modifiedContent: string;
+  /** Whether this is showing staged changes */
+  staged: boolean;
+}
+
+/** Union type for all tab states */
+export type TabState = FileTabState | DiffTabState;
+
+/** @deprecated Use FileTabState instead */
+export type FileEditorState = FileTabState;
+
+/** Persisted session data (subset of FileTabState) */
 interface PersistedFileSession {
   cursorPosition: { line: number; column: number };
   scrollPosition: { top: number; left: number };
@@ -74,10 +98,13 @@ interface EditorState {
   // === TABS (single source of truth) ===
   openTabs: string[]; // Ordered list of file paths (tab order)
   activeTabPath: string | null; // Currently active tab
-  previewTab: FileEditorState | null; // Single preview tab (replaced on new preview)
+  previewTab: FileTabState | null; // Single preview tab (replaced on new preview)
+
+  // === DIFF TAB ===
+  diffTab: DiffTabState | null; // Single diff tab (for viewing git diffs)
 
   // === FILE STATE (keyed by path) ===
-  fileStates: Record<string, FileEditorState>; // Permanent tabs only
+  fileStates: Record<string, FileTabState>; // Permanent tabs only
 
   // === PERSISTED SESSION DATA ===
   sessionData: Record<string, PersistedFileSession>; // Session data for restoration
@@ -106,6 +133,10 @@ interface EditorState {
   convertPreviewToPermanent: () => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
 
+  // === DIFF TAB ACTIONS ===
+  openDiffTab: (diff: DiffTabState) => void;
+  closeDiffTab: () => void;
+
   // === CONTENT ACTIONS ===
   updateContent: (path: string, content: string) => void;
   markSaved: (path: string, newSavedContent: string) => void;
@@ -131,8 +162,8 @@ interface EditorState {
   saveFoldedRegions: (path: string, regions: number[]) => void;
 
   // === GETTERS ===
-  getFileState: (path: string) => FileEditorState | null;
-  getActiveFileState: () => FileEditorState | null;
+  getFileState: (path: string) => FileTabState | null;
+  getActiveFileState: () => FileTabState | null;
   isDirty: (path: string) => boolean;
   hasUnsavedChanges: () => boolean;
 
@@ -197,8 +228,9 @@ function createDefaultFileState(
   content: string,
   language: string,
   existingSession?: PersistedFileSession
-): FileEditorState {
+): FileTabState {
   return {
+    type: "file",
     path,
     language,
     content,
@@ -233,6 +265,7 @@ export const useEditorStore = create<EditorState>()(
       openTabs: [],
       activeTabPath: null,
       previewTab: null,
+      diffTab: null,
       fileStates: {},
       sessionData: {},
       gitBlameEnabled: true,
@@ -471,6 +504,30 @@ export const useEditorStore = create<EditorState>()(
         });
       },
 
+      // === DIFF TAB ACTIONS ===
+
+      openDiffTab: (diff) => {
+        // Use a special path format for diff tabs: "diff://<filepath>"
+        const diffPath = `diff://${diff.path}`;
+        set({
+          diffTab: diff,
+          activeTabPath: diffPath,
+        });
+      },
+
+      closeDiffTab: () => {
+        const state = get();
+        const wasDiffActive = state.activeTabPath?.startsWith("diff://");
+
+        set((s) => ({
+          diffTab: null,
+          // If diff was active, switch to last open tab or preview
+          activeTabPath: wasDiffActive
+            ? s.openTabs[s.openTabs.length - 1] ?? s.previewTab?.path ?? null
+            : s.activeTabPath,
+        }));
+      },
+
       // === CONTENT ACTIONS ===
 
       updateContent: (path, content) => {
@@ -479,7 +536,7 @@ export const useEditorStore = create<EditorState>()(
         // Check if updating preview tab
         if (state.previewTab?.path === path) {
           // Auto-convert preview to permanent on edit
-          const updatedTab: FileEditorState = {
+          const updatedTab: FileTabState = {
             ...state.previewTab,
             content,
           };
@@ -838,7 +895,7 @@ export const useEditorStore = create<EditorState>()(
 
       clearAllBlameCaches: () => {
         set((state) => {
-          const newFileStates: Record<string, FileEditorState> = {};
+          const newFileStates: Record<string, FileTabState> = {};
 
           for (const [path, fileState] of Object.entries(state.fileStates)) {
             newFileStates[path] = {

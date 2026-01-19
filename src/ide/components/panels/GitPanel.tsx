@@ -4,7 +4,7 @@
  * Styled with theme support to match Panager's design.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   RefreshCw,
   ChevronDown,
@@ -19,15 +19,54 @@ import {
   Minus,
   Undo2,
   Package,
+  List,
+  FolderTree,
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useGitStore } from "../../stores/git";
+import { useFilesStore } from "../../stores/files";
+import { useEditorStore } from "../../stores/editor";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
 import type { GitFileChange, GitFileStatus } from "../../types";
 import { CommitInput } from "../git/CommitInput";
 import { StashPanel } from "../git/StashPanel";
-import { stageFile, unstageFile, discardChanges } from "../../lib/tauri-ide";
+import { GitChangeTree } from "../git/GitChangeTree";
+import { stageFile, unstageFile, discardChanges, getFileDiff } from "../../lib/tauri-ide";
+
+/** Get Monaco language ID from file path */
+function getLanguageFromPath(filePath: string): string {
+  const ext = filePath.split(".").pop()?.toLowerCase() || "";
+  const langMap: Record<string, string> = {
+    ts: "typescript",
+    tsx: "typescript",
+    js: "javascript",
+    jsx: "javascript",
+    json: "json",
+    html: "html",
+    css: "css",
+    scss: "scss",
+    less: "less",
+    md: "markdown",
+    py: "python",
+    rs: "rust",
+    go: "go",
+    java: "java",
+    c: "c",
+    cpp: "cpp",
+    h: "c",
+    hpp: "cpp",
+    yaml: "yaml",
+    yml: "yaml",
+    xml: "xml",
+    sql: "sql",
+    sh: "shell",
+    bash: "shell",
+    zsh: "shell",
+    toml: "toml",
+  };
+  return langMap[ext] || "plaintext";
+}
 
 export function GitPanel() {
   const projectContext = useIdeStore((s) => s.projectContext);
@@ -37,12 +76,34 @@ export function GitPanel() {
     branch,
     loading,
     loadGitStatus,
-    selectFileForDiff,
-    selectedFilePath,
     refresh,
     stashSave,
+    changesViewMode,
+    setChangesViewMode,
   } = useGitStore();
+  const openFilePreview = useFilesStore((s) => s.openFilePreview);
+  const diffTab = useEditorStore((s) => s.diffTab);
+  const activeTabPath = useEditorStore((s) => s.activeTabPath);
   const { effectiveTheme } = useIdeSettingsContext();
+
+  // Derive selected file from active tab (diff or regular file)
+  const selectedFilePath = useMemo(() => {
+    if (!activeTabPath || !projectContext) return null;
+
+    // If diff tab is active, use diff tab path
+    if (activeTabPath.startsWith("diff://") && diffTab) {
+      const fullPath = diffTab.path;
+      if (fullPath.startsWith(projectContext.projectPath)) {
+        return fullPath.slice(projectContext.projectPath.length + 1); // +1 for the "/"
+      }
+    } else {
+      // Regular file tab - extract relative path
+      if (activeTabPath.startsWith(projectContext.projectPath)) {
+        return activeTabPath.slice(projectContext.projectPath.length + 1);
+      }
+    }
+    return null;
+  }, [activeTabPath, diffTab, projectContext]);
 
   const isDark = effectiveTheme === "dark";
 
@@ -74,9 +135,33 @@ export function GitPanel() {
   );
   const untrackedChanges = changes.filter((c) => c.status === "untracked");
 
-  const handleFileClick = (file: GitFileChange) => {
-    if (projectContext) {
-      selectFileForDiff(projectContext.projectPath, file.path, file.staged);
+  const openDiffTab = useEditorStore((s) => s.openDiffTab);
+
+  const handleFileClick = async (file: GitFileChange) => {
+    if (!projectContext) return;
+
+    try {
+      // Get the diff data from the backend
+      const diff = await getFileDiff(projectContext.projectPath, file.path, file.staged);
+
+      if (diff.isBinary) {
+        console.warn("Cannot display diff for binary file:", file.path);
+        return;
+      }
+
+      // Open the diff in a new tab
+      const fileName = file.path.split("/").pop() || file.path;
+      openDiffTab({
+        type: "diff",
+        path: `${projectContext.projectPath}/${file.path}`,
+        fileName,
+        originalContent: diff.originalContent,
+        modifiedContent: diff.modifiedContent,
+        language: getLanguageFromPath(file.path),
+        staged: file.staged,
+      });
+    } catch (error) {
+      console.error("Failed to load diff:", error);
     }
   };
 
@@ -135,6 +220,17 @@ export function GitPanel() {
     await refresh(projectContext.projectPath);
   };
 
+  const handleFileOpen = (file: GitFileChange) => {
+    if (projectContext) {
+      const fullPath = `${projectContext.projectPath}/${file.path}`;
+      openFilePreview(fullPath);
+    }
+  };
+
+  const toggleViewMode = () => {
+    setChangesViewMode(changesViewMode === "list" ? "tree" : "list");
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -153,6 +249,31 @@ export function GitPanel() {
           Source Control
         </span>
         <div className="flex items-center gap-1">
+          {/* View toggle button */}
+          <button
+            onClick={toggleViewMode}
+            className={cn(
+              "p-1 rounded transition-colors",
+              isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+            )}
+            title={changesViewMode === "list" ? "Tree view" : "List view"}
+          >
+            {changesViewMode === "list" ? (
+              <FolderTree
+                className={cn(
+                  "w-3.5 h-3.5",
+                  isDark ? "text-neutral-500" : "text-neutral-400"
+                )}
+              />
+            ) : (
+              <List
+                className={cn(
+                  "w-3.5 h-3.5",
+                  isDark ? "text-neutral-500" : "text-neutral-400"
+                )}
+              />
+            )}
+          </button>
           {/* Stash button */}
           {changes.length > 0 && (
             <button
@@ -235,6 +356,24 @@ export function GitPanel() {
           >
             No changes detected
           </div>
+        ) : changesViewMode === "tree" ? (
+          <>
+            <GitChangeTree
+              stagedChanges={stagedChanges}
+              unstagedChanges={unstagedChanges}
+              untrackedChanges={untrackedChanges}
+              onStage={handleStageFile}
+              onUnstage={handleUnstageFile}
+              onDiscard={handleDiscardChanges}
+              onStageAll={handleStageAll}
+              onUnstageAll={handleUnstageAll}
+              onFileClick={handleFileClick}
+              onFileOpen={handleFileOpen}
+              selectedPath={selectedFilePath}
+            />
+            {/* Stash panel */}
+            <StashPanel />
+          </>
         ) : (
           <>
             {/* Staged changes */}
@@ -243,6 +382,7 @@ export function GitPanel() {
                 title="Staged Changes"
                 changes={stagedChanges}
                 onFileClick={handleFileClick}
+                onFileOpen={handleFileOpen}
                 selectedPath={selectedFilePath}
                 onStage={handleStageFile}
                 onUnstage={handleUnstageFile}
@@ -259,6 +399,7 @@ export function GitPanel() {
                 title="Changes"
                 changes={unstagedChanges}
                 onFileClick={handleFileClick}
+                onFileOpen={handleFileOpen}
                 selectedPath={selectedFilePath}
                 onStage={handleStageFile}
                 onUnstage={handleUnstageFile}
@@ -274,6 +415,7 @@ export function GitPanel() {
                 title="Untracked"
                 changes={untrackedChanges}
                 onFileClick={handleFileClick}
+                onFileOpen={handleFileOpen}
                 selectedPath={selectedFilePath}
                 onStage={handleStageFile}
                 onUnstage={handleUnstageFile}
@@ -296,6 +438,7 @@ interface ChangeSectionProps {
   title: string;
   changes: GitFileChange[];
   onFileClick: (file: GitFileChange) => void;
+  onFileOpen: (file: GitFileChange) => void;
   selectedPath: string | null;
   onStage: (file: GitFileChange) => void;
   onUnstage: (file: GitFileChange) => void;
@@ -309,6 +452,7 @@ function ChangeSection({
   title,
   changes,
   onFileClick,
+  onFileOpen,
   selectedPath,
   onStage,
   onUnstage,
@@ -388,7 +532,8 @@ function ChangeSection({
               change={change}
               isSelected={selectedPath === change.path}
               isDark={isDark}
-              onFileClick={() => onFileClick(change)}
+              onFileClick={() => onFileOpen(change)}
+              onShowDiff={() => onFileClick(change)}
               onStage={() => onStage(change)}
               onUnstage={() => onUnstage(change)}
               onDiscard={() => onDiscard(change)}
@@ -405,6 +550,7 @@ interface FileChangeItemProps {
   isSelected: boolean;
   isDark: boolean;
   onFileClick: () => void;
+  onShowDiff: () => void;
   onStage: () => void;
   onUnstage: () => void;
   onDiscard: () => void;
@@ -415,6 +561,7 @@ function FileChangeItem({
   isSelected,
   isDark,
   onFileClick,
+  onShowDiff,
   onStage,
   onUnstage,
   onDiscard,
@@ -422,7 +569,7 @@ function FileChangeItem({
   return (
     <div
       className={cn(
-        "group flex items-center gap-2 px-4 py-1 cursor-pointer text-sm",
+        "group relative flex items-center gap-2 px-4 py-1 cursor-pointer text-sm",
         "transition-colors",
         isDark ? "hover:bg-white/5" : "hover:bg-black/5",
         isSelected && [isDark ? "bg-white/10" : "bg-black/10"]
@@ -433,15 +580,35 @@ function FileChangeItem({
       <span className="truncate flex-1">{getFileName(change.path)}</span>
       <span
         className={cn(
-          "text-xs truncate max-w-[100px]",
+          "text-xs truncate max-w-[100px] group-hover:opacity-0 transition-opacity",
           isDark ? "text-neutral-600" : "text-neutral-400"
         )}
       >
         {getParentPath(change.path)}
       </span>
 
-      {/* File actions */}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* File actions - positioned absolutely to not take space when hidden */}
+      <div
+        className={cn(
+          "absolute right-2 flex items-center gap-0.5",
+          "opacity-0 group-hover:opacity-100 transition-opacity",
+          isDark ? "bg-neutral-900/90" : "bg-neutral-100/90"
+        )}
+      >
+        {/* Show diff button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onShowDiff();
+          }}
+          className={cn(
+            "p-0.5 rounded",
+            isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+          )}
+          title="View diff"
+        >
+          <File className="w-3.5 h-3.5" />
+        </button>
         {change.staged ? (
           <button
             onClick={(e) => {

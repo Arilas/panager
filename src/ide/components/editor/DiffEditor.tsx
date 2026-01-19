@@ -5,16 +5,13 @@
  */
 
 import { useRef, useCallback } from "react";
-import { DiffEditor as MonacoDiffEditor, loader } from "@monaco-editor/react";
+import { DiffEditor as MonacoDiffEditor } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { useIdeStore } from "../../stores/ide";
+import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { mapMonacoToShikiLanguage } from "../../lib/languageMapping";
+import { getMonacoTheme } from "../../monaco/themes";
 
-// Configure Monaco loader to use CDN
-loader.config({
-  paths: {
-    vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs",
-  },
-});
 
 interface DiffEditorProps {
   original: string;
@@ -31,6 +28,12 @@ export function DiffEditor({
 }: DiffEditorProps) {
   const editorRef = useRef<editor.IStandaloneDiffEditor | null>(null);
   const setCursorPosition = useIdeStore((s) => s.setCursorPosition);
+  const { effectiveTheme } = useIdeSettingsContext();
+
+  const isDark = effectiveTheme === "dark";
+  const monacoTheme = getMonacoTheme(isDark);
+  // Map Monaco language ID to Shiki language ID for proper tokenization
+  const shikiLanguage = mapMonacoToShikiLanguage(language);
 
   const handleEditorMount = useCallback(
     (editor: editor.IStandaloneDiffEditor) => {
@@ -55,10 +58,10 @@ export function DiffEditor({
     <div className="h-full w-full">
       <MonacoDiffEditor
         height="100%"
-        language={language}
+        language={shikiLanguage}
         original={original}
         modified={modified}
-        theme="vs-dark"
+        theme={monacoTheme}
         onMount={handleEditorMount}
         options={{
           readOnly: true,

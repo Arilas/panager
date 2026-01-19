@@ -264,8 +264,6 @@ impl PluginHost {
             info!("Plugin event loop started");
 
             while let Some(event) = rx.recv().await {
-                debug!("Forwarding plugin event: {:?}", event);
-
                 let app = host.app_handle.read().await;
                 if let Some(ref app) = *app {
                     if let Err(e) = app.emit("plugin-event", &event) {

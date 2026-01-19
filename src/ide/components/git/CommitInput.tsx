@@ -60,7 +60,7 @@ export function CommitInput({ stagedCount }: CommitInputProps) {
         isDark ? "border-white/5" : "border-black/5"
       )}
     >
-      {/* Main input row */}
+      {/* Row 1: Input + Expand button */}
       <div className="flex items-start gap-2">
         {expanded ? (
           <textarea
@@ -94,11 +94,12 @@ export function CommitInput({ stagedCount }: CommitInputProps) {
           />
         )}
 
-        {/* Expand/collapse button */}
+        {/* Expand/collapse button - fixed size */}
         <button
           onClick={() => setExpanded(!expanded)}
           className={cn(
-            "p-1.5 rounded transition-colors",
+            "w-8 h-8 rounded transition-colors shrink-0",
+            "flex items-center justify-center",
             isDark ? "hover:bg-white/10" : "hover:bg-black/10"
           )}
           title={expanded ? "Collapse" : "Expand for multi-line message"}
@@ -109,31 +110,9 @@ export function CommitInput({ stagedCount }: CommitInputProps) {
             <ChevronDown className="w-4 h-4 text-neutral-500" />
           )}
         </button>
-
-        {/* Commit button */}
-        <button
-          onClick={handleCommit}
-          disabled={!canCommit}
-          className={cn(
-            "px-3 py-1.5 rounded text-sm font-medium flex items-center gap-1.5 transition-colors",
-            canCommit
-              ? "bg-blue-500 text-white hover:bg-blue-600"
-              : isDark
-              ? "bg-white/10 text-neutral-500 cursor-not-allowed"
-              : "bg-black/10 text-neutral-400 cursor-not-allowed"
-          )}
-          title={`Commit ${stagedCount} staged file${stagedCount !== 1 ? "s" : ""} (Cmd+Enter)`}
-        >
-          {commitLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Check className="w-4 h-4" />
-          )}
-          Commit
-        </button>
       </div>
 
-      {/* Amend checkbox */}
+      {/* Amend checkbox (when expanded) */}
       {expanded && (
         <label
           className={cn(
@@ -151,22 +130,55 @@ export function CommitInput({ stagedCount }: CommitInputProps) {
         </label>
       )}
 
-      {/* Staged count hint */}
-      {stagedCount === 0 && (
-        <p
-          className={cn(
-            "text-xs mt-1.5",
-            isDark ? "text-neutral-500" : "text-neutral-400"
+      {/* Row 2: Status message + Commit button */}
+      <div className="flex items-center justify-between mt-2">
+        {/* Left: Status or hint */}
+        <div className="flex-1 min-w-0">
+          {error ? (
+            <p className="text-xs text-red-500 truncate">{error}</p>
+          ) : stagedCount === 0 ? (
+            <p
+              className={cn(
+                "text-xs",
+                isDark ? "text-neutral-500" : "text-neutral-400"
+              )}
+            >
+              Stage files to commit
+            </p>
+          ) : (
+            <p
+              className={cn(
+                "text-xs",
+                isDark ? "text-neutral-400" : "text-neutral-500"
+              )}
+            >
+              {stagedCount} file{stagedCount !== 1 ? "s" : ""} staged
+            </p>
           )}
-        >
-          Stage files to commit
-        </p>
-      )}
+        </div>
 
-      {/* Error message */}
-      {error && (
-        <p className="text-xs mt-1.5 text-red-500">{error}</p>
-      )}
+        {/* Right: Commit button */}
+        <button
+          onClick={handleCommit}
+          disabled={!canCommit}
+          className={cn(
+            "px-3 py-1.5 rounded text-sm font-medium flex items-center gap-1.5 transition-colors shrink-0",
+            canCommit
+              ? "bg-blue-500 text-white hover:bg-blue-600"
+              : isDark
+              ? "bg-white/10 text-neutral-500 cursor-not-allowed"
+              : "bg-black/10 text-neutral-400 cursor-not-allowed"
+          )}
+          title={`Commit ${stagedCount} staged file${stagedCount !== 1 ? "s" : ""} (Cmd+Enter)`}
+        >
+          {commitLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Check className="w-4 h-4" />
+          )}
+          Commit
+        </button>
+      </div>
     </div>
   );
 }

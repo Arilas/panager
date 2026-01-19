@@ -9,25 +9,32 @@ import { useEditorStore } from "../../stores/editor";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { EditorTabs } from "../editor/EditorTabs";
 import { MonacoEditor } from "../editor/MonacoEditor";
+import { DiffEditor } from "../editor/DiffEditor";
 import { FileCode2 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 
 export function ContentArea() {
   const openTabs = useEditorStore((s) => s.openTabs);
   const previewTab = useEditorStore((s) => s.previewTab);
+  const diffTab = useEditorStore((s) => s.diffTab);
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
   const fileStates = useEditorStore((s) => s.fileStates);
   const { effectiveTheme, useLiquidGlass } = useIdeSettingsContext();
 
+  // Check if diff tab is active
+  const isDiffTabActive = activeTabPath?.startsWith("diff://") && diffTab;
+
   // Get the active file state (either from permanent tabs or preview)
   const activeFile = useMemo(() => {
     if (!activeTabPath) return null;
+    // Don't return file state for diff tabs
+    if (activeTabPath.startsWith("diff://")) return null;
     if (previewTab?.path === activeTabPath) return previewTab;
     return fileStates[activeTabPath] ?? null;
   }, [activeTabPath, previewTab, fileStates]);
 
-  // Check if we have any tabs (permanent + preview)
-  const hasTabs = openTabs.length > 0 || previewTab !== null;
+  // Check if we have any tabs (permanent + preview + diff)
+  const hasTabs = openTabs.length > 0 || previewTab !== null || diffTab !== null;
 
   const isDark = effectiveTheme === "dark";
 
@@ -47,7 +54,14 @@ export function ContentArea() {
 
       {/* Editor or Welcome */}
       <div className="flex-1 min-h-0">
-        {activeFile ? (
+        {isDiffTabActive && diffTab ? (
+          <DiffEditor
+            original={diffTab.originalContent}
+            modified={diffTab.modifiedContent}
+            language={diffTab.language}
+            path={diffTab.path}
+          />
+        ) : activeFile ? (
           <MonacoEditor
             content={activeFile.content}
             language={activeFile.language}

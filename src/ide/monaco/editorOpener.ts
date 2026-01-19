@@ -6,7 +6,7 @@
  */
 
 import type { Monaco } from "@monaco-editor/react";
-import type { editor, IDisposable } from "monaco-editor";
+import type { editor, IDisposable, IPosition, IRange } from "monaco-editor";
 import { useEditorStore } from "../stores/editor";
 import { readFile } from "../lib/tauri-ide";
 
@@ -25,7 +25,7 @@ export function registerEditorOpener(monaco: Monaco): IDisposable | null {
     openCodeEditor(
       _source: editor.ICodeEditor,
       resource: { scheme: string; path: string },
-      selectionOrPosition?: { startLineNumber: number; startColumn: number }
+      selectionOrPosition?: IRange | IPosition
     ): boolean {
       // Only handle file:// URIs
       if (resource.scheme !== "file") {
@@ -35,8 +35,8 @@ export function registerEditorOpener(monaco: Monaco): IDisposable | null {
       const filePath = resource.path;
       const position = selectionOrPosition
         ? {
-            line: selectionOrPosition.startLineNumber,
-            column: selectionOrPosition.startColumn,
+            line: (selectionOrPosition as IRange).startLineNumber ?? (selectionOrPosition as IPosition).lineNumber,
+            column: (selectionOrPosition as IRange).startColumn ?? (selectionOrPosition as IPosition).column,
           }
         : { line: 1, column: 1 };
 

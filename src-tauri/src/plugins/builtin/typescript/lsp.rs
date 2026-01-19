@@ -598,8 +598,6 @@ impl LspClient {
     ) -> Result<Vec<LspDocumentSymbol>, String> {
         let uri = format!("file://{}", path.display());
 
-        debug!("Requesting documentSymbol for URI: {}", uri);
-
         let result: serde_json::Value = self
             .request(
                 "textDocument/documentSymbol",
@@ -608,8 +606,6 @@ impl LspClient {
                 }),
             )
             .await?;
-
-        debug!("documentSymbol raw response: {:?}", result);
 
         Self::parse_document_symbols(result)
     }

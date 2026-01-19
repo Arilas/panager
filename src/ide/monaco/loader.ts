@@ -19,7 +19,6 @@ import { registerEditorOpener } from "./editorOpener";
 import { setupStoreSubscriptions } from "./subscriptions";
 
 const MONACO_VERSION = "0.55.1";
-const MONACO_CDN = `https://cdn.jsdelivr.net/npm/monaco-editor@${MONACO_VERSION}/min/vs`;
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;

@@ -39,6 +39,10 @@ interface GitState {
   loading: boolean;
   error: string | null;
 
+  // View mode for changes panel
+  changesViewMode: "list" | "tree";
+  setChangesViewMode: (mode: "list" | "tree") => void;
+
   // Diff view
   selectedFilePath: string | null;
   selectedFileStaged: boolean;
@@ -108,6 +112,7 @@ export const useGitStore = create<GitState>((set, get) => ({
   branch: null,
   loading: false,
   error: null,
+  changesViewMode: "list",
   selectedFilePath: null,
   selectedFileStaged: false,
   diff: null,
@@ -125,6 +130,14 @@ export const useGitStore = create<GitState>((set, get) => ({
   // Stash state
   stashes: [],
   stashesLoading: false,
+
+  // ============================================================
+  // View Mode Actions
+  // ============================================================
+
+  setChangesViewMode: (mode) => {
+    set({ changesViewMode: mode });
+  },
 
   // ============================================================
   // Status Actions
