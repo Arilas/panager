@@ -76,6 +76,12 @@ json_comments = "0.2"
 # Plugin system
 async-trait = "0.1"
 
+# ACP (Agent Client Protocol) for Claude Code integration
+agent-client-protocol = "0.9"
+tokio-util = { version = "0.7", features = ["codec", "compat"] }
+futures = "0.3"
+anyhow = "1.0"
+
 # macOS Liquid Glass support
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

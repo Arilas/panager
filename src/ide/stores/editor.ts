@@ -72,8 +72,17 @@ export interface DiffTabState extends BaseTabState {
   staged: boolean;
 }
 
+/** Chat tab state for agent conversations */
+export interface ChatTabState extends BaseTabState {
+  type: "chat";
+  /** Session ID for the chat */
+  sessionId: string;
+  /** Display name for the tab */
+  sessionName: string;
+}
+
 /** Union type for all tab states */
-export type TabState = FileTabState | DiffTabState;
+export type TabState = FileTabState | DiffTabState | ChatTabState;
 
 /** @deprecated Use FileTabState instead */
 export type FileEditorState = FileTabState;
@@ -86,6 +95,11 @@ export function isFileTab(tab: TabState | null | undefined): tab is FileTabState
 /** Type guard to check if a tab is a diff tab */
 export function isDiffTab(tab: TabState | null | undefined): tab is DiffTabState {
   return tab !== null && tab !== undefined && tab.type === "diff";
+}
+
+/** Type guard to check if a tab is a chat tab */
+export function isChatTab(tab: TabState | null | undefined): tab is ChatTabState {
+  return tab !== null && tab !== undefined && tab.type === "chat";
 }
 
 /** Persisted session data (subset of FileTabState) */
@@ -134,6 +148,7 @@ interface EditorState {
     isPreview?: boolean
   ) => void;
   openDiffTab: (diff: DiffTabState, isPreview?: boolean) => void;
+  openChatTab: (sessionId: string, sessionName: string) => void;
   closeTab: (path: string) => void;
   closeOtherTabs: (path: string) => void;
   closeAllTabs: () => void;
@@ -408,6 +423,38 @@ export const useEditorStore = create<EditorState>()(
             activeTabPath: diffPath,
           }));
         }
+      },
+
+      openChatTab: (sessionId, sessionName) => {
+        const state = get();
+        const chatPath = `chat://${sessionId}`;
+
+        // Check if already open as permanent tab
+        if (state.tabStates[chatPath] || state.openTabs.includes(chatPath)) {
+          set({ activeTabPath: chatPath });
+          return;
+        }
+
+        // Check if it's the current preview tab
+        if (state.previewTab?.path === chatPath) {
+          set({ activeTabPath: chatPath });
+          return;
+        }
+
+        // Create chat tab (always permanent, not preview)
+        const chatTabState: ChatTabState = {
+          type: "chat",
+          path: chatPath,
+          language: "markdown",
+          sessionId,
+          sessionName,
+        };
+
+        set((state) => ({
+          openTabs: [...state.openTabs, chatPath],
+          tabStates: { ...state.tabStates, [chatPath]: chatTabState },
+          activeTabPath: chatPath,
+        }));
       },
 
       closeTab: (path) => {

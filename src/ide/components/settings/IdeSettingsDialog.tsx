@@ -14,6 +14,7 @@ import {
   Code,
   GitBranch,
   Wrench,
+  Bot,
   ChevronDown,
   User,
   Building2,
@@ -31,6 +32,7 @@ import { GeneralSettingsTab } from "./GeneralSettingsTab";
 import { EditorSettingsTab } from "./EditorSettingsTab";
 import { GitSettingsTab } from "./GitSettingsTab";
 import { BehaviorSettingsTab } from "./BehaviorSettingsTab";
+import { AgentSettingsTab } from "./AgentSettingsTab";
 
 interface IdeSettingsDialogProps {
   open: boolean;
@@ -104,6 +106,9 @@ export function IdeSettingsDialog({ open, onOpenChange }: IdeSettingsDialogProps
             <TabTrigger value="behavior" icon={<Wrench className="h-4 w-4" />}>
               Behavior
             </TabTrigger>
+            <TabTrigger value="agent" icon={<Bot className="h-4 w-4" />}>
+              Agent
+            </TabTrigger>
           </Tabs.List>
 
           <div className="flex-1 min-w-0 flex flex-col">
@@ -134,6 +139,9 @@ export function IdeSettingsDialog({ open, onOpenChange }: IdeSettingsDialogProps
               </Tabs.Content>
               <Tabs.Content value="behavior" className="px-6 pt-2 pb-6 outline-none">
                 <BehaviorSettingsTab level={selectedLevel} />
+              </Tabs.Content>
+              <Tabs.Content value="agent" className="px-6 pt-2 pb-6 outline-none">
+                <AgentSettingsTab level={selectedLevel} />
               </Tabs.Content>
             </div>
           </div>

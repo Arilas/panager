@@ -115,6 +115,12 @@ const defaultSettings: IdeSettings = {
     insertFinalNewline: true,
     autoSaveDelay: 0,
   },
+  agent: {
+    defaultMode: "agent",
+    approvalMode: "per_change",
+    showThoughts: true,
+    autoConnect: false,
+  },
 };
 
 export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
@@ -426,6 +432,9 @@ export const useDialogGitSettings = () =>
 
 export const useDialogBehaviorSettings = () =>
   useIdeSettingsStore((state) => state.dialogSettings.behavior);
+
+export const useDialogAgentSettings = () =>
+  useIdeSettingsStore((state) => state.dialogSettings.agent);
 
 export const useDialogLoading = () =>
   useIdeSettingsStore((state) => state.dialogLoading);

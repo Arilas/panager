@@ -9,15 +9,21 @@ import type {
   CursorPosition,
   BottomPanelTab,
 } from "../types";
+import type { RightSidebarPanel } from "../types/acp";
 
 interface IdeState {
   // Project context
   projectContext: IdeProjectContext | null;
 
-  // UI state
+  // UI state - Left sidebar
   activePanel: SidebarPanel;
   sidebarWidth: number;
   sidebarCollapsed: boolean;
+
+  // UI state - Right sidebar
+  rightSidebarPanel: RightSidebarPanel;
+  rightSidebarWidth: number;
+  rightSidebarCollapsed: boolean;
 
   // Bottom panel state
   bottomPanelOpen: boolean;
@@ -53,6 +59,12 @@ interface IdeState {
   setBottomPanelHeight: (height: number) => void;
   openBottomPanelTab: (tab: BottomPanelTab) => void;
 
+  // Right sidebar actions
+  setRightSidebarPanel: (panel: RightSidebarPanel) => void;
+  toggleRightSidebarPanel: (panel: Exclude<RightSidebarPanel, null>) => void;
+  setRightSidebarWidth: (width: number) => void;
+  toggleRightSidebar: () => void;
+
   // Git blame actions
   setGitBlameEnabled: (enabled: boolean) => void;
   toggleGitBlame: () => void;
@@ -64,6 +76,9 @@ export const useIdeStore = create<IdeState>((set, get) => ({
   activePanel: "files",
   sidebarWidth: 260,
   sidebarCollapsed: false,
+  rightSidebarPanel: null,
+  rightSidebarWidth: 320,
+  rightSidebarCollapsed: true,
   bottomPanelOpen: false,
   bottomPanelTab: "problems",
   bottomPanelHeight: 200,
@@ -111,6 +126,23 @@ export const useIdeStore = create<IdeState>((set, get) => ({
   setBottomPanelHeight: (height) => set({ bottomPanelHeight: height }),
 
   openBottomPanelTab: (tab) => set({ bottomPanelOpen: true, bottomPanelTab: tab }),
+
+  // Right sidebar actions
+  setRightSidebarPanel: (panel) => set({ rightSidebarPanel: panel }),
+
+  toggleRightSidebarPanel: (panel) => {
+    const { rightSidebarPanel } = get();
+    if (rightSidebarPanel === panel) {
+      set({ rightSidebarPanel: null, rightSidebarCollapsed: true });
+    } else {
+      set({ rightSidebarPanel: panel, rightSidebarCollapsed: false });
+    }
+  },
+
+  setRightSidebarWidth: (width) => set({ rightSidebarWidth: width }),
+
+  toggleRightSidebar: () =>
+    set((state) => ({ rightSidebarCollapsed: !state.rightSidebarCollapsed })),
 
   // Git blame actions
   setGitBlameEnabled: (enabled) => set({ gitBlameEnabled: enabled }),

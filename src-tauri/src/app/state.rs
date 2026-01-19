@@ -3,6 +3,7 @@
 //! This module handles initializing and managing application state,
 //! including the database and background service states.
 
+use crate::acp::AcpState;
 use crate::db::Database;
 use crate::events::EventBus;
 use crate::plugins::PluginHost;
@@ -33,6 +34,10 @@ pub fn init_state(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     // Initialize plugin host
     let plugin_host = Arc::new(PluginHost::new());
     app.manage(plugin_host);
+
+    // Initialize ACP state
+    let acp_state = Arc::new(AcpState::new());
+    app.manage(acp_state);
 
     Ok(())
 }

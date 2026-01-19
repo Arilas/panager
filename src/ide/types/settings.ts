@@ -209,6 +209,24 @@ export interface BehaviorSettings {
 }
 
 // =============================================================================
+// Agent Settings
+// =============================================================================
+
+// Note: AgentMode and ApprovalMode types are defined in acp.ts
+import type { AgentMode, ApprovalMode } from "./acp";
+
+export interface AgentSettings {
+  /** Default agent mode when starting a new session */
+  defaultMode: AgentMode;
+  /** How to handle approval of file changes */
+  approvalMode: ApprovalMode;
+  /** Show agent thought process in chat */
+  showThoughts: boolean;
+  /** Auto-connect to Claude Code when opening a project */
+  autoConnect: boolean;
+}
+
+// =============================================================================
 // Complete IDE Settings
 // =============================================================================
 
@@ -223,6 +241,8 @@ export interface IdeSettings {
   git: GitSettings;
   /** Save behavior settings */
   behavior: BehaviorSettings;
+  /** Claude Code agent settings */
+  agent: AgentSettings;
 }
 
 // =============================================================================
@@ -332,6 +352,12 @@ export const DEFAULT_IDE_SETTINGS: IdeSettings = {
     insertFinalNewline: true,
     autoSaveDelay: 0,
   },
+  agent: {
+    defaultMode: "agent",
+    approvalMode: "per_change",
+    showThoughts: true,
+    autoConnect: false,
+  },
 };
 
 // =============================================================================
@@ -345,6 +371,7 @@ export type PartialIdeSettings = {
   languageOverrides?: Record<string, Partial<LanguageEditorOverrides>>;
   git?: Partial<GitSettings>;
   behavior?: Partial<BehaviorSettings>;
+  agent?: Partial<AgentSettings>;
 };
 
 /** Result from writing a file with formatters */

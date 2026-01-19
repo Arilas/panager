@@ -142,6 +142,26 @@ pub enum MinimapSide {
     Right,
 }
 
+/// Agent mode for Claude Code interactions
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum AgentMode {
+    Plan,
+    #[default]
+    Agent,
+    Ask,
+}
+
+/// Approval mode for file changes
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalMode {
+    #[default]
+    PerChange,
+    Batch,
+    Auto,
+}
+
 // =============================================================================
 // Settings Structures
 // =============================================================================
@@ -445,6 +465,31 @@ impl Default for BehaviorSettings {
     }
 }
 
+/// Agent settings (Claude Code integration)
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AgentSettings {
+    /// Default agent mode when starting a new session
+    pub default_mode: AgentMode,
+    /// How to handle approval of file changes
+    pub approval_mode: ApprovalMode,
+    /// Show agent thought process in chat
+    pub show_thoughts: bool,
+    /// Auto-connect to Claude Code when opening a project
+    pub auto_connect: bool,
+}
+
+impl Default for AgentSettings {
+    fn default() -> Self {
+        Self {
+            default_mode: AgentMode::Agent,
+            approval_mode: ApprovalMode::PerChange,
+            show_thoughts: true,
+            auto_connect: false,
+        }
+    }
+}
+
 /// Complete IDE settings
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]
@@ -455,6 +500,8 @@ pub struct IdeSettings {
     pub language_overrides: HashMap<String, LanguageEditorOverrides>,
     pub git: GitSettings,
     pub behavior: BehaviorSettings,
+    #[serde(default)]
+    pub agent: AgentSettings,
 }
 
 impl Default for IdeSettings {
@@ -465,6 +512,7 @@ impl Default for IdeSettings {
             language_overrides: HashMap::new(),
             git: GitSettings::default(),
             behavior: BehaviorSettings::default(),
+            agent: AgentSettings::default(),
         }
     }
 }
@@ -487,6 +535,8 @@ pub struct PartialIdeSettings {
     pub git: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub behavior: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent: Option<Value>,
 }
 
 // =============================================================================

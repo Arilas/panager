@@ -2,6 +2,7 @@
 //!
 //! This is the main library entry point that sets up and runs the Tauri application.
 
+pub mod acp;
 mod app;
 mod commands;
 pub mod db;
@@ -216,6 +217,16 @@ pub fn run() {
             ide::commands::ide_delete_setting,
             ide::commands::ide_get_formatter_presets,
             ide::commands::ide_get_settings_path,
+            // ACP - Agent Client Protocol
+            acp::commands::acp_connect,
+            acp::commands::acp_disconnect,
+            acp::commands::acp_get_status,
+            acp::commands::acp_new_session,
+            acp::commands::acp_send_prompt,
+            acp::commands::acp_cancel,
+            acp::commands::acp_set_mode,
+            acp::commands::acp_respond_permission,
+            acp::commands::acp_get_current_session,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

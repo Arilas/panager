@@ -7,6 +7,7 @@ export * from "./problems";
 export * from "./plugin";
 export * from "./panels";
 export * from "./settings";
+export * from "./acp";
 
 /** Project context passed to IDE window via URL params */
 export interface IdeProjectContext {

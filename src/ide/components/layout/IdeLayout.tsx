@@ -2,20 +2,20 @@
  * Main IDE Layout Component
  *
  * Structure (with Panager native styling):
- * ┌─────────────────────────────────────────────────────┐
- * │ [Traffic Lights]      Project Name                  │  <- IdeTitlebar (drag region)
- * ├─────────────────────────────────────────────────────┤
- * │ ActivityBar │ Sidebar (resizable) │ Content Area    │
- * │             │                     │                 │
- * │  [Files]    │ FileTree / Git /    │ EditorTabs      │
- * │  [Git]      │ Search panels       │ MonacoEditor    │
- * │  [Search]   │                     │                 │
- * │             │                     │                 │
- * │  [Problems] ├─────────────────────┴─────────────────┤
- * │  [Settings] │ Bottom Panel (Problems/Output/Term)   │
- * ├─────────────┴───────────────────────────────────────┤
- * │ StatusBar                                           │
- * └─────────────────────────────────────────────────────┘
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │ [Traffic Lights]      Project Name                                       │  <- IdeTitlebar (drag region)
+ * ├──────────────────────────────────────────────────────────────────────────┤
+ * │ ActivityBar │ Sidebar (resizable) │ Content Area     │ R.Sidebar │ R.AB │
+ * │             │                     │                  │ (Chat)    │      │
+ * │  [Files]    │ FileTree / Git /    │ EditorTabs       │           │ [💬] │
+ * │  [Git]      │ Search panels       │ MonacoEditor     │           │ [📋] │
+ * │  [Search]   │                     │                  │           │      │
+ * │             │                     │                  │           │      │
+ * │  [Problems] ├─────────────────────┴──────────────────┴───────────┴──────┤
+ * │  [Settings] │ Bottom Panel (Problems/Output/Term)                       │
+ * ├─────────────┴───────────────────────────────────────────────────────────┤
+ * │ StatusBar                                                               │
+ * └─────────────────────────────────────────────────────────────────────────┘
  */
 
 import { useIdeStore } from "../../stores/ide";
@@ -27,6 +27,8 @@ import { Sidebar } from "./Sidebar";
 import { ContentArea } from "./ContentArea";
 import { BottomPanel } from "./BottomPanel";
 import { StatusBar } from "./StatusBar";
+import { RightSidebar } from "./RightSidebar";
+import { RightActivityBar } from "./RightActivityBar";
 import { QuickOpenDialog } from "../dialogs/QuickOpenDialog";
 import { GoToLineDialog } from "../dialogs/GoToLineDialog";
 import { IdeSettingsDialog } from "../settings/IdeSettingsDialog";
@@ -39,6 +41,8 @@ export function IdeLayout() {
   const activePanel = useIdeStore((s) => s.activePanel);
   const showSettingsDialog = useIdeStore((s) => s.showSettingsDialog);
   const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
+  const rightSidebarPanel = useIdeStore((s) => s.rightSidebarPanel);
+  const rightSidebarCollapsed = useIdeStore((s) => s.rightSidebarCollapsed);
   const { useLiquidGlass, effectiveTheme, loading } = useIdeSettingsContext();
 
   // Layout settings from IDE settings store
@@ -105,10 +109,16 @@ export function IdeLayout() {
             <Sidebar position="right" />
           )}
 
-          {/* Activity Bar - Right position */}
+          {/* Activity Bar - Right position (left side, before right sidebar) */}
           {!isActivityBarHidden && isActivityBarRight && (
             <ActivityBar position="right" />
           )}
+
+          {/* Right Sidebar (Chat/Tasks panel) */}
+          {rightSidebarPanel && !rightSidebarCollapsed && <RightSidebar />}
+
+          {/* Right Activity Bar (Chat/Tasks icons) */}
+          <RightActivityBar />
         </div>
 
         {/* Bottom Panel */}
