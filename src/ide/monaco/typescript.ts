@@ -7,50 +7,23 @@
  */
 
 import type { Monaco } from "@monaco-editor/react";
+import * as typescriptContribution from "monaco-editor/esm/vs/language/typescript/monaco.contribution.js";
 
 /**
  * Configure Monaco's built-in TypeScript/JavaScript support.
  * Should be called once during Monaco initialization.
  */
-export function configureTypeScript(monaco: Monaco): void {
-  // Configure TypeScript compiler options for JSX support
-  monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-    target: monaco.languages.typescript.ScriptTarget.Latest,
-    module: monaco.languages.typescript.ModuleKind.ESNext,
-    moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-    jsx: monaco.languages.typescript.JsxEmit.React,
-    jsxFactory: "React.createElement",
-    reactNamespace: "React",
-    allowNonTsExtensions: true,
-    allowJs: true,
-    esModuleInterop: true,
-    noEmit: true,
-    strict: true,
-  });
-
-  // Configure JavaScript compiler options for JSX support
-  monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
-    target: monaco.languages.typescript.ScriptTarget.Latest,
-    module: monaco.languages.typescript.ModuleKind.ESNext,
-    moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-    jsx: monaco.languages.typescript.JsxEmit.React,
-    jsxFactory: "React.createElement",
-    reactNamespace: "React",
-    allowNonTsExtensions: true,
-    allowJs: true,
-    checkJs: true,
-    esModuleInterop: true,
-    noEmit: true,
-  });
-
+export function configureTypeScript(_monaco: Monaco): void {
   // Disable TypeScript validation (we use backend LSP for diagnostics)
-  monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+  // @ts-expect-error For some reason, the javascriptDefaults property is not available on the typescriptContribution module.
+  typescriptContribution.typescriptDefaults.setDiagnosticsOptions({
     noSemanticValidation: true,
     noSyntaxValidation: true,
   });
 
   // Disable JavaScript validation
-  monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+  // @ts-expect-error For some reason, the javascriptDefaults property is not available on the typescriptContribution module.
+  typescriptContribution.javascriptDefaults.setDiagnosticsOptions({
     noSemanticValidation: true,
     noSyntaxValidation: true,
   });

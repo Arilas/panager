@@ -9,6 +9,7 @@
 
 import { loader } from "@monaco-editor/react";
 import type { Monaco } from "@monaco-editor/react";
+import * as monacoEditor from "monaco-editor";
 import { useEditorStore } from "../stores/editor";
 import { configureTypeScript } from "./typescript";
 import { initializeShiki } from "./themes";
@@ -49,7 +50,8 @@ async function doInitialize(): Promise<Monaco> {
 
       // Configure CDN path
       loader.config({
-        paths: { vs: MONACO_CDN },
+        // paths: { vs: MONACO_CDN },
+        monaco: monacoEditor,
       });
 
       // Load Monaco (this downloads from CDN)

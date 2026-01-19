@@ -4,7 +4,7 @@
  * Styled with theme support to match Panager's design.
  */
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -19,6 +19,7 @@ import { useEditorStore } from "../../stores/editor";
 import { useGitStore } from "../../stores/git";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
+import { useRevealActiveFile } from "../../hooks/useRevealActiveFile";
 import type { FileEntry, GitFileStatus } from "../../types";
 
 /** Map of file paths to their git status */
@@ -33,6 +34,15 @@ export function FileTreePanel() {
   const { effectiveTheme } = useIdeSettingsContext();
 
   const isDark = effectiveTheme === "dark";
+
+  // Ref for the scrollable tree container
+  const treeContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-reveal active file in tree when tab changes
+  useRevealActiveFile({
+    containerRef: treeContainerRef,
+    enabled: true,
+  });
 
   // Build a map of file paths to their git status for quick lookup
   // Also propagate status to parent folders
@@ -117,7 +127,7 @@ export function FileTreePanel() {
       </div>
 
       {/* Tree */}
-      <div className="flex-1 overflow-auto py-1 group/tree">
+      <div ref={treeContainerRef} className="flex-1 overflow-auto py-1 group/tree">
         {treeLoading && tree.length === 0 ? (
           <div
             className={cn(
@@ -266,6 +276,7 @@ function FileTreeNode({ entry, depth, guideLines, isLast, gitStatusMap }: FileTr
   return (
     <div>
       <div
+        data-file-path={entry.path}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         className={cn(
