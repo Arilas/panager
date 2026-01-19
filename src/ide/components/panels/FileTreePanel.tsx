@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useFilesStore } from "../../stores/files";
+import { useEditorStore } from "../../stores/editor";
 import { useGitStore } from "../../stores/git";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
@@ -210,13 +211,13 @@ function FileTreeNode({ entry, depth, guideLines, isLast, gitStatusMap }: FileTr
   const toggleDirectory = useFilesStore((s) => s.toggleDirectory);
   const openFile = useFilesStore((s) => s.openFile);
   const openFilePreview = useFilesStore((s) => s.openFilePreview);
-  const activeFilePath = useFilesStore((s) => s.activeFilePath);
+  const activeTabPath = useEditorStore((s) => s.activeTabPath);
   const { effectiveTheme } = useIdeSettingsContext();
 
   const isDark = effectiveTheme === "dark";
   const isExpanded = expandedPaths.has(entry.path);
   const isLoading = loadingPaths.has(entry.path);
-  const isActive = activeFilePath === entry.path;
+  const isActive = activeTabPath === entry.path;
   const isDimmed = entry.isHidden || entry.isGitignored;
 
   // Get git status for this file/folder

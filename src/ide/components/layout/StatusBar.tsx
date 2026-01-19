@@ -7,7 +7,7 @@
 
 import { useMemo } from "react";
 import { useIdeStore } from "../../stores/ide";
-import { useFilesStore } from "../../stores/files";
+import { useEditorStore } from "../../stores/editor";
 import { usePluginsStore } from "../../stores/plugins";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
@@ -15,8 +15,9 @@ import { BranchSelector } from "../git/BranchSelector";
 
 export function StatusBar() {
   const cursorPosition = useIdeStore((s) => s.cursorPosition);
-  const activeFilePath = useFilesStore((s) => s.activeFilePath);
-  const openFiles = useFilesStore((s) => s.openFiles);
+  const activeTabPath = useEditorStore((s) => s.activeTabPath);
+  const fileStates = useEditorStore((s) => s.fileStates);
+  const previewTab = useEditorStore((s) => s.previewTab);
   const statusBarItems = usePluginsStore((s) => s.statusBarItems);
   const { useLiquidGlass, effectiveTheme } = useIdeSettingsContext();
 
@@ -31,7 +32,13 @@ export function StatusBar() {
   );
 
   const isDark = effectiveTheme === "dark";
-  const activeFile = openFiles.find((f) => f.path === activeFilePath);
+
+  // Get active file state (from permanent tabs or preview)
+  const activeFile = useMemo(() => {
+    if (!activeTabPath) return null;
+    if (previewTab?.path === activeTabPath) return previewTab;
+    return fileStates[activeTabPath] ?? null;
+  }, [activeTabPath, previewTab, fileStates]);
 
   return (
     <div

@@ -4,7 +4,8 @@
  * Styled with theme support to match Panager's design.
  */
 
-import { useFilesStore } from "../../stores/files";
+import { useMemo } from "react";
+import { useEditorStore } from "../../stores/editor";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { EditorTabs } from "../editor/EditorTabs";
 import { MonacoEditor } from "../editor/MonacoEditor";
@@ -12,11 +13,22 @@ import { FileCode2 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 
 export function ContentArea() {
-  const openFiles = useFilesStore((s) => s.openFiles);
-  const activeFilePath = useFilesStore((s) => s.activeFilePath);
+  const openTabs = useEditorStore((s) => s.openTabs);
+  const previewTab = useEditorStore((s) => s.previewTab);
+  const activeTabPath = useEditorStore((s) => s.activeTabPath);
+  const fileStates = useEditorStore((s) => s.fileStates);
   const { effectiveTheme, useLiquidGlass } = useIdeSettingsContext();
 
-  const activeFile = openFiles.find((f) => f.path === activeFilePath);
+  // Get the active file state (either from permanent tabs or preview)
+  const activeFile = useMemo(() => {
+    if (!activeTabPath) return null;
+    if (previewTab?.path === activeTabPath) return previewTab;
+    return fileStates[activeTabPath] ?? null;
+  }, [activeTabPath, previewTab, fileStates]);
+
+  // Check if we have any tabs (permanent + preview)
+  const hasTabs = openTabs.length > 0 || previewTab !== null;
+
   const isDark = effectiveTheme === "dark";
 
   return (
@@ -31,7 +43,7 @@ export function ContentArea() {
       )}
     >
       {/* Tabs */}
-      {openFiles.length > 0 && <EditorTabs />}
+      {hasTabs && <EditorTabs />}
 
       {/* Editor or Welcome */}
       <div className="flex-1 min-h-0">

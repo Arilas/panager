@@ -5,6 +5,7 @@
 import { useEffect } from "react";
 import { useIdeStore } from "../stores/ide";
 import { useFilesStore } from "../stores/files";
+import { useEditorStore } from "../stores/editor";
 
 export function useIdeKeyboard() {
   const setShowQuickOpen = useIdeStore((s) => s.setShowQuickOpen);
@@ -13,8 +14,8 @@ export function useIdeKeyboard() {
   const toggleSidebar = useIdeStore((s) => s.toggleSidebar);
   const toggleBottomPanel = useIdeStore((s) => s.toggleBottomPanel);
   const openBottomPanelTab = useIdeStore((s) => s.openBottomPanelTab);
-  const closeFile = useFilesStore((s) => s.closeFile);
-  const activeFilePath = useFilesStore((s) => s.activeFilePath);
+  const closeTab = useEditorStore((s) => s.closeTab);
+  const activeTabPath = useEditorStore((s) => s.activeTabPath);
   const saveActiveFile = useFilesStore((s) => s.saveActiveFile);
   const saveAllFiles = useFilesStore((s) => s.saveAllFiles);
 
@@ -40,8 +41,8 @@ export function useIdeKeyboard() {
       // Cmd+W - Close current file
       if (isMod && e.key === "w" && !isShift) {
         e.preventDefault();
-        if (activeFilePath) {
-          closeFile(activeFilePath);
+        if (activeTabPath) {
+          closeTab(activeTabPath);
         }
         return;
       }
@@ -112,8 +113,8 @@ export function useIdeKeyboard() {
     toggleSidebar,
     toggleBottomPanel,
     openBottomPanelTab,
-    closeFile,
-    activeFilePath,
+    closeTab,
+    activeTabPath,
     saveActiveFile,
     saveAllFiles,
   ]);

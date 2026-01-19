@@ -1,5 +1,8 @@
 /**
  * Git state store for IDE
+ *
+ * Handles git status, diffs, commits, branches, and stashes.
+ * NOTE: Blame, HEAD content, and CodeLens caches are now in editorStore.
  */
 
 import { create } from "zustand";
@@ -9,8 +12,6 @@ import type {
   FileDiff,
   GitLocalBranch,
   GitStashEntry,
-  GitBlameResult,
-  GitBlameLine,
   GitCommitInfo,
 } from "../types";
 import {
@@ -28,9 +29,8 @@ import {
   gitStashPop,
   gitStashApply,
   gitStashDrop,
-  gitBlame,
-  gitShowHead,
 } from "../lib/tauri-ide";
+import { useEditorStore } from "./editor";
 
 interface GitState {
   // Git status
@@ -57,14 +57,6 @@ interface GitState {
   // Stash state
   stashes: GitStashEntry[];
   stashesLoading: boolean;
-
-  // Blame cache (per file path)
-  blameCache: Record<string, GitBlameResult>;
-  blameLoading: Record<string, boolean>;
-
-  // HEAD content cache (for gutter diff - separate from blame)
-  headContent: Record<string, string>;
-  headContentLoading: Record<string, boolean>;
 
   // Actions - Status
   loadGitStatus: (projectPath: string) => Promise<void>;
@@ -108,18 +100,6 @@ interface GitState {
   stashPop: (projectPath: string, index: number) => Promise<void>;
   stashApply: (projectPath: string, index: number) => Promise<void>;
   stashDrop: (projectPath: string, index: number) => Promise<void>;
-
-  // Actions - Blame
-  loadBlame: (projectPath: string, filePath: string) => Promise<void>;
-  getBlameForLine: (filePath: string, lineNumber: number) => GitBlameLine | null;
-  clearBlameForFile: (filePath: string) => void;
-  clearBlameCache: () => void;
-  refreshBlameForFile: (projectPath: string, filePath: string) => Promise<void>;
-
-  // Actions - HEAD content (for gutter diff)
-  loadHeadContent: (projectPath: string, filePath: string) => Promise<void>;
-  getHeadContent: (filePath: string) => string | null;
-  refreshHeadContent: (projectPath: string, filePath: string) => Promise<void>;
 }
 
 export const useGitStore = create<GitState>((set, get) => ({
@@ -145,14 +125,6 @@ export const useGitStore = create<GitState>((set, get) => ({
   // Stash state
   stashes: [],
   stashesLoading: false,
-
-  // Blame state
-  blameCache: {},
-  blameLoading: {},
-
-  // HEAD content state (for gutter)
-  headContent: {},
-  headContentLoading: {},
 
   // ============================================================
   // Status Actions
@@ -279,8 +251,8 @@ export const useGitStore = create<GitState>((set, get) => ({
     await gitSwitchBranch(projectPath, name);
     await get().loadBranches(projectPath);
     await get().refresh(projectPath);
-    // Clear blame cache on branch switch
-    set({ blameCache: {} });
+    // Clear blame caches on branch switch (now in editorStore)
+    useEditorStore.getState().clearAllBlameCaches();
   },
 
   deleteBranch: async (projectPath, name, force = false) => {
@@ -328,115 +300,5 @@ export const useGitStore = create<GitState>((set, get) => ({
   stashDrop: async (projectPath, index) => {
     await gitStashDrop(projectPath, index);
     await get().loadStashes(projectPath);
-  },
-
-  // ============================================================
-  // Blame Actions
-  // ============================================================
-
-  loadBlame: async (projectPath: string, filePath: string) => {
-    // Check if already loading
-    if (get().blameLoading[filePath]) {
-      return;
-    }
-
-    set((state) => ({
-      blameLoading: { ...state.blameLoading, [filePath]: true },
-    }));
-
-    try {
-      const result = await gitBlame(projectPath, filePath);
-      set((state) => ({
-        blameCache: { ...state.blameCache, [filePath]: result },
-        blameLoading: { ...state.blameLoading, [filePath]: false },
-      }));
-    } catch (error) {
-      console.error("Failed to load blame:", error);
-      set((state) => ({
-        blameLoading: { ...state.blameLoading, [filePath]: false },
-      }));
-    }
-  },
-
-  getBlameForLine: (filePath, lineNumber) => {
-    const blame = get().blameCache[filePath];
-    if (!blame) {
-      return null;
-    }
-    return blame.lines.find((l) => l.lineNumber === lineNumber) ?? null;
-  },
-
-  clearBlameForFile: (filePath: string) => {
-    set((state) => {
-      const newBlameCache = { ...state.blameCache };
-      const newBlameLoading = { ...state.blameLoading };
-      delete newBlameCache[filePath];
-      delete newBlameLoading[filePath];
-      return {
-        blameCache: newBlameCache,
-        blameLoading: newBlameLoading,
-      };
-    });
-  },
-
-  clearBlameCache: () => {
-    set({ blameCache: {}, blameLoading: {} });
-  },
-
-  refreshBlameForFile: async (projectPath: string, filePath: string) => {
-    // Clear the cache for this file first
-    get().clearBlameForFile(filePath);
-    // Then reload blame data
-    await get().loadBlame(projectPath, filePath);
-  },
-
-  // ============================================================
-  // HEAD Content Actions (for gutter diff)
-  // ============================================================
-
-  loadHeadContent: async (projectPath: string, filePath: string) => {
-    // Check if already loading or cached
-    if (get().headContentLoading[filePath] || get().headContent[filePath] !== undefined) {
-      return;
-    }
-
-    set((state) => ({
-      headContentLoading: { ...state.headContentLoading, [filePath]: true },
-    }));
-
-    try {
-      const content = await gitShowHead(projectPath, filePath);
-      set((state) => ({
-        // Use empty string for new files (not in HEAD)
-        headContent: { ...state.headContent, [filePath]: content ?? "" },
-        headContentLoading: { ...state.headContentLoading, [filePath]: false },
-      }));
-    } catch (error) {
-      console.error("Failed to load HEAD content:", error);
-      set((state) => ({
-        headContentLoading: { ...state.headContentLoading, [filePath]: false },
-      }));
-    }
-  },
-
-  getHeadContent: (filePath: string) => {
-    const content = get().headContent[filePath];
-    return content !== undefined ? content : null;
-  },
-
-  refreshHeadContent: async (projectPath: string, filePath: string) => {
-    // Clear the cache for this file first
-    set((state) => {
-      const newHeadContent = { ...state.headContent };
-      const newHeadContentLoading = { ...state.headContentLoading };
-      delete newHeadContent[filePath];
-      delete newHeadContentLoading[filePath];
-      return {
-        headContent: newHeadContent,
-        headContentLoading: newHeadContentLoading,
-      };
-    });
-    // Then reload HEAD content
-    await get().loadHeadContent(projectPath, filePath);
   },
 }));

@@ -7,6 +7,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useIdeStore } from "../stores/ide";
 import { useFilesStore } from "../stores/files";
+import { useEditorStore } from "../stores/editor";
 
 const STORAGE_KEY_PREFIX = "ide-state-";
 const DEBOUNCE_MS = 500;
@@ -26,11 +27,11 @@ export function usePersistedIdeState() {
   const setSidebarWidth = useIdeStore((s) => s.setSidebarWidth);
   const setActivePanel = useIdeStore((s) => s.setActivePanel);
 
-  const openFiles = useFilesStore((s) => s.openFiles);
-  const activeFilePath = useFilesStore((s) => s.activeFilePath);
+  const openTabs = useEditorStore((s) => s.openTabs);
+  const activeTabPath = useEditorStore((s) => s.activeTabPath);
+  const setActiveTab = useEditorStore((s) => s.setActiveTab);
   const expandedPaths = useFilesStore((s) => s.expandedPaths);
   const openFile = useFilesStore((s) => s.openFile);
-  const setActiveFile = useFilesStore((s) => s.setActiveFile);
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRestoredRef = useRef(false);
@@ -45,8 +46,8 @@ export function usePersistedIdeState() {
     if (!storageKey) return;
 
     const state: PersistedState = {
-      openFilePaths: openFiles.map((f) => f.path),
-      activeFilePath,
+      openFilePaths: openTabs,
+      activeFilePath: activeTabPath,
       sidebarWidth,
       activePanel,
       expandedPaths: Array.from(expandedPaths),
@@ -59,8 +60,8 @@ export function usePersistedIdeState() {
     }
   }, [
     storageKey,
-    openFiles,
-    activeFilePath,
+    openTabs,
+    activeTabPath,
     sidebarWidth,
     activePanel,
     expandedPaths,
@@ -83,8 +84,8 @@ export function usePersistedIdeState() {
     };
   }, [
     storageKey,
-    openFiles,
-    activeFilePath,
+    openTabs,
+    activeTabPath,
     sidebarWidth,
     activePanel,
     expandedPaths,
@@ -127,7 +128,7 @@ export function usePersistedIdeState() {
 
           // Restore active file
           if (state.activeFilePath) {
-            setActiveFile(state.activeFilePath);
+            setActiveTab(state.activeFilePath);
           }
         }
 
@@ -142,7 +143,7 @@ export function usePersistedIdeState() {
     const timer = setTimeout(restoreState, 100);
 
     return () => clearTimeout(timer);
-  }, [storageKey, setSidebarWidth, setActivePanel, openFile, setActiveFile]);
+  }, [storageKey, setSidebarWidth, setActivePanel, openFile, setActiveTab]);
 
   // Clear state for a project
   const clearState = useCallback(() => {

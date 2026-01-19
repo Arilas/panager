@@ -1,17 +1,18 @@
 /**
- * File tree and open files state store
+ * File tree and file I/O store
+ *
+ * Handles:
+ * - File tree navigation (expand/collapse directories)
+ * - File I/O operations (read/write files)
+ *
+ * NOTE: Open tabs and active file state are managed by editorStore.
+ * This store only handles file tree and I/O, then delegates to editorStore.
  */
 
 import { create } from "zustand";
-import type { FileEntry, OpenFile } from "../types";
-import {
-  readDirectory,
-  readFile,
-  writeFile,
-  notifyFileClosed,
-  notifyFileOpened,
-  notifyFileChanged,
-} from "../lib/tauri-ide";
+import type { FileEntry } from "../types";
+import { readDirectory, readFile, writeFile } from "../lib/tauri-ide";
+import { useEditorStore } from "./editor";
 
 /** Position to navigate to when opening a file */
 export interface FilePosition {
@@ -40,25 +41,16 @@ interface FilesState {
   treeLoading: boolean;
   treeError: string | null;
 
-  // Open files
-  openFiles: OpenFile[];
-  activeFilePath: string | null;
-
-  // Actions
+  // Tree actions
   loadFileTree: (rootPath: string) => Promise<void>;
   expandDirectory: (path: string, projectPath: string) => Promise<void>;
   collapseDirectory: (path: string) => void;
   toggleDirectory: (path: string, projectPath: string) => Promise<void>;
 
+  // File I/O actions (delegate to editorStore for tab management)
   openFile: (path: string) => Promise<void>;
   openFilePreview: (path: string) => Promise<void>;
   openFileAtPosition: (path: string, position: FilePosition) => Promise<void>;
-  closeFile: (path: string) => void;
-  closeOtherFiles: (path: string) => void;
-  closeAllFiles: () => void;
-  setActiveFile: (path: string | null) => void;
-  convertPreviewToPermanent: (path: string) => void;
-  updateFileContent: (path: string, content: string) => void;
   saveFile: (path: string) => Promise<void>;
   saveActiveFile: () => Promise<void>;
   saveAllFiles: () => Promise<void>;
@@ -76,10 +68,11 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   loadingPaths: new Set(),
   treeLoading: false,
   treeError: null,
-  openFiles: [],
-  activeFilePath: null,
 
-  // Actions
+  // ============================================================
+  // Tree Actions
+  // ============================================================
+
   loadFileTree: async (rootPath) => {
     set({ treeLoading: true, treeError: null });
     try {
@@ -144,24 +137,22 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     }
   },
 
-  openFile: async (path) => {
-    const { openFiles } = get();
+  // ============================================================
+  // File I/O Actions
+  // ============================================================
 
-    // Check if already open
-    const existingIndex = openFiles.findIndex((f) => f.path === path);
-    if (existingIndex >= 0) {
-      const existing = openFiles[existingIndex];
-      // If it was a preview, convert to permanent
-      if (existing.isPreview) {
-        set({
-          openFiles: openFiles.map((f, i) =>
-            i === existingIndex ? { ...f, isPreview: false } : f
-          ),
-          activeFilePath: path,
-        });
-      } else {
-        set({ activeFilePath: path });
+  openFile: async (path) => {
+    const editorStore = useEditorStore.getState();
+
+    // Check if already open in editor store
+    const existingState = editorStore.getFileState(path);
+    if (existingState) {
+      // File is already open - just activate it
+      // If it's a preview, convert to permanent
+      if (editorStore.previewTab?.path === path) {
+        editorStore.convertPreviewToPermanent();
       }
+      editorStore.setActiveTab(path);
       return;
     }
 
@@ -169,38 +160,30 @@ export const useFilesStore = create<FilesState>((set, get) => ({
       const fileContent = await readFile(path);
 
       if (fileContent.isBinary) {
-        // Don't open binary files
         console.warn("Cannot open binary file:", path);
         return;
       }
 
-      const newFile: OpenFile = {
+      // Open as permanent tab in editor store
+      editorStore.openTab(
         path,
-        content: fileContent.content,
-        language: fileContent.language,
-        isDirty: false,
-        isPreview: false,
-      };
-
-      set({
-        openFiles: [...openFiles, newFile],
-        activeFilePath: path,
-      });
+        fileContent.content,
+        fileContent.language,
+        false
+      );
     } catch (error) {
       console.error("Failed to open file:", error);
     }
   },
 
   openFilePreview: async (path) => {
-    const { openFiles } = get();
+    const editorStore = useEditorStore.getState();
 
-    // Check if file is already open
-    const existing = openFiles.find((f) => f.path === path);
-    if (existing) {
-      // File is already open - activate it and ensure LSP knows about it
-      set({ activeFilePath: path });
-      // Re-notify LSP in case it wasn't notified before (e.g., LSP started after file was opened)
-      notifyFileOpened(path, existing.content).catch(console.error);
+    // Check if already open in editor store
+    const existingState = editorStore.getFileState(path);
+    if (existingState) {
+      // File is already open - just activate it
+      editorStore.setActiveTab(path);
       return;
     }
 
@@ -212,62 +195,31 @@ export const useFilesStore = create<FilesState>((set, get) => ({
         return;
       }
 
-      const newFile: OpenFile = {
+      // Open as preview tab in editor store
+      editorStore.openTab(
         path,
-        content: fileContent.content,
-        language: fileContent.language,
-        isDirty: false,
-        isPreview: true,
-      };
-
-      // Notify plugins (including LSP) about the file being opened
-      // This triggers LSP didOpen which is required for document symbols, etc.
-      notifyFileOpened(path, fileContent.content).catch(console.error);
-
-      // Find and replace existing preview tab, or add new
-      const existingPreviewIndex = openFiles.findIndex((f) => f.isPreview);
-
-      let newOpenFiles: OpenFile[];
-      if (existingPreviewIndex >= 0) {
-        // Close the old preview (notify plugins)
-        const oldPreview = openFiles[existingPreviewIndex];
-        notifyFileClosed(oldPreview.path).catch(console.error);
-
-        // Replace preview tab at same position
-        newOpenFiles = [...openFiles];
-        newOpenFiles[existingPreviewIndex] = newFile;
-      } else {
-        // Add new preview tab at the end
-        newOpenFiles = [...openFiles, newFile];
-      }
-
-      set({
-        openFiles: newOpenFiles,
-        activeFilePath: path,
-      });
+        fileContent.content,
+        fileContent.language,
+        true
+      );
     } catch (error) {
       console.error("Failed to open file:", error);
     }
   },
 
   openFileAtPosition: async (path, position) => {
-    const { openFiles, openFile } = get();
+    const { openFile } = get();
+    const editorStore = useEditorStore.getState();
 
     // Store the pending navigation
     pendingNavigation = { path, position };
 
     // Check if already open
-    const existing = openFiles.find((f) => f.path === path);
-    if (existing) {
-      // File is already open, just set it active
+    const existingState = editorStore.getFileState(path);
+    if (existingState) {
+      // File is already open, just activate it
       // The editor will pick up the pending navigation
-      set({ activeFilePath: path });
-      // Force a re-render by updating the file (this triggers the editor to check for navigation)
-      set((state) => ({
-        openFiles: state.openFiles.map((f) =>
-          f.path === path ? { ...f } : f
-        ),
-      }));
+      editorStore.setActiveTab(path);
       return;
     }
 
@@ -275,80 +227,14 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     await openFile(path);
   },
 
-  closeFile: (path) => {
-    // Notify plugins about the file being closed
-    notifyFileClosed(path).catch(console.error);
-
-    set((state) => {
-      const newOpenFiles = state.openFiles.filter((f) => f.path !== path);
-      let newActivePath = state.activeFilePath;
-
-      if (state.activeFilePath === path) {
-        // Select the previous or next file
-        const index = state.openFiles.findIndex((f) => f.path === path);
-        if (newOpenFiles.length > 0) {
-          newActivePath =
-            newOpenFiles[Math.min(index, newOpenFiles.length - 1)]?.path ??
-            null;
-        } else {
-          newActivePath = null;
-        }
-      }
-
-      return {
-        openFiles: newOpenFiles,
-        activeFilePath: newActivePath,
-      };
-    });
-  },
-
-  closeOtherFiles: (path) => {
-    set((state) => ({
-      openFiles: state.openFiles.filter((f) => f.path === path),
-      activeFilePath: path,
-    }));
-  },
-
-  closeAllFiles: () => {
-    set({ openFiles: [], activeFilePath: null });
-  },
-
-  setActiveFile: (path) => {
-    set({ activeFilePath: path });
-  },
-
-  convertPreviewToPermanent: (path) => {
-    set((state) => ({
-      openFiles: state.openFiles.map((f) =>
-        f.path === path && f.isPreview ? { ...f, isPreview: false } : f
-      ),
-    }));
-  },
-
-  updateFileContent: (path, content) => {
-    // Notify plugins about the content change
-    notifyFileChanged(path, content).catch(console.error);
-
-    // Auto-convert preview to permanent when editing
-    set((state) => ({
-      openFiles: state.openFiles.map((f) =>
-        f.path === path ? { ...f, content, isDirty: true, isPreview: false } : f
-      ),
-    }));
-  },
-
   saveFile: async (path) => {
-    const { openFiles } = get();
-    const file = openFiles.find((f) => f.path === path);
-    if (!file) return;
+    const editorStore = useEditorStore.getState();
+    const fileState = editorStore.getFileState(path);
+    if (!fileState) return;
 
     try {
-      await writeFile(path, file.content);
-      set((state) => ({
-        openFiles: state.openFiles.map((f) =>
-          f.path === path ? { ...f, isDirty: false } : f
-        ),
-      }));
+      await writeFile(path, fileState.content);
+      editorStore.markSaved(path, fileState.content);
     } catch (error) {
       console.error("Failed to save file:", error);
       throw error;
@@ -356,19 +242,40 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   },
 
   saveActiveFile: async () => {
-    const { activeFilePath, saveFile } = get();
-    if (activeFilePath) {
-      await saveFile(activeFilePath);
+    const { saveFile } = get();
+    const activeTabPath = useEditorStore.getState().activeTabPath;
+    if (activeTabPath) {
+      await saveFile(activeTabPath);
     }
   },
 
   saveAllFiles: async () => {
-    const { openFiles, saveFile } = get();
-    const dirtyFiles = openFiles.filter((f) => f.isDirty);
-    await Promise.all(dirtyFiles.map((f) => saveFile(f.path)));
+    const { saveFile } = get();
+    const editorStore = useEditorStore.getState();
+
+    // Get all dirty files
+    const dirtyPaths: string[] = [];
+    for (const path of editorStore.openTabs) {
+      const fileState = editorStore.fileStates[path];
+      if (fileState && fileState.content !== fileState.savedContent) {
+        dirtyPaths.push(path);
+      }
+    }
+    // Also check preview tab
+    if (
+      editorStore.previewTab &&
+      editorStore.previewTab.content !== editorStore.previewTab.savedContent
+    ) {
+      dirtyPaths.push(editorStore.previewTab.path);
+    }
+
+    await Promise.all(dirtyPaths.map((path) => saveFile(path)));
   },
 
-  // File tree updates
+  // ============================================================
+  // File Tree Updates
+  // ============================================================
+
   addFileToTree: (_path, _isDirectory) => {
     // Trigger a refresh of the parent directory
     // This is a simplified implementation
@@ -376,19 +283,11 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   },
 
   removeFileFromTree: (path) => {
-    set((state) => {
-      // Remove from open files if open
-      const newOpenFiles = state.openFiles.filter((f) => f.path !== path);
-      let newActivePath = state.activeFilePath;
-      if (state.activeFilePath === path) {
-        newActivePath = newOpenFiles[0]?.path ?? null;
-      }
-
-      return {
-        openFiles: newOpenFiles,
-        activeFilePath: newActivePath,
-      };
-    });
+    // Close the file in editor store if it's open
+    const editorStore = useEditorStore.getState();
+    if (editorStore.getFileState(path)) {
+      editorStore.closeTab(path);
+    }
   },
 
   updateFileTree: async () => {
