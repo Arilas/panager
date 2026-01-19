@@ -25,7 +25,7 @@ import {
 import { useIdeStore } from "../../stores/ide";
 import { useGitStore } from "../../stores/git";
 import { useFilesStore } from "../../stores/files";
-import { useEditorStore } from "../../stores/editor";
+import { useEditorStore, isDiffTab } from "../../stores/editor";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
 import type { GitFileChange, GitFileStatus } from "../../types";
@@ -82,19 +82,26 @@ export function GitPanel() {
     setChangesViewMode,
   } = useGitStore();
   const openFilePreview = useFilesStore((s) => s.openFilePreview);
-  const diffTab = useEditorStore((s) => s.diffTab);
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
+  const getActiveTabState = useEditorStore((s) => s.getActiveTabState);
   const { effectiveTheme } = useIdeSettingsContext();
 
   // Derive selected file from active tab (diff or regular file)
   const selectedFilePath = useMemo(() => {
     if (!activeTabPath || !projectContext) return null;
 
-    // If diff tab is active, use diff tab path
-    if (activeTabPath.startsWith("diff://") && diffTab) {
-      const fullPath = diffTab.path;
-      if (fullPath.startsWith(projectContext.projectPath)) {
-        return fullPath.slice(projectContext.projectPath.length + 1); // +1 for the "/"
+    // If diff tab is active, extract the original file path from the diff:// path
+    if (activeTabPath.startsWith("diff://")) {
+      const activeTab = getActiveTabState();
+      if (activeTab && isDiffTab(activeTab)) {
+        // Extract original path - remove diff:// prefix and :staged suffix if present
+        let originalPath = activeTabPath.slice("diff://".length);
+        if (originalPath.endsWith(":staged")) {
+          originalPath = originalPath.slice(0, -":staged".length);
+        }
+        if (originalPath.startsWith(projectContext.projectPath)) {
+          return originalPath.slice(projectContext.projectPath.length + 1); // +1 for the "/"
+        }
       }
     } else {
       // Regular file tab - extract relative path
@@ -103,7 +110,7 @@ export function GitPanel() {
       }
     }
     return null;
-  }, [activeTabPath, diffTab, projectContext]);
+  }, [activeTabPath, getActiveTabState, projectContext]);
 
   const isDark = effectiveTheme === "dark";
 
@@ -149,7 +156,7 @@ export function GitPanel() {
         return;
       }
 
-      // Open the diff in a new tab
+      // Open the diff in a new tab (as preview by default)
       const fileName = file.path.split("/").pop() || file.path;
       openDiffTab({
         type: "diff",

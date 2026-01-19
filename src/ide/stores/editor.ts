@@ -78,6 +78,16 @@ export type TabState = FileTabState | DiffTabState;
 /** @deprecated Use FileTabState instead */
 export type FileEditorState = FileTabState;
 
+/** Type guard to check if a tab is a file tab */
+export function isFileTab(tab: TabState | null | undefined): tab is FileTabState {
+  return tab !== null && tab !== undefined && tab.type === "file";
+}
+
+/** Type guard to check if a tab is a diff tab */
+export function isDiffTab(tab: TabState | null | undefined): tab is DiffTabState {
+  return tab !== null && tab !== undefined && tab.type === "diff";
+}
+
 /** Persisted session data (subset of FileTabState) */
 interface PersistedFileSession {
   cursorPosition: { line: number; column: number };
@@ -96,15 +106,12 @@ interface EditorState {
   initState: MonacoInitState;
 
   // === TABS (single source of truth) ===
-  openTabs: string[]; // Ordered list of file paths (tab order)
+  openTabs: string[]; // Ordered list of tab paths (tab order)
   activeTabPath: string | null; // Currently active tab
-  previewTab: FileTabState | null; // Single preview tab (replaced on new preview)
+  previewTab: TabState | null; // Single preview tab (replaced on new preview)
 
-  // === DIFF TAB ===
-  diffTab: DiffTabState | null; // Single diff tab (for viewing git diffs)
-
-  // === FILE STATE (keyed by path) ===
-  fileStates: Record<string, FileTabState>; // Permanent tabs only
+  // === TAB STATE (keyed by path) ===
+  tabStates: Record<string, TabState>; // Permanent tabs only
 
   // === PERSISTED SESSION DATA ===
   sessionData: Record<string, PersistedFileSession>; // Session data for restoration
@@ -126,16 +133,13 @@ interface EditorState {
     language: string,
     isPreview?: boolean
   ) => void;
+  openDiffTab: (diff: DiffTabState, isPreview?: boolean) => void;
   closeTab: (path: string) => void;
   closeOtherTabs: (path: string) => void;
   closeAllTabs: () => void;
   setActiveTab: (path: string) => void;
   convertPreviewToPermanent: () => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
-
-  // === DIFF TAB ACTIONS ===
-  openDiffTab: (diff: DiffTabState) => void;
-  closeDiffTab: () => void;
 
   // === CONTENT ACTIONS ===
   updateContent: (path: string, content: string) => void;
@@ -162,7 +166,9 @@ interface EditorState {
   saveFoldedRegions: (path: string, regions: number[]) => void;
 
   // === GETTERS ===
+  getTabState: (path: string) => TabState | null;
   getFileState: (path: string) => FileTabState | null;
+  getActiveTabState: () => TabState | null;
   getActiveFileState: () => FileTabState | null;
   isDirty: (path: string) => boolean;
   hasUnsavedChanges: () => boolean;
@@ -265,8 +271,7 @@ export const useEditorStore = create<EditorState>()(
       openTabs: [],
       activeTabPath: null,
       previewTab: null,
-      diffTab: null,
-      fileStates: {},
+      tabStates: {},
       sessionData: {},
       gitBlameEnabled: true,
       codeLensEnabled: true,
@@ -296,10 +301,10 @@ export const useEditorStore = create<EditorState>()(
       openTab: (path, content, language, isPreview = false) => {
         const state = get();
 
-        // Check if already open as permanent tab (check both fileStates and openTabs for robustness)
-        if (state.fileStates[path] || state.openTabs.includes(path)) {
-          // If in openTabs but not in fileStates (e.g., after rehydration), populate fileStates
-          if (!state.fileStates[path] && state.openTabs.includes(path)) {
+        // Check if already open as permanent tab
+        if (state.tabStates[path] || state.openTabs.includes(path)) {
+          // If in openTabs but not in tabStates (e.g., after rehydration), populate tabStates
+          if (!state.tabStates[path] && state.openTabs.includes(path)) {
             const existingSession = state.sessionData[path];
             const newFileState = createDefaultFileState(
               path,
@@ -308,7 +313,7 @@ export const useEditorStore = create<EditorState>()(
               existingSession
             );
             set((s) => ({
-              fileStates: { ...s.fileStates, [path]: newFileState },
+              tabStates: { ...s.tabStates, [path]: newFileState },
               activeTabPath: path,
             }));
             notifyFileOpened(path, content).catch(console.error);
@@ -328,8 +333,8 @@ export const useEditorStore = create<EditorState>()(
         const existingSession = state.sessionData[path];
 
         if (isPreview) {
-          // Close existing preview if different file
-          if (state.previewTab && state.previewTab.path !== path) {
+          // Close existing preview if different file (only for file tabs)
+          if (state.previewTab && state.previewTab.path !== path && isFileTab(state.previewTab)) {
             notifyFileClosed(state.previewTab.path).catch(console.error);
           }
 
@@ -356,7 +361,7 @@ export const useEditorStore = create<EditorState>()(
 
           set((state) => ({
             openTabs: [...state.openTabs, path],
-            fileStates: { ...state.fileStates, [path]: newFileState },
+            tabStates: { ...state.tabStates, [path]: newFileState },
             activeTabPath: path,
           }));
         }
@@ -365,48 +370,103 @@ export const useEditorStore = create<EditorState>()(
         notifyFileOpened(path, content).catch(console.error);
       },
 
+      openDiffTab: (diff, isPreview = true) => {
+        const state = get();
+        const diffPath = `diff://${diff.path}${diff.staged ? ":staged" : ""}`;
+
+        // Check if already open as permanent tab
+        if (state.tabStates[diffPath] || state.openTabs.includes(diffPath)) {
+          set({ activeTabPath: diffPath });
+          return;
+        }
+
+        // Check if it's the current preview tab
+        if (state.previewTab?.path === diffPath) {
+          set({ activeTabPath: diffPath });
+          return;
+        }
+
+        const diffTabState: DiffTabState = {
+          ...diff,
+          path: diffPath,
+        };
+
+        if (isPreview) {
+          // Close existing preview if different
+          if (state.previewTab && state.previewTab.path !== diffPath && isFileTab(state.previewTab)) {
+            notifyFileClosed(state.previewTab.path).catch(console.error);
+          }
+
+          set({
+            previewTab: diffTabState,
+            activeTabPath: diffPath,
+          });
+        } else {
+          set((state) => ({
+            openTabs: [...state.openTabs, diffPath],
+            tabStates: { ...state.tabStates, [diffPath]: diffTabState },
+            activeTabPath: diffPath,
+          }));
+        }
+      },
+
       closeTab: (path) => {
         const state = get();
 
         // Check if closing preview tab
         if (state.previewTab?.path === path) {
-          // Save session data before closing
-          const session: PersistedFileSession = {
-            cursorPosition: state.previewTab.cursorPosition,
-            scrollPosition: state.previewTab.scrollPosition,
-            selections: state.previewTab.selections,
-            foldedRegions: state.previewTab.foldedRegions,
-          };
+          // Save session data before closing (only for file tabs)
+          if (isFileTab(state.previewTab)) {
+            const session: PersistedFileSession = {
+              cursorPosition: state.previewTab.cursorPosition,
+              scrollPosition: state.previewTab.scrollPosition,
+              selections: state.previewTab.selections,
+              foldedRegions: state.previewTab.foldedRegions,
+            };
 
-          set((s) => ({
-            previewTab: null,
-            activeTabPath:
-              s.activeTabPath === path
-                ? s.openTabs[s.openTabs.length - 1] ?? null
-                : s.activeTabPath,
-            sessionData: { ...s.sessionData, [path]: session },
-          }));
+            set((s) => ({
+              previewTab: null,
+              activeTabPath:
+                s.activeTabPath === path
+                  ? s.openTabs[s.openTabs.length - 1] ?? null
+                  : s.activeTabPath,
+              sessionData: { ...s.sessionData, [path]: session },
+            }));
 
-          notifyFileClosed(path).catch(console.error);
+            notifyFileClosed(path).catch(console.error);
+          } else {
+            // Diff tab - no session to save
+            set((s) => ({
+              previewTab: null,
+              activeTabPath:
+                s.activeTabPath === path
+                  ? s.openTabs[s.openTabs.length - 1] ?? null
+                  : s.activeTabPath,
+            }));
+          }
           return;
         }
 
         // Closing permanent tab
-        const fileState = state.fileStates[path];
-        if (!fileState) return;
+        const tabState = state.tabStates[path];
+        if (!tabState) return;
 
-        // Save session data before closing
-        const session: PersistedFileSession = {
-          cursorPosition: fileState.cursorPosition,
-          scrollPosition: fileState.scrollPosition,
-          selections: fileState.selections,
-          foldedRegions: fileState.foldedRegions,
-        };
+        // Save session data before closing (only for file tabs)
+        let newSessionData = state.sessionData;
+        if (isFileTab(tabState)) {
+          const session: PersistedFileSession = {
+            cursorPosition: tabState.cursorPosition,
+            scrollPosition: tabState.scrollPosition,
+            selections: tabState.selections,
+            foldedRegions: tabState.foldedRegions,
+          };
+          newSessionData = { ...state.sessionData, [path]: session };
+        }
 
         const tabIndex = state.openTabs.indexOf(path);
         const newOpenTabs = state.openTabs.filter((p) => p !== path);
-        const newFileStates = { ...state.fileStates };
-        delete newFileStates[path];
+        const newTabStates = { ...state.tabStates };
+        delete newTabStates[path];
 
         // Determine new active tab
         let newActiveTab = state.activeTabPath;
@@ -424,12 +484,15 @@ export const useEditorStore = create<EditorState>()(
 
         set({
           openTabs: newOpenTabs,
-          fileStates: newFileStates,
+          tabStates: newTabStates,
           activeTabPath: newActiveTab,
-          sessionData: { ...state.sessionData, [path]: session },
+          sessionData: newSessionData,
         });
 
-        notifyFileClosed(path).catch(console.error);
+        // Notify LSP for file tabs
+        if (isFileTab(tabState)) {
+          notifyFileClosed(path).catch(console.error);
+        }
       },
 
       closeOtherTabs: (path) => {
@@ -438,22 +501,27 @@ export const useEditorStore = create<EditorState>()(
         // Close all tabs except the specified one
         for (const tabPath of state.openTabs) {
           if (tabPath !== path) {
-            notifyFileClosed(tabPath).catch(console.error);
+            const tabState = state.tabStates[tabPath];
+            if (isFileTab(tabState)) {
+              notifyFileClosed(tabPath).catch(console.error);
+            }
           }
         }
 
         // Close preview if it's not the specified path
         if (state.previewTab && state.previewTab.path !== path) {
-          notifyFileClosed(state.previewTab.path).catch(console.error);
+          if (isFileTab(state.previewTab)) {
+            notifyFileClosed(state.previewTab.path).catch(console.error);
+          }
         }
 
-        const keepFileState = state.fileStates[path];
+        const keepTabState = state.tabStates[path];
         const keepPreview =
           state.previewTab?.path === path ? state.previewTab : null;
 
         set({
-          openTabs: keepFileState ? [path] : [],
-          fileStates: keepFileState ? { [path]: keepFileState } : {},
+          openTabs: keepTabState ? [path] : [],
+          tabStates: keepTabState ? { [path]: keepTabState } : {},
           previewTab: keepPreview,
           activeTabPath: path,
         });
@@ -462,17 +530,20 @@ export const useEditorStore = create<EditorState>()(
       closeAllTabs: () => {
         const state = get();
 
-        // Notify LSP about all closed files
+        // Notify LSP about all closed file tabs
         for (const path of state.openTabs) {
-          notifyFileClosed(path).catch(console.error);
+          const tabState = state.tabStates[path];
+          if (isFileTab(tabState)) {
+            notifyFileClosed(path).catch(console.error);
+          }
         }
-        if (state.previewTab) {
+        if (state.previewTab && isFileTab(state.previewTab)) {
           notifyFileClosed(state.previewTab.path).catch(console.error);
         }
 
         set({
           openTabs: [],
-          fileStates: {},
+          tabStates: {},
           previewTab: null,
           activeTabPath: null,
         });
@@ -490,7 +561,7 @@ export const useEditorStore = create<EditorState>()(
 
         set((s) => ({
           openTabs: [...s.openTabs, previewTab.path],
-          fileStates: { ...s.fileStates, [previewTab.path]: previewTab },
+          tabStates: { ...s.tabStates, [previewTab.path]: previewTab },
           previewTab: null,
         }));
       },
@@ -504,37 +575,13 @@ export const useEditorStore = create<EditorState>()(
         });
       },
 
-      // === DIFF TAB ACTIONS ===
-
-      openDiffTab: (diff) => {
-        // Use a special path format for diff tabs: "diff://<filepath>"
-        const diffPath = `diff://${diff.path}`;
-        set({
-          diffTab: diff,
-          activeTabPath: diffPath,
-        });
-      },
-
-      closeDiffTab: () => {
-        const state = get();
-        const wasDiffActive = state.activeTabPath?.startsWith("diff://");
-
-        set((s) => ({
-          diffTab: null,
-          // If diff was active, switch to last open tab or preview
-          activeTabPath: wasDiffActive
-            ? s.openTabs[s.openTabs.length - 1] ?? s.previewTab?.path ?? null
-            : s.activeTabPath,
-        }));
-      },
-
       // === CONTENT ACTIONS ===
 
       updateContent: (path, content) => {
         const state = get();
 
-        // Check if updating preview tab
-        if (state.previewTab?.path === path) {
+        // Check if updating preview tab (only file tabs can be edited)
+        if (state.previewTab?.path === path && isFileTab(state.previewTab)) {
           // Auto-convert preview to permanent on edit
           const updatedTab: FileTabState = {
             ...state.previewTab,
@@ -543,7 +590,7 @@ export const useEditorStore = create<EditorState>()(
 
           set((s) => ({
             openTabs: [...s.openTabs, path],
-            fileStates: { ...s.fileStates, [path]: updatedTab },
+            tabStates: { ...s.tabStates, [path]: updatedTab },
             previewTab: null,
           }));
 
@@ -553,14 +600,14 @@ export const useEditorStore = create<EditorState>()(
           return;
         }
 
-        // Update permanent tab
-        const fileState = state.fileStates[path];
-        if (!fileState) return;
+        // Update permanent tab (only file tabs)
+        const tabState = state.tabStates[path];
+        if (!tabState || !isFileTab(tabState)) return;
 
         set((s) => ({
-          fileStates: {
-            ...s.fileStates,
-            [path]: { ...fileState, content },
+          tabStates: {
+            ...s.tabStates,
+            [path]: { ...tabState, content },
           },
         }));
 
@@ -571,13 +618,13 @@ export const useEditorStore = create<EditorState>()(
 
       markSaved: (path, newSavedContent) => {
         set((state) => {
-          const fileState = state.fileStates[path];
-          if (!fileState) return state;
+          const tabState = state.tabStates[path];
+          if (!tabState || !isFileTab(tabState)) return state;
 
           return {
-            fileStates: {
-              ...state.fileStates,
-              [path]: { ...fileState, savedContent: newSavedContent },
+            tabStates: {
+              ...state.tabStates,
+              [path]: { ...tabState, savedContent: newSavedContent },
             },
           };
         });
@@ -588,7 +635,7 @@ export const useEditorStore = create<EditorState>()(
       setHeadContent: (path, content) => {
         set((state) => {
           // Check preview tab
-          if (state.previewTab?.path === path) {
+          if (state.previewTab?.path === path && isFileTab(state.previewTab)) {
             const lineDiff =
               content !== null
                 ? computeLineDiff(content, state.previewTab.content)
@@ -604,18 +651,18 @@ export const useEditorStore = create<EditorState>()(
           }
 
           // Check permanent tabs
-          const fileState = state.fileStates[path];
-          if (!fileState) return state;
+          const tabState = state.tabStates[path];
+          if (!tabState || !isFileTab(tabState)) return state;
 
           const lineDiff =
             content !== null
-              ? computeLineDiff(content, fileState.content)
+              ? computeLineDiff(content, tabState.content)
               : null;
 
           return {
-            fileStates: {
-              ...state.fileStates,
-              [path]: { ...fileState, headContent: content, lineDiff },
+            tabStates: {
+              ...state.tabStates,
+              [path]: { ...tabState, headContent: content, lineDiff },
             },
           };
         });
@@ -624,20 +671,20 @@ export const useEditorStore = create<EditorState>()(
       setLineDiff: (path, diff) => {
         set((state) => {
           // Check preview tab
-          if (state.previewTab?.path === path) {
+          if (state.previewTab?.path === path && isFileTab(state.previewTab)) {
             return {
               previewTab: { ...state.previewTab, lineDiff: diff },
             };
           }
 
           // Check permanent tabs
-          const fileState = state.fileStates[path];
-          if (!fileState) return state;
+          const tabState = state.tabStates[path];
+          if (!tabState || !isFileTab(tabState)) return state;
 
           return {
-            fileStates: {
-              ...state.fileStates,
-              [path]: { ...fileState, lineDiff: diff },
+            tabStates: {
+              ...state.tabStates,
+              [path]: { ...tabState, lineDiff: diff },
             },
           };
         });
@@ -646,7 +693,7 @@ export const useEditorStore = create<EditorState>()(
       setBlameData: (path, data) => {
         set((state) => {
           // Check preview tab
-          if (state.previewTab?.path === path) {
+          if (state.previewTab?.path === path && isFileTab(state.previewTab)) {
             return {
               previewTab: {
                 ...state.previewTab,
@@ -657,13 +704,13 @@ export const useEditorStore = create<EditorState>()(
           }
 
           // Check permanent tabs
-          const fileState = state.fileStates[path];
-          if (!fileState) return state;
+          const tabState = state.tabStates[path];
+          if (!tabState || !isFileTab(tabState)) return state;
 
           return {
-            fileStates: {
-              ...state.fileStates,
-              [path]: { ...fileState, blameData: data, blameLoading: false },
+            tabStates: {
+              ...state.tabStates,
+              [path]: { ...tabState, blameData: data, blameLoading: false },
             },
           };
         });
@@ -672,20 +719,20 @@ export const useEditorStore = create<EditorState>()(
       setBlameLoading: (path, loading) => {
         set((state) => {
           // Check preview tab
-          if (state.previewTab?.path === path) {
+          if (state.previewTab?.path === path && isFileTab(state.previewTab)) {
             return {
               previewTab: { ...state.previewTab, blameLoading: loading },
             };
           }
 
           // Check permanent tabs
-          const fileState = state.fileStates[path];
-          if (!fileState) return state;
+          const tabState = state.tabStates[path];
+          if (!tabState || !isFileTab(tabState)) return state;
 
           return {
-            fileStates: {
-              ...state.fileStates,
-              [path]: { ...fileState, blameLoading: loading },
+            tabStates: {
+              ...state.tabStates,
+              [path]: { ...tabState, blameLoading: loading },
             },
           };
         });
@@ -694,7 +741,7 @@ export const useEditorStore = create<EditorState>()(
       setSymbols: (path, symbols) => {
         set((state) => {
           // Check preview tab
-          if (state.previewTab?.path === path) {
+          if (state.previewTab?.path === path && isFileTab(state.previewTab)) {
             return {
               previewTab: {
                 ...state.previewTab,
@@ -705,13 +752,13 @@ export const useEditorStore = create<EditorState>()(
           }
 
           // Check permanent tabs
-          const fileState = state.fileStates[path];
-          if (!fileState) return state;
+          const tabState = state.tabStates[path];
+          if (!tabState || !isFileTab(tabState)) return state;
 
           return {
-            fileStates: {
-              ...state.fileStates,
-              [path]: { ...fileState, symbols, symbolsLoading: false },
+            tabStates: {
+              ...state.tabStates,
+              [path]: { ...tabState, symbols, symbolsLoading: false },
             },
           };
         });
@@ -720,20 +767,20 @@ export const useEditorStore = create<EditorState>()(
       setSymbolsLoading: (path, loading) => {
         set((state) => {
           // Check preview tab
-          if (state.previewTab?.path === path) {
+          if (state.previewTab?.path === path && isFileTab(state.previewTab)) {
             return {
               previewTab: { ...state.previewTab, symbolsLoading: loading },
             };
           }
 
           // Check permanent tabs
-          const fileState = state.fileStates[path];
-          if (!fileState) return state;
+          const tabState = state.tabStates[path];
+          if (!tabState || !isFileTab(tabState)) return state;
 
           return {
-            fileStates: {
-              ...state.fileStates,
-              [path]: { ...fileState, symbolsLoading: loading },
+            tabStates: {
+              ...state.tabStates,
+              [path]: { ...tabState, symbolsLoading: loading },
             },
           };
         });
@@ -744,20 +791,20 @@ export const useEditorStore = create<EditorState>()(
       saveCursorPosition: (path, pos) => {
         set((state) => {
           // Check preview tab
-          if (state.previewTab?.path === path) {
+          if (state.previewTab?.path === path && isFileTab(state.previewTab)) {
             return {
               previewTab: { ...state.previewTab, cursorPosition: pos },
             };
           }
 
           // Check permanent tabs
-          const fileState = state.fileStates[path];
-          if (!fileState) return state;
+          const tabState = state.tabStates[path];
+          if (!tabState || !isFileTab(tabState)) return state;
 
           return {
-            fileStates: {
-              ...state.fileStates,
-              [path]: { ...fileState, cursorPosition: pos },
+            tabStates: {
+              ...state.tabStates,
+              [path]: { ...tabState, cursorPosition: pos },
             },
           };
         });
@@ -766,20 +813,20 @@ export const useEditorStore = create<EditorState>()(
       saveScrollPosition: (path, pos) => {
         set((state) => {
           // Check preview tab
-          if (state.previewTab?.path === path) {
+          if (state.previewTab?.path === path && isFileTab(state.previewTab)) {
             return {
               previewTab: { ...state.previewTab, scrollPosition: pos },
             };
           }
 
           // Check permanent tabs
-          const fileState = state.fileStates[path];
-          if (!fileState) return state;
+          const tabState = state.tabStates[path];
+          if (!tabState || !isFileTab(tabState)) return state;
 
           return {
-            fileStates: {
-              ...state.fileStates,
-              [path]: { ...fileState, scrollPosition: pos },
+            tabStates: {
+              ...state.tabStates,
+              [path]: { ...tabState, scrollPosition: pos },
             },
           };
         });
@@ -788,20 +835,20 @@ export const useEditorStore = create<EditorState>()(
       saveSelections: (path, selections) => {
         set((state) => {
           // Check preview tab
-          if (state.previewTab?.path === path) {
+          if (state.previewTab?.path === path && isFileTab(state.previewTab)) {
             return {
               previewTab: { ...state.previewTab, selections },
             };
           }
 
           // Check permanent tabs
-          const fileState = state.fileStates[path];
-          if (!fileState) return state;
+          const tabState = state.tabStates[path];
+          if (!tabState || !isFileTab(tabState)) return state;
 
           return {
-            fileStates: {
-              ...state.fileStates,
-              [path]: { ...fileState, selections },
+            tabStates: {
+              ...state.tabStates,
+              [path]: { ...tabState, selections },
             },
           };
         });
@@ -810,20 +857,20 @@ export const useEditorStore = create<EditorState>()(
       saveFoldedRegions: (path, regions) => {
         set((state) => {
           // Check preview tab
-          if (state.previewTab?.path === path) {
+          if (state.previewTab?.path === path && isFileTab(state.previewTab)) {
             return {
               previewTab: { ...state.previewTab, foldedRegions: regions },
             };
           }
 
           // Check permanent tabs
-          const fileState = state.fileStates[path];
-          if (!fileState) return state;
+          const tabState = state.tabStates[path];
+          if (!tabState || !isFileTab(tabState)) return state;
 
           return {
-            fileStates: {
-              ...state.fileStates,
-              [path]: { ...fileState, foldedRegions: regions },
+            tabStates: {
+              ...state.tabStates,
+              [path]: { ...tabState, foldedRegions: regions },
             },
           };
         });
@@ -831,7 +878,7 @@ export const useEditorStore = create<EditorState>()(
 
       // === GETTERS ===
 
-      getFileState: (path) => {
+      getTabState: (path) => {
         const state = get();
 
         // Check preview tab first
@@ -840,7 +887,29 @@ export const useEditorStore = create<EditorState>()(
         }
 
         // Check permanent tabs
-        return state.fileStates[path] ?? null;
+        return state.tabStates[path] ?? null;
+      },
+
+      getFileState: (path) => {
+        const state = get();
+
+        // Check preview tab first
+        if (state.previewTab?.path === path && isFileTab(state.previewTab)) {
+          return state.previewTab;
+        }
+
+        // Check permanent tabs
+        const tabState = state.tabStates[path];
+        if (tabState && isFileTab(tabState)) {
+          return tabState;
+        }
+        return null;
+      },
+
+      getActiveTabState: () => {
+        const state = get();
+        if (!state.activeTabPath) return null;
+        return state.getTabState(state.activeTabPath);
       },
 
       getActiveFileState: () => {
@@ -859,18 +928,19 @@ export const useEditorStore = create<EditorState>()(
         const state = get();
 
         // Check preview tab
-        if (
-          state.previewTab &&
-          state.previewTab.content !== state.previewTab.savedContent
-        ) {
-          return true;
+        if (state.previewTab && isFileTab(state.previewTab)) {
+          if (state.previewTab.content !== state.previewTab.savedContent) {
+            return true;
+          }
         }
 
         // Check permanent tabs
         for (const path of state.openTabs) {
-          const fileState = state.fileStates[path];
-          if (fileState && fileState.content !== fileState.savedContent) {
-            return true;
+          const tabState = state.tabStates[path];
+          if (tabState && isFileTab(tabState)) {
+            if (tabState.content !== tabState.savedContent) {
+              return true;
+            }
           }
         }
 
@@ -895,28 +965,34 @@ export const useEditorStore = create<EditorState>()(
 
       clearAllBlameCaches: () => {
         set((state) => {
-          const newFileStates: Record<string, FileTabState> = {};
+          const newTabStates: Record<string, TabState> = {};
 
-          for (const [path, fileState] of Object.entries(state.fileStates)) {
-            newFileStates[path] = {
-              ...fileState,
-              blameData: null,
-              headContent: null,
-              lineDiff: null,
-            };
-          }
-
-          const newPreviewTab = state.previewTab
-            ? {
-                ...state.previewTab,
+          for (const [path, tabState] of Object.entries(state.tabStates)) {
+            if (isFileTab(tabState)) {
+              newTabStates[path] = {
+                ...tabState,
                 blameData: null,
                 headContent: null,
                 lineDiff: null,
-              }
+              };
+            } else {
+              newTabStates[path] = tabState;
+            }
+          }
+
+          const newPreviewTab = state.previewTab
+            ? isFileTab(state.previewTab)
+              ? {
+                  ...state.previewTab,
+                  blameData: null,
+                  headContent: null,
+                  lineDiff: null,
+                }
+              : state.previewTab
             : null;
 
           return {
-            fileStates: newFileStates,
+            tabStates: newTabStates,
             previewTab: newPreviewTab,
           };
         });
@@ -931,20 +1007,25 @@ export const useEditorStore = create<EditorState>()(
       partialize: (state) => ({
         sessionData: {
           ...state.sessionData,
-          // Also include current session data from open files
+          // Also include current session data from open file tabs
           ...Object.fromEntries(
-            Object.entries(state.fileStates).map(([path, fs]) => [
-              path,
-              {
-                cursorPosition: fs.cursorPosition,
-                scrollPosition: fs.scrollPosition,
-                selections: fs.selections,
-                foldedRegions: fs.foldedRegions,
-              },
-            ])
+            Object.entries(state.tabStates)
+              .filter(([, ts]) => isFileTab(ts))
+              .map(([path, ts]) => {
+                const fileState = ts as FileTabState;
+                return [
+                  path,
+                  {
+                    cursorPosition: fileState.cursorPosition,
+                    scrollPosition: fileState.scrollPosition,
+                    selections: fileState.selections,
+                    foldedRegions: fileState.foldedRegions,
+                  },
+                ];
+              })
           ),
-          // Include preview tab session
-          ...(state.previewTab
+          // Include preview tab session (only for file tabs)
+          ...(state.previewTab && isFileTab(state.previewTab)
             ? {
                 [state.previewTab.path]: {
                   cursorPosition: state.previewTab.cursorPosition,

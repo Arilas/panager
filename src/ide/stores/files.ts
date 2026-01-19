@@ -12,7 +12,7 @@
 import { create } from "zustand";
 import type { FileEntry } from "../types";
 import { readDirectory, readFile, writeFile } from "../lib/tauri-ide";
-import { useEditorStore } from "./editor";
+import { useEditorStore, isFileTab } from "./editor";
 
 /** Position to navigate to when opening a file */
 export interface FilePosition {
@@ -253,17 +253,18 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     const { saveFile } = get();
     const editorStore = useEditorStore.getState();
 
-    // Get all dirty files
+    // Get all dirty file tabs (only file tabs can be dirty, not diff tabs)
     const dirtyPaths: string[] = [];
     for (const path of editorStore.openTabs) {
-      const fileState = editorStore.fileStates[path];
-      if (fileState && fileState.content !== fileState.savedContent) {
+      const tabState = editorStore.tabStates[path];
+      if (tabState && isFileTab(tabState) && tabState.content !== tabState.savedContent) {
         dirtyPaths.push(path);
       }
     }
-    // Also check preview tab
+    // Also check preview tab (only if it's a file tab)
     if (
       editorStore.previewTab &&
+      isFileTab(editorStore.previewTab) &&
       editorStore.previewTab.content !== editorStore.previewTab.savedContent
     ) {
       dirtyPaths.push(editorStore.previewTab.path);

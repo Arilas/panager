@@ -7,7 +7,7 @@
 
 import { useMemo } from "react";
 import { useIdeStore } from "../../stores/ide";
-import { useEditorStore } from "../../stores/editor";
+import { useEditorStore, isFileTab } from "../../stores/editor";
 import { usePluginsStore } from "../../stores/plugins";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
@@ -16,7 +16,7 @@ import { BranchSelector } from "../git/BranchSelector";
 export function StatusBar() {
   const cursorPosition = useIdeStore((s) => s.cursorPosition);
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
-  const fileStates = useEditorStore((s) => s.fileStates);
+  const tabStates = useEditorStore((s) => s.tabStates);
   const previewTab = useEditorStore((s) => s.previewTab);
   const statusBarItems = usePluginsStore((s) => s.statusBarItems);
   const { useLiquidGlass, effectiveTheme } = useIdeSettingsContext();
@@ -33,12 +33,18 @@ export function StatusBar() {
 
   const isDark = effectiveTheme === "dark";
 
-  // Get active file state (from permanent tabs or preview)
-  const activeFile = useMemo(() => {
+  // Get active tab state (from permanent tabs or preview) - only file tabs have language info
+  const activeFileState = useMemo(() => {
     if (!activeTabPath) return null;
-    if (previewTab?.path === activeTabPath) return previewTab;
-    return fileStates[activeTabPath] ?? null;
-  }, [activeTabPath, previewTab, fileStates]);
+    if (previewTab?.path === activeTabPath && isFileTab(previewTab)) {
+      return previewTab;
+    }
+    const tabState = tabStates[activeTabPath];
+    if (tabState && isFileTab(tabState)) {
+      return tabState;
+    }
+    return null;
+  }, [activeTabPath, previewTab, tabStates]);
 
   return (
     <div
@@ -81,9 +87,9 @@ export function StatusBar() {
           </span>
         )}
 
-        {/* Language */}
-        {activeFile && (
-          <span className="capitalize">{activeFile.language}</span>
+        {/* Language (only for file tabs) */}
+        {activeFileState && (
+          <span className="capitalize">{activeFileState.language}</span>
         )}
 
         {/* Encoding */}

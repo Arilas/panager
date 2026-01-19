@@ -5,7 +5,7 @@
  */
 
 import { useMemo } from "react";
-import { useEditorStore } from "../../stores/editor";
+import { useEditorStore, isFileTab, isDiffTab } from "../../stores/editor";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { EditorTabs } from "../editor/EditorTabs";
 import { MonacoEditor } from "../editor/MonacoEditor";
@@ -16,25 +16,19 @@ import { cn } from "../../../lib/utils";
 export function ContentArea() {
   const openTabs = useEditorStore((s) => s.openTabs);
   const previewTab = useEditorStore((s) => s.previewTab);
-  const diffTab = useEditorStore((s) => s.diffTab);
+  const tabStates = useEditorStore((s) => s.tabStates);
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
-  const fileStates = useEditorStore((s) => s.fileStates);
   const { effectiveTheme, useLiquidGlass } = useIdeSettingsContext();
 
-  // Check if diff tab is active
-  const isDiffTabActive = activeTabPath?.startsWith("diff://") && diffTab;
-
-  // Get the active file state (either from permanent tabs or preview)
-  const activeFile = useMemo(() => {
+  // Get the active tab state (either from permanent tabs or preview)
+  const activeTab = useMemo(() => {
     if (!activeTabPath) return null;
-    // Don't return file state for diff tabs
-    if (activeTabPath.startsWith("diff://")) return null;
     if (previewTab?.path === activeTabPath) return previewTab;
-    return fileStates[activeTabPath] ?? null;
-  }, [activeTabPath, previewTab, fileStates]);
+    return tabStates[activeTabPath] ?? null;
+  }, [activeTabPath, previewTab, tabStates]);
 
-  // Check if we have any tabs (permanent + preview + diff)
-  const hasTabs = openTabs.length > 0 || previewTab !== null || diffTab !== null;
+  // Check if we have any tabs (permanent + preview)
+  const hasTabs = openTabs.length > 0 || previewTab !== null;
 
   const isDark = effectiveTheme === "dark";
 
@@ -54,18 +48,18 @@ export function ContentArea() {
 
       {/* Editor or Welcome */}
       <div className="flex-1 min-h-0">
-        {isDiffTabActive && diffTab ? (
+        {isDiffTab(activeTab) ? (
           <DiffEditor
-            original={diffTab.originalContent}
-            modified={diffTab.modifiedContent}
-            language={diffTab.language}
-            path={diffTab.path}
+            original={activeTab.originalContent}
+            modified={activeTab.modifiedContent}
+            language={activeTab.language}
+            path={activeTab.path}
           />
-        ) : activeFile ? (
+        ) : isFileTab(activeTab) ? (
           <MonacoEditor
-            content={activeFile.content}
-            language={activeFile.language}
-            path={activeFile.path}
+            content={activeTab.content}
+            language={activeTab.language}
+            path={activeTab.path}
           />
         ) : (
           <WelcomeScreen />

@@ -7,7 +7,7 @@
 
 import { useMemo } from "react";
 import { X, File, Circle, GitCompareArrows } from "lucide-react";
-import { useEditorStore, type FileTabState } from "../../stores/editor";
+import { useEditorStore, isFileTab, isDiffTab, type TabState } from "../../stores/editor";
 import { useGitStore } from "../../stores/git";
 import { useIdeStore } from "../../stores/ide";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
@@ -19,6 +19,9 @@ interface TabData {
   path: string;
   isPreview: boolean;
   isDirty: boolean;
+  isDiff: boolean;
+  fileName: string;
+  staged?: boolean;
 }
 
 /** Get color class for git status */
@@ -44,21 +47,28 @@ function getGitStatusColor(
   }
 }
 
-/** Check if a file state is dirty */
-function isFileDirty(fileState: FileTabState): boolean {
-  return fileState.content !== fileState.savedContent;
+/** Check if a tab state is dirty (only applicable to file tabs) */
+function isTabDirty(tabState: TabState): boolean {
+  if (!isFileTab(tabState)) return false;
+  return tabState.content !== tabState.savedContent;
+}
+
+/** Get display name for a tab */
+function getTabFileName(tabState: TabState): string {
+  if (isDiffTab(tabState)) {
+    return tabState.fileName;
+  }
+  return tabState.path.split("/").pop() || tabState.path;
 }
 
 export function EditorTabs() {
   // Get tab state from editorStore
   const openTabs = useEditorStore((s) => s.openTabs);
-  const fileStates = useEditorStore((s) => s.fileStates);
+  const tabStates = useEditorStore((s) => s.tabStates);
   const previewTab = useEditorStore((s) => s.previewTab);
-  const diffTab = useEditorStore((s) => s.diffTab);
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
   const setActiveTab = useEditorStore((s) => s.setActiveTab);
   const closeTab = useEditorStore((s) => s.closeTab);
-  const closeDiffTab = useEditorStore((s) => s.closeDiffTab);
   const convertPreviewToPermanent = useEditorStore(
     (s) => s.convertPreviewToPermanent
   );
@@ -75,12 +85,15 @@ export function EditorTabs() {
 
     // Add permanent tabs
     for (const path of openTabs) {
-      const fileState = fileStates[path];
-      if (fileState) {
+      const tabState = tabStates[path];
+      if (tabState) {
         result.push({
           path,
           isPreview: false,
-          isDirty: isFileDirty(fileState),
+          isDirty: isTabDirty(tabState),
+          isDiff: isDiffTab(tabState),
+          fileName: getTabFileName(tabState),
+          staged: isDiffTab(tabState) ? tabState.staged : undefined,
         });
       }
     }
@@ -90,12 +103,15 @@ export function EditorTabs() {
       result.push({
         path: previewTab.path,
         isPreview: true,
-        isDirty: isFileDirty(previewTab),
+        isDirty: isTabDirty(previewTab),
+        isDiff: isDiffTab(previewTab),
+        fileName: getTabFileName(previewTab),
+        staged: isDiffTab(previewTab) ? previewTab.staged : undefined,
       });
     }
 
     return result;
-  }, [openTabs, fileStates, previewTab]);
+  }, [openTabs, tabStates, previewTab]);
 
   // Build a map of file paths to their git status for quick lookup
   const gitStatusMap = useMemo<Map<string, GitFileStatus>>(() => {
@@ -125,65 +141,9 @@ export function EditorTabs() {
       )}
     >
       <div className="absolute inset-0 flex overflow-x-auto overflow-y-hidden tabs-scrollbar items-center">
-        {/* Diff tab (if open) */}
-        {diffTab && (
-          <div
-            onClick={() => setActiveTab(`diff://${diffTab.path}`)}
-            className={cn(
-              "group flex items-center justify-between gap-2 px-3 py-1.5 text-[13px] cursor-pointer",
-              "transition-colors min-w-[120px] max-w-[240px] shrink-0",
-              "border-r border-black/5 dark:border-white/5",
-              activeTabPath === `diff://${diffTab.path}`
-                ? [
-                    useLiquidGlass
-                      ? "bg-white/10 dark:bg-white/10"
-                      : isDark
-                        ? "bg-neutral-800/50"
-                        : "bg-white/80",
-                    isDark ? "text-neutral-100" : "text-neutral-900",
-                  ]
-                : [
-                    "bg-transparent",
-                    isDark
-                      ? "text-neutral-400 hover:text-neutral-200 hover:bg-white/5"
-                      : "text-neutral-500 hover:text-neutral-700 hover:bg-black/5",
-                  ]
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <GitCompareArrows
-                className={cn("w-3.5 h-3.5 shrink-0 text-blue-500")}
-              />
-              <span className="truncate">
-                {diffTab.fileName}
-                <span className="text-neutral-500 ml-1">
-                  ({diffTab.staged ? "Staged" : "Changes"})
-                </span>
-              </span>
-            </div>
-            {/* Close button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                closeDiffTab();
-              }}
-              className={cn(
-                "p-0.5 rounded transition-colors shrink-0",
-                isDark ? "hover:bg-white/10" : "hover:bg-black/10",
-                "opacity-0 group-hover:opacity-100",
-                activeTabPath === `diff://${diffTab.path}` && "opacity-100"
-              )}
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        )}
-
-        {/* Regular file tabs */}
         {tabs.map((tab) => {
           const isActive = tab.path === activeTabPath;
-          const fileName = tab.path.split("/").pop() || tab.path;
-          const gitStatus = gitStatusMap.get(tab.path);
+          const gitStatus = tab.isDiff ? undefined : gitStatusMap.get(tab.path);
           const gitStatusColor = getGitStatusColor(gitStatus);
 
           return (
@@ -198,7 +158,7 @@ export function EditorTabs() {
               }}
               className={cn(
                 "group flex items-center justify-between gap-2 px-3 py-1.5 text-[13px] cursor-pointer",
-                "transition-colors min-w-[120px] max-w-[200px] shrink-0",
+                "transition-colors min-w-[120px] max-w-[240px] shrink-0",
                 "border-r border-black/5 dark:border-white/5",
                 isActive
                   ? [
@@ -218,20 +178,31 @@ export function EditorTabs() {
               )}
             >
               <div className="flex items-center gap-2">
-                <File
-                  className={cn(
-                    "w-3.5 h-3.5 shrink-0 opacity-60",
-                    gitStatusColor
-                  )}
-                />
+                {tab.isDiff ? (
+                  <GitCompareArrows
+                    className={cn("w-3.5 h-3.5 shrink-0 text-blue-500")}
+                  />
+                ) : (
+                  <File
+                    className={cn(
+                      "w-3.5 h-3.5 shrink-0 opacity-60",
+                      gitStatusColor
+                    )}
+                  />
+                )}
                 <span
                   className={cn(
                     "truncate",
                     tab.isPreview && "italic",
-                    gitStatusColor
+                    !tab.isDiff && gitStatusColor
                   )}
                 >
-                  {fileName}
+                  {tab.fileName}
+                  {tab.isDiff && (
+                    <span className="text-neutral-500 ml-1">
+                      ({tab.staged ? "Staged" : "Changes"})
+                    </span>
+                  )}
                 </span>
               </div>
               {/* Close button or dirty indicator */}
