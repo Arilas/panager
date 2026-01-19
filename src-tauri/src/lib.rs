@@ -208,6 +208,14 @@ pub fn run() {
             ide::commands::ide_git_blame,
             ide::commands::ide_git_blame_line,
             ide::commands::ide_git_show_head,
+            // IDE - Settings commands
+            ide::commands::ide_load_settings,
+            ide::commands::ide_load_settings_for_level,
+            ide::commands::ide_get_settings_for_level,
+            ide::commands::ide_update_setting,
+            ide::commands::ide_delete_setting,
+            ide::commands::ide_get_formatter_presets,
+            ide::commands::ide_get_settings_path,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

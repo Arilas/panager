@@ -10,6 +10,7 @@ import { useEditorStore } from "../stores/editor";
 export function useIdeKeyboard() {
   const setShowQuickOpen = useIdeStore((s) => s.setShowQuickOpen);
   const setShowGoToLine = useIdeStore((s) => s.setShowGoToLine);
+  const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
   const togglePanel = useIdeStore((s) => s.togglePanel);
   const toggleSidebar = useIdeStore((s) => s.toggleSidebar);
   const toggleBottomPanel = useIdeStore((s) => s.toggleBottomPanel);
@@ -23,6 +24,13 @@ export function useIdeKeyboard() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMod = e.metaKey || e.ctrlKey;
       const isShift = e.shiftKey;
+
+      // Cmd+, - Open Settings
+      if (isMod && e.key === ",") {
+        e.preventDefault();
+        setShowSettingsDialog(true);
+        return;
+      }
 
       // Cmd+P - Quick Open
       if (isMod && e.key === "p" && !isShift) {
@@ -109,6 +117,7 @@ export function useIdeKeyboard() {
   }, [
     setShowQuickOpen,
     setShowGoToLine,
+    setShowSettingsDialog,
     togglePanel,
     toggleSidebar,
     toggleBottomPanel,

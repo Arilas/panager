@@ -13,11 +13,16 @@ import { GitPanel } from "../panels/GitPanel";
 import { SearchPanel } from "../panels/SearchPanel";
 import { SettingsPanel } from "../panels/SettingsPanel";
 import { cn } from "../../../lib/utils";
+import { useGeneralSettings } from "../../stores/settings";
 
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 500;
 
-export function Sidebar() {
+interface SidebarProps {
+  position: "left" | "right";
+}
+
+export function Sidebar({ position }: SidebarProps) {
   const activePanel = useIdeStore((s) => s.activePanel);
   const sidebarWidth = useIdeStore((s) => s.sidebarWidth);
   const setSidebarWidth = useIdeStore((s) => s.setSidebarWidth);
@@ -26,6 +31,13 @@ export function Sidebar() {
   const isDark = effectiveTheme === "dark";
   const sidebarRef = useRef<HTMLDivElement>(null);
   const [isResizing, setIsResizing] = useState(false);
+
+  // Get activity bar position to determine offset for resize calculations
+  const generalSettings = useGeneralSettings();
+  const activityBarPosition = generalSettings.activityBar.position;
+  const isActivityBarHidden = activityBarPosition === "hidden";
+  const activityBarWidth = isActivityBarHidden ? 0 : 48;
+  const isRight = position === "right";
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -36,7 +48,15 @@ export function Sidebar() {
     if (!isResizing) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = e.clientX - 48; // 48px is activity bar width
+      let newWidth: number;
+      if (isRight) {
+        // For right sidebar, calculate from right edge
+        const windowWidth = window.innerWidth;
+        newWidth = windowWidth - e.clientX - activityBarWidth;
+      } else {
+        // For left sidebar, calculate from left edge
+        newWidth = e.clientX - activityBarWidth;
+      }
       setSidebarWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, newWidth)));
     };
 
@@ -51,7 +71,7 @@ export function Sidebar() {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isResizing, setSidebarWidth]);
+  }, [isResizing, setSidebarWidth, isRight, activityBarWidth]);
 
   return (
     <div
@@ -62,11 +82,26 @@ export function Sidebar() {
           ? "liquid-glass-sidebar"
           : [
               isDark ? "bg-neutral-900/95" : "bg-white/95",
-              "border-r border-black/5 dark:border-white/5",
+              isRight
+                ? "border-l border-black/5 dark:border-white/5"
+                : "border-r border-black/5 dark:border-white/5",
             ]
       )}
       style={{ width: sidebarWidth }}
     >
+      {/* Resize handle - on left edge for right sidebar, right edge for left sidebar */}
+      {isRight && (
+        <div
+          onMouseDown={handleMouseDown}
+          className={cn(
+            "absolute left-0 top-0 bottom-0 w-1 cursor-col-resize transition-colors",
+            isResizing
+              ? "bg-primary/50"
+              : "hover:bg-primary/30"
+          )}
+        />
+      )}
+
       {/* Panel content */}
       <div className="flex-1 min-w-0 overflow-hidden">
         {activePanel === "files" && <FileTreePanel />}
@@ -75,16 +110,18 @@ export function Sidebar() {
         {activePanel === "settings" && <SettingsPanel />}
       </div>
 
-      {/* Resize handle */}
-      <div
-        onMouseDown={handleMouseDown}
-        className={cn(
-          "absolute right-0 top-0 bottom-0 w-1 cursor-col-resize transition-colors",
-          isResizing
-            ? "bg-primary/50"
-            : "hover:bg-primary/30"
-        )}
-      />
+      {/* Resize handle - on right edge for left sidebar */}
+      {!isRight && (
+        <div
+          onMouseDown={handleMouseDown}
+          className={cn(
+            "absolute right-0 top-0 bottom-0 w-1 cursor-col-resize transition-colors",
+            isResizing
+              ? "bg-primary/50"
+              : "hover:bg-primary/30"
+          )}
+        />
+      )}
     </div>
   );
 }

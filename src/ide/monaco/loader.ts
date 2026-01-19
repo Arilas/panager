@@ -18,8 +18,6 @@ import { injectEditorStyles } from "./decorations";
 import { registerEditorOpener } from "./editorOpener";
 import { setupStoreSubscriptions } from "./subscriptions";
 
-const MONACO_VERSION = "0.55.1";
-
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
 

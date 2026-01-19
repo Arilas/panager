@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useIdeStore } from "./stores/ide";
 import { useFilesStore } from "./stores/files";
 import { useGitStore } from "./stores/git";
+import { useIdeSettingsStore } from "./stores/settings";
 import { IdeSettingsProvider } from "./contexts/IdeSettingsContext";
 import { IdeLayout } from "./components/layout/IdeLayout";
 import { useFileWatcher } from "./hooks/useFileWatcher";
@@ -26,6 +27,7 @@ export function IdeApp() {
   const projectContext = useIdeStore((s) => s.projectContext);
   const loadFileTree = useFilesStore((s) => s.loadFileTree);
   const loadGitStatus = useGitStore((s) => s.loadGitStatus);
+  const initializeSettings = useIdeSettingsStore((s) => s.initialize);
 
   // Parse URL parameters and initialize
   useEffect(() => {
@@ -61,11 +63,11 @@ export function IdeApp() {
     notifyProjectOpened(projectContext.projectPath).catch(console.error);
   }, [projectContext, loadFileTree, loadGitStatus]);
 
-  // Fetch project's scope color and set CSS variable
+  // Fetch project's scope info (color, defaultFolder) and initialize settings
   useEffect(() => {
     if (!projectContext) return;
 
-    const fetchScopeColor = async () => {
+    const fetchScopeInfo = async () => {
       try {
         const project = await getProject(projectContext.projectId);
         const scopes = await getScopes();
@@ -73,13 +75,18 @@ export function IdeApp() {
         if (scope?.scope.color) {
           setScopeColor(scope.scope.color);
         }
+        // Initialize IDE settings with project context and scope's default folder
+        const defaultFolder = scope?.scope.defaultFolder ?? null;
+        initializeSettings(projectContext.projectPath, defaultFolder);
       } catch (err) {
-        console.error("[IDE] Failed to fetch scope color:", err);
+        console.error("[IDE] Failed to fetch scope info:", err);
+        // Still try to initialize settings without scope folder
+        initializeSettings(projectContext.projectPath, null);
       }
     };
 
-    fetchScopeColor();
-  }, [projectContext]);
+    fetchScopeInfo();
+  }, [projectContext, initializeSettings]);
 
   // Set scope color CSS variable on document body
   useEffect(() => {

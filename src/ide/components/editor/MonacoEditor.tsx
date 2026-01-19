@@ -9,6 +9,7 @@ import { useCallback } from "react";
 import Editor, { OnChange } from "@monaco-editor/react";
 import { useEditorStore } from "../../stores/editor";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEditorSettings } from "../../stores/settings";
 import { useEditor } from "../../hooks/useEditor";
 import { getMonacoTheme } from "../../monaco";
 import { mapMonacoToShikiLanguage } from "../../lib/languageMapping";
@@ -28,6 +29,7 @@ export function MonacoEditor({
   readOnly = false,
 }: MonacoEditorProps) {
   const { effectiveTheme } = useIdeSettingsContext();
+  const editorSettings = useEditorSettings();
   const updateContent = useEditorStore((s) => s.updateContent);
 
   // Use the new editor hook
@@ -89,21 +91,37 @@ export function MonacoEditor({
         onChange={handleEditorChange}
         options={{
           readOnly,
-          minimap: { enabled: true },
-          fontSize: 13,
-          fontFamily:
-            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-          lineNumbers: "on",
-          scrollBeyondLastLine: false,
+          minimap: {
+            enabled: editorSettings.minimap.enabled,
+            side: editorSettings.minimap.side,
+          },
+          fontSize: editorSettings.fontSize,
+          fontFamily: editorSettings.fontFamily,
+          lineNumbers: editorSettings.lineNumbers,
+          scrollBeyondLastLine: editorSettings.scrollBeyondLastLine,
           automaticLayout: true,
-          wordWrap: "off",
-          tabSize: 2,
-          renderWhitespace: "selection",
-          bracketPairColorization: { enabled: true },
-          smoothScrolling: true,
-          cursorBlinking: "smooth",
-          cursorSmoothCaretAnimation: "on",
-          padding: { top: 8 },
+          wordWrap: editorSettings.wordWrap,
+          wordWrapColumn: editorSettings.wordWrapColumn,
+          tabSize: editorSettings.tabSize,
+          insertSpaces: editorSettings.insertSpaces,
+          renderWhitespace: editorSettings.renderWhitespace,
+          bracketPairColorization: {
+            enabled: editorSettings.bracketPairColorization.enabled,
+          },
+          guides: {
+            bracketPairs: editorSettings.guides.bracketPairs,
+            indentation: editorSettings.guides.indentation,
+          },
+          smoothScrolling: editorSettings.smoothScrolling,
+          cursorBlinking: editorSettings.cursorBlinking,
+          cursorStyle: editorSettings.cursorStyle,
+          cursorSmoothCaretAnimation: editorSettings.cursorSmoothCaretAnimation,
+          lineHeight: editorSettings.lineHeight || undefined,
+          letterSpacing: editorSettings.letterSpacing || undefined,
+          padding: {
+            top: editorSettings.padding.top,
+            bottom: editorSettings.padding.bottom,
+          },
           scrollbar: {
             vertical: "auto",
             horizontal: "auto",

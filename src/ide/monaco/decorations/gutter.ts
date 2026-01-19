@@ -8,6 +8,7 @@
 
 import type { editor } from "monaco-editor";
 import { useEditorStore } from "../../stores/editor";
+import { useIdeSettingsStore } from "../../stores/settings";
 import { GUTTER_ADDED_CLASS, GUTTER_MODIFIED_CLASS } from "./styles";
 
 /**
@@ -29,23 +30,38 @@ export class GutterDecorationManager {
     this.editor = editorInstance;
     this.filePath = filePath;
 
-    // Subscribe to store changes (lineDiff, gitGutterEnabled)
+    // Subscribe to editor store changes (lineDiff)
     // Track previous values for comparison
     let prevLineDiff = useEditorStore.getState().getFileState(filePath)?.lineDiff;
-    let prevEnabled = useEditorStore.getState().gitGutterEnabled;
 
-    this.storeUnsubscribe = useEditorStore.subscribe((state) => {
+    const editorUnsubscribe = useEditorStore.subscribe((state) => {
       const fileState = state.getFileState(filePath);
       const lineDiff = fileState?.lineDiff;
-      const enabled = state.gitGutterEnabled;
 
       // Check if relevant state changed
-      if (lineDiff !== prevLineDiff || enabled !== prevEnabled) {
+      if (lineDiff !== prevLineDiff) {
         prevLineDiff = lineDiff;
+        this.updateDecorations();
+      }
+    });
+
+    // Subscribe to settings store changes (gutter enabled)
+    let prevEnabled = useIdeSettingsStore.getState().settings.git.gutter.enabled;
+
+    const settingsUnsubscribe = useIdeSettingsStore.subscribe((state) => {
+      const enabled = state.settings.git.gutter.enabled;
+
+      if (enabled !== prevEnabled) {
         prevEnabled = enabled;
         this.updateDecorations();
       }
     });
+
+    // Combine unsubscribe functions
+    this.storeUnsubscribe = () => {
+      editorUnsubscribe();
+      settingsUnsubscribe();
+    };
 
     // Initial decorations
     this.updateDecorations();
@@ -86,15 +102,14 @@ export class GutterDecorationManager {
   private updateDecorations(): void {
     if (!this.editor || !this.filePath) return;
 
-    const state = useEditorStore.getState();
-
-    // Check if gutter is enabled
-    if (!state.gitGutterEnabled) {
+    // Check if gutter is enabled from settings store
+    const gutterEnabled = useIdeSettingsStore.getState().settings.git.gutter.enabled;
+    if (!gutterEnabled) {
       this.clearDecorations();
       return;
     }
 
-    const fileState = state.getFileState(this.filePath);
+    const fileState = useEditorStore.getState().getFileState(this.filePath);
     const lineDiff = fileState?.lineDiff;
 
     // Clear existing decorations

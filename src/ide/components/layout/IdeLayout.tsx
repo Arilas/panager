@@ -20,6 +20,7 @@
 
 import { useIdeStore } from "../../stores/ide";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useGeneralSettings } from "../../stores/settings";
 import { IdeTitlebar } from "./IdeTitlebar";
 import { ActivityBar } from "./ActivityBar";
 import { Sidebar } from "./Sidebar";
@@ -28,6 +29,7 @@ import { BottomPanel } from "./BottomPanel";
 import { StatusBar } from "./StatusBar";
 import { QuickOpenDialog } from "../dialogs/QuickOpenDialog";
 import { GoToLineDialog } from "../dialogs/GoToLineDialog";
+import { IdeSettingsDialog } from "../settings/IdeSettingsDialog";
 import { useIdeKeyboard } from "../../hooks/useIdeKeyboard";
 import { usePluginEvents } from "../../hooks/usePluginEvents";
 import { cn } from "../../../lib/utils";
@@ -35,7 +37,17 @@ import { cn } from "../../../lib/utils";
 export function IdeLayout() {
   const sidebarCollapsed = useIdeStore((s) => s.sidebarCollapsed);
   const activePanel = useIdeStore((s) => s.activePanel);
+  const showSettingsDialog = useIdeStore((s) => s.showSettingsDialog);
+  const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
   const { useLiquidGlass, effectiveTheme, loading } = useIdeSettingsContext();
+
+  // Layout settings from IDE settings store
+  const generalSettings = useGeneralSettings();
+  const activityBarPosition = generalSettings.activityBar.position;
+  const isActivityBarHidden = activityBarPosition === "hidden";
+  const isActivityBarRight = activityBarPosition === "right";
+  // Sidebar follows activity bar position
+  const isSidebarRight = isActivityBarRight;
 
   // Set up keyboard shortcuts
   useIdeKeyboard();
@@ -75,14 +87,28 @@ export function IdeLayout() {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 flex min-h-0">
-          {/* Activity Bar */}
-          <ActivityBar />
+          {/* Activity Bar - Left position */}
+          {!isActivityBarHidden && !isActivityBarRight && (
+            <ActivityBar position="left" />
+          )}
 
-          {/* Sidebar */}
-          {activePanel && !sidebarCollapsed && <Sidebar />}
+          {/* Sidebar - Left position */}
+          {!isSidebarRight && activePanel && !sidebarCollapsed && (
+            <Sidebar position="left" />
+          )}
 
           {/* Content Area */}
           <ContentArea />
+
+          {/* Sidebar - Right position */}
+          {isSidebarRight && activePanel && !sidebarCollapsed && (
+            <Sidebar position="right" />
+          )}
+
+          {/* Activity Bar - Right position */}
+          {!isActivityBarHidden && isActivityBarRight && (
+            <ActivityBar position="right" />
+          )}
         </div>
 
         {/* Bottom Panel */}
@@ -95,6 +121,10 @@ export function IdeLayout() {
       {/* Dialogs */}
       <QuickOpenDialog />
       <GoToLineDialog />
+      <IdeSettingsDialog
+        open={showSettingsDialog}
+        onOpenChange={setShowSettingsDialog}
+      />
     </div>
   );
 }

@@ -13,6 +13,8 @@ import { create } from "zustand";
 import type { FileEntry } from "../types";
 import { readDirectory, readFile, writeFile } from "../lib/tauri-ide";
 import { useEditorStore, isFileTab } from "./editor";
+import { useIdeStore } from "./ide";
+import { useIdeSettingsStore } from "./settings";
 
 /** Position to navigate to when opening a file */
 export interface FilePosition {
@@ -232,9 +234,26 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     const fileState = editorStore.getFileState(path);
     if (!fileState) return;
 
+    // Get project context and settings for format-on-save
+    const projectContext = useIdeStore.getState().projectContext;
+    const settingsStore = useIdeSettingsStore.getState();
+    const formatOnSaveEnabled = settingsStore.settings.behavior.formatOnSave.enabled;
+
     try {
-      await writeFile(path, fileState.content);
-      editorStore.markSaved(path, fileState.content);
+      const result = await writeFile(path, fileState.content, {
+        runFormatters: formatOnSaveEnabled,
+        projectPath: projectContext?.projectPath,
+        scopeDefaultFolder: settingsStore.scopeDefaultFolder,
+      });
+
+      // If formatters ran and returned updated content, use that
+      const savedContent = result.content ?? fileState.content;
+      editorStore.markSaved(path, savedContent);
+
+      // If content was modified by formatters, update the editor
+      if (result.content && result.content !== fileState.content) {
+        editorStore.updateContent(path, result.content);
+      }
     } catch (error) {
       console.error("Failed to save file:", error);
       throw error;

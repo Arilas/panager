@@ -7,6 +7,7 @@ pub mod git;
 pub mod lsp;
 pub mod plugins;
 pub mod search;
+pub mod settings;
 pub mod watcher;
 pub mod window;
 
@@ -15,5 +16,6 @@ pub use git::*;
 pub use lsp::*;
 pub use plugins::*;
 pub use search::*;
+pub use settings::*;
 pub use watcher::*;
 pub use window::*;

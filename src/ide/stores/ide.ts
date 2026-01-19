@@ -33,6 +33,7 @@ interface IdeState {
   // Dialogs
   showQuickOpen: boolean;
   showGoToLine: boolean;
+  showSettingsDialog: boolean;
 
   // Actions
   setProjectContext: (context: IdeProjectContext) => void;
@@ -43,6 +44,7 @@ interface IdeState {
   setCursorPosition: (position: CursorPosition | null) => void;
   setShowQuickOpen: (show: boolean) => void;
   setShowGoToLine: (show: boolean) => void;
+  setShowSettingsDialog: (show: boolean) => void;
 
   // Bottom panel actions
   setBottomPanelOpen: (open: boolean) => void;
@@ -69,6 +71,7 @@ export const useIdeStore = create<IdeState>((set, get) => ({
   gitBlameEnabled: true,
   showQuickOpen: false,
   showGoToLine: false,
+  showSettingsDialog: false,
 
   // Actions
   setProjectContext: (context) => set({ projectContext: context }),
@@ -94,6 +97,8 @@ export const useIdeStore = create<IdeState>((set, get) => ({
   setShowQuickOpen: (show) => set({ showQuickOpen: show }),
 
   setShowGoToLine: (show) => set({ showGoToLine: show }),
+
+  setShowSettingsDialog: (show) => set({ showSettingsDialog: show }),
 
   // Bottom panel actions
   setBottomPanelOpen: (open) => set({ bottomPanelOpen: open }),

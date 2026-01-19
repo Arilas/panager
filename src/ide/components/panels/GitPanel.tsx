@@ -4,7 +4,7 @@
  * Styled with theme support to match Panager's design.
  */
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   RefreshCw,
   ChevronDown,
@@ -27,6 +27,7 @@ import { useGitStore } from "../../stores/git";
 import { useFilesStore } from "../../stores/files";
 import { useEditorStore, isDiffTab } from "../../stores/editor";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useGeneralSettings } from "../../stores/settings";
 import { cn } from "../../../lib/utils";
 import type { GitFileChange, GitFileStatus } from "../../types";
 import { CommitInput } from "../git/CommitInput";
@@ -85,6 +86,19 @@ export function GitPanel() {
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
   const getActiveTabState = useEditorStore((s) => s.getActiveTabState);
   const { effectiveTheme } = useIdeSettingsContext();
+  const generalSettings = useGeneralSettings();
+
+  // Initialize view mode from settings on first load
+  const hasInitializedViewMode = useRef(false);
+  useEffect(() => {
+    if (!hasInitializedViewMode.current) {
+      const defaultView = generalSettings.git.defaultView;
+      if (defaultView && defaultView !== changesViewMode) {
+        setChangesViewMode(defaultView);
+      }
+      hasInitializedViewMode.current = true;
+    }
+  }, [generalSettings, changesViewMode, setChangesViewMode]);
 
   // Derive selected file from active tab (diff or regular file)
   const selectedFilePath = useMemo(() => {

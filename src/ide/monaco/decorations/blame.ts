@@ -7,6 +7,7 @@
 
 import type { editor } from "monaco-editor";
 import { useEditorStore } from "../../stores/editor";
+import { useIdeSettingsStore } from "../../stores/settings";
 import type { GitBlameLine } from "../../types";
 
 // Debounce delay for updating blame widget on cursor move
@@ -105,27 +106,20 @@ export class BlameWidgetManager {
       }, DEBOUNCE_MS);
     });
 
-    // Subscribe to store changes (blame data, lineDiff)
+    // Subscribe to editor store changes (blame data, lineDiff)
     // Track previous values for comparison
     let prevBlameData = useEditorStore.getState().getFileState(filePath)?.blameData;
     let prevLineDiff = useEditorStore.getState().getFileState(filePath)?.lineDiff;
-    let prevEnabled = useEditorStore.getState().gitBlameEnabled;
 
-    this.storeUnsubscribe = useEditorStore.subscribe((state) => {
+    const editorUnsubscribe = useEditorStore.subscribe((state) => {
       const fileState = state.getFileState(filePath);
       const blameData = fileState?.blameData;
       const lineDiff = fileState?.lineDiff;
-      const enabled = state.gitBlameEnabled;
 
       // Check if relevant state changed
-      if (
-        blameData !== prevBlameData ||
-        lineDiff !== prevLineDiff ||
-        enabled !== prevEnabled
-      ) {
+      if (blameData !== prevBlameData || lineDiff !== prevLineDiff) {
         prevBlameData = blameData;
         prevLineDiff = lineDiff;
-        prevEnabled = enabled;
 
         // When blame data or lineDiff changes, update the widget
         const pos = this.editor?.getPosition();
@@ -135,6 +129,30 @@ export class BlameWidgetManager {
         }
       }
     });
+
+    // Subscribe to settings store changes (blame enabled)
+    let prevEnabled = useIdeSettingsStore.getState().settings.git.blame.enabled;
+
+    const settingsUnsubscribe = useIdeSettingsStore.subscribe((state) => {
+      const enabled = state.settings.git.blame.enabled;
+
+      if (enabled !== prevEnabled) {
+        prevEnabled = enabled;
+
+        // When setting changes, update the widget
+        const pos = this.editor?.getPosition();
+        if (pos) {
+          this.lastLine = null; // Force update
+          this.updateWidget(pos.lineNumber);
+        }
+      }
+    });
+
+    // Combine unsubscribe functions
+    this.storeUnsubscribe = () => {
+      editorUnsubscribe();
+      settingsUnsubscribe();
+    };
 
     // Initial widget for current line
     const pos = editorInstance.getPosition();
@@ -185,15 +203,14 @@ export class BlameWidgetManager {
   private updateWidget(lineNumber: number): void {
     if (!this.editor || !this.filePath) return;
 
-    const state = useEditorStore.getState();
-
-    // Check if blame is enabled
-    if (!state.gitBlameEnabled) {
+    // Check if blame is enabled from settings store
+    const blameEnabled = useIdeSettingsStore.getState().settings.git.blame.enabled;
+    if (!blameEnabled) {
       this.removeWidget();
       return;
     }
 
-    const fileState = state.getFileState(this.filePath);
+    const fileState = useEditorStore.getState().getFileState(this.filePath);
     if (!fileState) {
       this.removeWidget();
       return;

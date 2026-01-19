@@ -14,14 +14,17 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
+  Settings,
 } from "lucide-react";
 import { usePluginsStore } from "../../stores/plugins";
+import { useIdeStore } from "../../stores/ide";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
 import type { PluginInfo, PluginState } from "../../types/plugin";
 
 export function SettingsPanel() {
   const { plugins, loading, error, fetchPlugins } = usePluginsStore();
+  const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
   const { effectiveTheme } = useIdeSettingsContext();
 
   const isDark = effectiveTheme === "dark";
@@ -33,7 +36,30 @@ export function SettingsPanel() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
+      {/* IDE Settings Button */}
+      <div
+        className={cn(
+          "px-3 py-3 shrink-0",
+          "border-b border-black/5 dark:border-white/5"
+        )}
+      >
+        <button
+          onClick={() => setShowSettingsDialog(true)}
+          className={cn(
+            "w-full flex items-center gap-2 px-3 py-2 rounded-lg",
+            "transition-colors text-sm font-medium",
+            isDark
+              ? "bg-neutral-800/50 hover:bg-neutral-700/50 text-neutral-200"
+              : "bg-neutral-100/50 hover:bg-neutral-200/50 text-neutral-700",
+            "border border-black/5 dark:border-white/5"
+          )}
+        >
+          <Settings className="w-4 h-4" />
+          <span>IDE Settings</span>
+        </button>
+      </div>
+
+      {/* Plugins Header */}
       <div
         className={cn(
           "flex items-center justify-between px-4 py-3 shrink-0",

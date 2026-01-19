@@ -14,6 +14,7 @@ import type {
   Emitter,
 } from "monaco-editor";
 import { useEditorStore } from "../../stores/editor";
+import { useIdeSettingsStore } from "../../stores/settings";
 import type { GitBlameLine } from "../../types";
 import { LSP_LANGUAGES } from "./index";
 
@@ -56,15 +57,15 @@ export function registerCodeLensProvider(monaco: Monaco): IDisposable {
       _token: CancellationToken
     ): languages.ProviderResult<languages.CodeLensList> {
       const filePath = model.uri.path;
-      const state = useEditorStore.getState();
 
-      // Check if CodeLens is enabled
-      if (!state.codeLensEnabled) {
+      // Check if CodeLens is enabled from settings store
+      const codeLensEnabled = useIdeSettingsStore.getState().settings.git.codeLens.enabled;
+      if (!codeLensEnabled) {
         return { lenses: [], dispose: () => {} };
       }
 
-      // Get file state from store
-      const fileState = state.getFileState(filePath);
+      // Get file state from editor store
+      const fileState = useEditorStore.getState().getFileState(filePath);
       if (!fileState || !fileState.blameData || fileState.symbols.length === 0) {
         return { lenses: [], dispose: () => {} };
       }

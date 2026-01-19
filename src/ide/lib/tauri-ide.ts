@@ -247,11 +247,31 @@ export async function stopWatcher(windowLabel: string): Promise<void> {
 
 // File write operations
 
+import type { WriteFileResult, FormatterResult } from "../types/settings";
+
+export type { WriteFileResult, FormatterResult };
+
+export interface WriteFileOptions {
+  /** Whether to run formatters on save */
+  runFormatters?: boolean;
+  /** Project path (required for format-on-save) */
+  projectPath?: string;
+  /** Scope default folder (optional, for settings hierarchy) */
+  scopeDefaultFolder?: string | null;
+}
+
 export async function writeFile(
   filePath: string,
-  content: string
-): Promise<void> {
-  return invoke("ide_write_file", { filePath, content });
+  content: string,
+  options?: WriteFileOptions
+): Promise<WriteFileResult> {
+  return invoke("ide_write_file", {
+    filePath,
+    content,
+    runFormatters: options?.runFormatters,
+    projectPath: options?.projectPath,
+    scopeDefaultFolder: options?.scopeDefaultFolder,
+  });
 }
 
 export async function createFile(filePath: string): Promise<void> {
@@ -403,4 +423,117 @@ export async function lspDocumentSymbols(
   filePath: string
 ): Promise<LspDocumentSymbol[]> {
   return invoke("ide_lsp_document_symbols", { filePath });
+}
+
+// Settings operations
+
+import type {
+  IdeSettings,
+  PartialIdeSettings,
+  SettingsLevel,
+  FormatterConfig,
+} from "../types/settings";
+
+/**
+ * Load merged effective settings (user → scope → workspace)
+ * Returns ready-to-use settings with all levels merged.
+ */
+export async function loadSettings(
+  projectPath: string,
+  scopeDefaultFolder?: string | null
+): Promise<IdeSettings> {
+  return invoke("ide_load_settings", { projectPath, scopeDefaultFolder });
+}
+
+/**
+ * Load settings merged up to a specific level
+ * - User: defaults + user settings only
+ * - Scope: defaults + user + scope settings
+ * - Workspace: defaults + user + scope + workspace settings
+ */
+export async function loadSettingsForLevel(
+  level: SettingsLevel,
+  projectPath: string,
+  scopeDefaultFolder?: string | null
+): Promise<IdeSettings> {
+  return invoke("ide_load_settings_for_level", {
+    level,
+    projectPath,
+    scopeDefaultFolder,
+  });
+}
+
+/**
+ * Get raw settings for a specific level (for settings dialog editing)
+ * Returns only the settings explicitly set at this level.
+ */
+export async function getSettingsForLevel(
+  level: SettingsLevel,
+  projectPath?: string | null,
+  scopeDefaultFolder?: string | null
+): Promise<PartialIdeSettings> {
+  return invoke("ide_get_settings_for_level", {
+    level,
+    projectPath,
+    scopeDefaultFolder,
+  });
+}
+
+/**
+ * Update a setting at a specific level
+ * Uses dot-notation key path (e.g., "editor.fontSize")
+ */
+export async function updateSetting(
+  level: SettingsLevel,
+  key: string,
+  value: unknown,
+  projectPath?: string | null,
+  scopeDefaultFolder?: string | null
+): Promise<void> {
+  return invoke("ide_update_setting", {
+    level,
+    key,
+    value,
+    projectPath,
+    scopeDefaultFolder,
+  });
+}
+
+/**
+ * Delete a setting at a specific level (revert to lower level)
+ */
+export async function deleteSetting(
+  level: SettingsLevel,
+  key: string,
+  projectPath?: string | null,
+  scopeDefaultFolder?: string | null
+): Promise<void> {
+  return invoke("ide_delete_setting", {
+    level,
+    key,
+    projectPath,
+    scopeDefaultFolder,
+  });
+}
+
+/**
+ * Get available formatter presets
+ */
+export async function getFormatterPresets(): Promise<FormatterConfig[]> {
+  return invoke("ide_get_formatter_presets");
+}
+
+/**
+ * Get the path where settings would be stored for a given level
+ */
+export async function getSettingsPath(
+  level: SettingsLevel,
+  projectPath?: string | null,
+  scopeDefaultFolder?: string | null
+): Promise<string> {
+  return invoke("ide_get_settings_path", {
+    level,
+    projectPath,
+    scopeDefaultFolder,
+  });
 }

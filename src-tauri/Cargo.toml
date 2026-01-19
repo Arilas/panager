@@ -70,6 +70,9 @@ urlencoding = "2"
 # File system watching for IDE
 notify = "7"
 
+# JSONC (JSON with comments) parsing for IDE settings
+json_comments = "0.2"
+
 # Plugin system
 async-trait = "0.1"
 

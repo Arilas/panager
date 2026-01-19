@@ -24,7 +24,11 @@ const TOP_ITEMS: ActivityItem[] = [
   { id: "search", icon: Search, label: "Search" },
 ];
 
-export function ActivityBar() {
+interface ActivityBarProps {
+  position: "left" | "right";
+}
+
+export function ActivityBar({ position }: ActivityBarProps) {
   const activePanel = useIdeStore((s) => s.activePanel);
   const sidebarCollapsed = useIdeStore((s) => s.sidebarCollapsed);
   const setActivePanel = useIdeStore((s) => s.setActivePanel);
@@ -49,6 +53,8 @@ export function ActivityBar() {
     }
   };
 
+  const isRight = position === "right";
+
   return (
     <div
       className={cn(
@@ -57,7 +63,9 @@ export function ActivityBar() {
           ? "liquid-glass-sidebar"
           : [
               "bg-vibrancy-sidebar",
-              "border-r border-black/5 dark:border-white/5",
+              isRight
+                ? "border-l border-black/5 dark:border-white/5"
+                : "border-r border-black/5 dark:border-white/5",
             ]
       )}
     >
@@ -88,11 +96,12 @@ export function ActivityBar() {
                     ]
               )}
             >
-              {/* Active indicator - subtle left border */}
+              {/* Active indicator - subtle border on outer edge */}
               {isActive && (
                 <div
                   className={cn(
-                    "absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r",
+                    "absolute top-1/2 -translate-y-1/2 w-0.5 h-5",
+                    isRight ? "right-0 rounded-l" : "left-0 rounded-r",
                     isDark ? "bg-white" : "bg-neutral-900"
                   )}
                 />
@@ -174,7 +183,8 @@ export function ActivityBar() {
           {activePanel === "settings" && !sidebarCollapsed && (
             <div
               className={cn(
-                "absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r",
+                "absolute top-1/2 -translate-y-1/2 w-0.5 h-5",
+                isRight ? "right-0 rounded-l" : "left-0 rounded-r",
                 isDark ? "bg-white" : "bg-neutral-900"
               )}
             />

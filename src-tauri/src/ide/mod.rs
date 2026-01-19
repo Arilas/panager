@@ -4,8 +4,10 @@
 //! to keep the codebase modular and maintainable.
 
 pub mod commands;
+pub mod settings;
 pub mod types;
 pub mod watcher;
 
 pub use commands::*;
+pub use settings::*;
 pub use types::*;

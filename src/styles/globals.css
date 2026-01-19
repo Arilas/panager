@@ -1,5 +1,11 @@
 @import 'tailwindcss';
 
+/* Source paths for Tailwind to scan for class names */
+@source "../**/*.{ts,tsx}";
+@source "../ide/**/*.{ts,tsx}";
+@source "../components/**/*.{ts,tsx}";
+@source "../lib/**/*.{ts,tsx}";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme {

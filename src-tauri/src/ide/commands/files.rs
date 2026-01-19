@@ -1,5 +1,9 @@
 //! File system commands for IDE
 
+use crate::ide::settings::{
+    get_formatters_for_language, load_merged_settings, run_formatter, FormatterResult,
+    WriteFileResult,
+};
 use crate::ide::types::{FileContent, FileEntry};
 use crate::plugins::host::PluginHost;
 use crate::plugins::types::HostEvent;
@@ -472,16 +476,22 @@ pub fn get_file_language(file_path: &str) -> String {
     detect_language(file_path)
 }
 
-/// Writes content to a file
+/// Writes content to a file with optional format-on-save support
 ///
 /// This will overwrite existing content. Creates the file if it doesn't exist.
+/// If `run_formatters` is true and settings have formatters configured for the
+/// file's language, the formatters will run in order and the formatted content
+/// will be returned.
 #[tauri::command]
 #[specta::specta]
 pub async fn ide_write_file(
     host: State<'_, Arc<PluginHost>>,
     file_path: String,
     content: String,
-) -> Result<(), String> {
+    run_formatters: Option<bool>,
+    project_path: Option<String>,
+    scope_default_folder: Option<String>,
+) -> Result<WriteFileResult, String> {
     let path = Path::new(&file_path);
 
     // Ensure parent directory exists
@@ -493,11 +503,77 @@ pub async fn ide_write_file(
 
     info!("Writing file: {}", file_path);
 
-    // Write the file
+    // Write the file first
     fs::write(&path, &content).map_err(|e| format!("Failed to write file: {}", e))?;
 
-    // Notify plugins about the save
+    // Detect language for formatters and plugin notification
     let language = detect_language(&file_path);
+    let mut formatter_results: Vec<FormatterResult> = Vec::new();
+    let mut final_content: Option<String> = None;
+
+    // Run formatters if requested
+    if run_formatters.unwrap_or(false) {
+        if let Some(ref project) = project_path {
+            // Load settings to get formatters
+            match load_merged_settings(project, scope_default_folder.as_deref()) {
+                Ok(settings) => {
+                    let formatters = get_formatters_for_language(&settings, &language);
+
+                    if !formatters.is_empty() {
+                        info!(
+                            "Running {} formatters for language '{}'",
+                            formatters.len(),
+                            language
+                        );
+
+                        // Get working directory (project root)
+                        let working_dir = Path::new(project);
+
+                        // Run each formatter in order
+                        for formatter in formatters {
+                            let result = run_formatter(&formatter, path, working_dir);
+                            formatter_results.push(result);
+                        }
+
+                        // Re-read the file after formatters have modified it
+                        match fs::read_to_string(&path) {
+                            Ok(new_content) => {
+                                final_content = Some(new_content);
+                            }
+                            Err(e) => {
+                                info!("Warning: Could not re-read file after formatting: {}", e);
+                            }
+                        }
+                    }
+
+                    // Apply trim trailing whitespace if enabled (and no formatters ran, or formatters didn't fail)
+                    if settings.behavior.trim_trailing_whitespace && formatter_results.iter().all(|r| r.success) {
+                        let content_to_trim = final_content.as_ref().map(|s| s.as_str()).unwrap_or(&content);
+                        let trimmed = trim_trailing_whitespace(content_to_trim);
+                        if trimmed != content_to_trim {
+                            fs::write(&path, &trimmed).map_err(|e| format!("Failed to write trimmed file: {}", e))?;
+                            final_content = Some(trimmed);
+                        }
+                    }
+
+                    // Apply insert final newline if enabled
+                    if settings.behavior.insert_final_newline {
+                        let content_to_check = final_content.as_ref().map(|s| s.as_str()).unwrap_or(&content);
+                        if !content_to_check.ends_with('\n') {
+                            let with_newline = format!("{}\n", content_to_check);
+                            fs::write(&path, &with_newline).map_err(|e| format!("Failed to write file with final newline: {}", e))?;
+                            final_content = Some(with_newline);
+                        }
+                    }
+                }
+                Err(e) => {
+                    info!("Warning: Could not load settings for formatters: {}", e);
+                }
+            }
+        }
+    }
+
+    // Notify plugins about the save
     host.broadcast(
         HostEvent::FileSaved {
             path: path.to_path_buf(),
@@ -506,7 +582,20 @@ pub async fn ide_write_file(
     )
     .await;
 
-    Ok(())
+    Ok(WriteFileResult {
+        success: true,
+        content: final_content,
+        formatter_results,
+    })
+}
+
+/// Trim trailing whitespace from each line
+fn trim_trailing_whitespace(content: &str) -> String {
+    content
+        .lines()
+        .map(|line| line.trim_end())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Creates a new file with optional content
