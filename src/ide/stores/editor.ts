@@ -263,8 +263,24 @@ export const useEditorStore = create<EditorState>()(
       openTab: (path, content, language, isPreview = false) => {
         const state = get();
 
-        // Check if already open as permanent tab
-        if (state.fileStates[path]) {
+        // Check if already open as permanent tab (check both fileStates and openTabs for robustness)
+        if (state.fileStates[path] || state.openTabs.includes(path)) {
+          // If in openTabs but not in fileStates (e.g., after rehydration), populate fileStates
+          if (!state.fileStates[path] && state.openTabs.includes(path)) {
+            const existingSession = state.sessionData[path];
+            const newFileState = createDefaultFileState(
+              path,
+              content,
+              language,
+              existingSession
+            );
+            set((s) => ({
+              fileStates: { ...s.fileStates, [path]: newFileState },
+              activeTabPath: path,
+            }));
+            notifyFileOpened(path, content).catch(console.error);
+            return;
+          }
           set({ activeTabPath: path });
           return;
         }
@@ -853,8 +869,9 @@ export const useEditorStore = create<EditorState>()(
       name: "panager-editor-state",
       storage: createJSONStorage(() => localStorage),
       // Only persist session-related data and settings
+      // NOTE: openTabs is NOT persisted here - it's managed by usePersistedIdeState
+      // to avoid duplicate restoration issues
       partialize: (state) => ({
-        openTabs: state.openTabs,
         sessionData: {
           ...state.sessionData,
           // Also include current session data from open files
