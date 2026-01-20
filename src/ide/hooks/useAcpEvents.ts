@@ -10,7 +10,7 @@
 
 import { useEffect, useCallback } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { useAgentStore, createChatSession, createPromptContent, createUserMessageEntry } from "../stores/agent";
+import { useAgentStore, createChatSession, createPromptContent, createUserMessageEntry, generateSessionName } from "../stores/agent";
 import { useIdeStore } from "../stores/ide";
 import type {
   SessionStatus,
@@ -618,16 +618,29 @@ export function useAcpEvents() {
       try {
         console.log("ACP: Sending prompt to session:", sessionId);
 
+        const state = useAgentStore.getState();
+        const session = state.sessions[sessionId];
+
+        // Check if this is the first user message (to generate session name)
+        const isFirstMessage = session && session.entries.filter(e => e.type === "message" && (e as MessageEntry).role === "user").length === 0;
+
         // Add user message entry to frontend store
-        const mentions = useAgentStore.getState().contextMentions;
+        const mentions = state.contextMentions;
         const userEntry = createUserMessageEntry(sessionId, text, mentions);
         addEntry(sessionId, userEntry);
+
+        // Generate and update session name from first message
+        if (isFirstMessage) {
+          const newName = generateSessionName(text);
+          console.log("ACP: Generating session name from first message:", newName);
+          state.updateSession(sessionId, { name: newName });
+        }
 
         // Create content blocks for backend
         const content = createPromptContent(text, mentions);
 
         // Clear context mentions after sending
-        useAgentStore.getState().clearContextMentions();
+        state.clearContextMentions();
 
         // Send to backend
         await acpSendPrompt(projectPath, sessionId, content);

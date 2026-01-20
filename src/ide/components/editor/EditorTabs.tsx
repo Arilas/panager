@@ -6,8 +6,10 @@
  */
 
 import { useMemo } from "react";
-import { X, File, Circle, GitCompareArrows } from "lucide-react";
-import { useEditorStore, isFileTab, isDiffTab, type TabState } from "../../stores/editor";
+import { X, File, Circle, GitCompareArrows, Sparkles } from "lucide-react";
+import { useEditorStore, isFileTab, isDiffTab, isChatTab, type TabState } from "../../stores/editor";
+import { useAgentStore } from "../../stores/agent";
+import { useAcpEvents } from "../../hooks/useAcpEvents";
 import { useGitStore } from "../../stores/git";
 import { useIdeStore } from "../../stores/ide";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
@@ -20,6 +22,7 @@ interface TabData {
   isPreview: boolean;
   isDirty: boolean;
   isDiff: boolean;
+  isChat: boolean;
   fileName: string;
   staged?: boolean;
 }
@@ -54,9 +57,14 @@ function isTabDirty(tabState: TabState): boolean {
 }
 
 /** Get display name for a tab */
-function getTabFileName(tabState: TabState): string {
+function getTabFileName(tabState: TabState, sessions?: Record<string, { name: string }>): string {
   if (isDiffTab(tabState)) {
     return tabState.fileName;
+  }
+  if (isChatTab(tabState)) {
+    // Prefer session name from agent store (may have been updated after first message)
+    const sessionFromStore = sessions?.[tabState.sessionId];
+    return sessionFromStore?.name || tabState.sessionName;
   }
   return tabState.path.split("/").pop() || tabState.path;
 }
@@ -69,6 +77,7 @@ export function EditorTabs() {
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
   const setActiveTab = useEditorStore((s) => s.setActiveTab);
   const closeTab = useEditorStore((s) => s.closeTab);
+  const openChatTab = useEditorStore((s) => s.openChatTab);
   const convertPreviewToPermanent = useEditorStore(
     (s) => s.convertPreviewToPermanent
   );
@@ -77,7 +86,34 @@ export function EditorTabs() {
   const gitChanges = useGitStore((s) => s.changes);
   const { effectiveTheme, useLiquidGlass } = useIdeSettingsContext();
 
+  // ACP/Agent hooks for creating chat sessions
+  const sessions = useAgentStore((s) => s.sessions);
+  const { newSession, connect } = useAcpEvents();
+  const status = useAgentStore((s) => s.status);
+
   const isDark = effectiveTheme === "dark";
+
+  // Handler to open a new AI chat tab
+  const handleOpenAITab = async () => {
+    if (!projectContext?.projectPath) return;
+
+    // Connect if not connected
+    if (status === "disconnected") {
+      await connect();
+    }
+
+    // Create a new session via ACP backend
+    const sessionId = await newSession();
+    if (sessionId) {
+      // Get the session from store to get the name
+      const sessions = useAgentStore.getState().sessions;
+      const session = sessions[sessionId];
+      const sessionName = session?.name || "New Chat";
+
+      // Open as a tab
+      openChatTab(sessionId, sessionName);
+    }
+  };
 
   // Build tab list from permanent tabs + preview tab
   const tabs = useMemo<TabData[]>(() => {
@@ -92,7 +128,8 @@ export function EditorTabs() {
           isPreview: false,
           isDirty: isTabDirty(tabState),
           isDiff: isDiffTab(tabState),
-          fileName: getTabFileName(tabState),
+          isChat: isChatTab(tabState),
+          fileName: getTabFileName(tabState, sessions),
           staged: isDiffTab(tabState) ? tabState.staged : undefined,
         });
       }
@@ -105,13 +142,14 @@ export function EditorTabs() {
         isPreview: true,
         isDirty: isTabDirty(previewTab),
         isDiff: isDiffTab(previewTab),
-        fileName: getTabFileName(previewTab),
+        isChat: isChatTab(previewTab),
+        fileName: getTabFileName(previewTab, sessions),
         staged: isDiffTab(previewTab) ? previewTab.staged : undefined,
       });
     }
 
     return result;
-  }, [openTabs, tabStates, previewTab]);
+  }, [openTabs, tabStates, previewTab, sessions]);
 
   // Build a map of file paths to their git status for quick lookup
   const gitStatusMap = useMemo<Map<string, GitFileStatus>>(() => {
@@ -182,6 +220,10 @@ export function EditorTabs() {
                   <GitCompareArrows
                     className={cn("w-3.5 h-3.5 shrink-0 text-blue-500")}
                   />
+                ) : tab.isChat ? (
+                  <Sparkles
+                    className={cn("w-3.5 h-3.5 shrink-0 text-violet-500")}
+                  />
                 ) : (
                   <File
                     className={cn(
@@ -241,6 +283,21 @@ export function EditorTabs() {
             </div>
           );
         })}
+
+        {/* AI Tab button */}
+        <button
+          onClick={handleOpenAITab}
+          className={cn(
+            "flex items-center justify-center px-2 py-1.5 shrink-0 ml-auto",
+            "transition-colors",
+            isDark
+              ? "text-neutral-400 hover:text-violet-400 hover:bg-white/5"
+              : "text-neutral-500 hover:text-violet-600 hover:bg-black/5"
+          )}
+          title="Open AI Tab"
+        >
+          <Sparkles className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );

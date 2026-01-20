@@ -535,12 +535,18 @@ export function ChatPanel({ isTab = false, sessionId }: ChatPanelProps) {
       {/* Entries area */}
       <div className="flex-1 overflow-y-auto px-3 py-2">
         {displayEntries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <p className={cn("text-sm", isDark ? "text-neutral-400" : "text-neutral-500")}>
-              Start a conversation with Claude Code
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
+            <MessageSquare
+              className={cn(
+                "w-10 h-10 mb-3",
+                isDark ? "text-neutral-600" : "text-neutral-300"
+              )}
+            />
+            <p className={cn("text-sm font-medium mb-1", isDark ? "text-neutral-300" : "text-neutral-600")}>
+              Start a conversation
             </p>
-            <p className={cn("text-xs mt-1", isDark ? "text-neutral-500" : "text-neutral-400")}>
-              Type a message below or use @file to add context
+            <p className={cn("text-xs", isDark ? "text-neutral-500" : "text-neutral-400")}>
+              Just type a message below to begin a new chat session
             </p>
           </div>
         ) : (
@@ -606,7 +612,7 @@ export function ChatPanel({ isTab = false, sessionId }: ChatPanelProps) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isReady ? "Ask Claude Code..." : status === "connecting" ? "Connecting..." : status === "error" ? "Connection error" : "Initializing..."}
+            placeholder={isReady ? (currentSessionId ? "Ask Claude Code..." : "Type a message to start a new chat...") : status === "connecting" ? "Connecting..." : status === "error" ? "Connection error" : "Initializing..."}
             disabled={!isReady && !isPrompting}
             rows={1}
             className={cn(

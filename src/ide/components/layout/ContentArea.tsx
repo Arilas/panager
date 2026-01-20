@@ -5,11 +5,12 @@
  */
 
 import { useMemo } from "react";
-import { useEditorStore, isFileTab, isDiffTab } from "../../stores/editor";
+import { useEditorStore, isFileTab, isDiffTab, isChatTab } from "../../stores/editor";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { EditorTabs } from "../editor/EditorTabs";
 import { MonacoEditor } from "../editor/MonacoEditor";
 import { DiffEditor } from "../editor/DiffEditor";
+import { ChatTabContent } from "../agent/ChatTabContent";
 import { FileCode2 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 
@@ -60,6 +61,11 @@ export function ContentArea() {
             content={activeTab.content}
             language={activeTab.language}
             path={activeTab.path}
+          />
+        ) : isChatTab(activeTab) ? (
+          <ChatTabContent
+            sessionId={activeTab.sessionId}
+            sessionName={activeTab.sessionName}
           />
         ) : (
           <WelcomeScreen />

@@ -373,6 +373,37 @@ export function createChatSession(
 }
 
 /**
+ * Generate a session name from the first user message.
+ * Truncates to ~40 characters and adds ellipsis if needed.
+ */
+export function generateSessionName(message: string): string {
+  // Clean up the message - remove extra whitespace, newlines
+  const cleaned = message.trim().replace(/\s+/g, " ");
+
+  // If empty, return default
+  if (!cleaned) {
+    return `Chat ${new Date().toLocaleString()}`;
+  }
+
+  // Truncate to ~40 chars at word boundary
+  const maxLength = 40;
+  if (cleaned.length <= maxLength) {
+    return cleaned;
+  }
+
+  // Find last space before maxLength
+  const truncated = cleaned.substring(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(" ");
+
+  if (lastSpace > 20) {
+    return truncated.substring(0, lastSpace) + "...";
+  }
+
+  // No good word boundary, just truncate
+  return truncated + "...";
+}
+
+/**
  * Helper to create ContentBlock array from text for sending prompts
  */
 export function createPromptContent(
