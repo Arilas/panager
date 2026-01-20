@@ -19,12 +19,55 @@ import { DiffApprovalCard } from "./DiffApprovalCard";
 import { PermissionDialog } from "./PermissionDialog";
 import { useAcpEvents } from "../../hooks/useAcpEvents";
 import { acpListSessions, acpDeleteSession, acpLoadSession, type DbSessionInfo } from "../../lib/tauri-acp";
-import type { ChatEntry } from "../../types/acp";
+import type { ChatEntry, ToolCallEntry } from "../../types/acp";
 import { parseDbEntry, isMessageEntry, isThoughtEntry, isToolCallEntry, isPermissionRequestEntry, isMetaEntry, isPlanEntry, isModeChangeEntry } from "../../types/acp";
 import { ToolCallCard } from "./ToolCallCard";
+import { ToolCallGroup } from "./ToolCallGroup";
 import { ThoughtCard } from "./ThoughtCard";
 import { PlanCard } from "./PlanCard";
 import { ModeChangeCard } from "./ModeChangeCard";
+
+/** A grouped item - either a single entry or a group of consecutive tool calls */
+type GroupedEntry =
+  | { type: "single"; entry: ChatEntry }
+  | { type: "toolGroup"; entries: ToolCallEntry[] };
+
+/**
+ * Group consecutive tool calls together for collapsed display.
+ * Single tool calls are not grouped. Groups must have 2+ entries.
+ */
+function groupConsecutiveToolCalls(entries: ChatEntry[]): GroupedEntry[] {
+  const result: GroupedEntry[] = [];
+  let currentToolGroup: ToolCallEntry[] = [];
+
+  const flushToolGroup = () => {
+    if (currentToolGroup.length === 0) return;
+
+    if (currentToolGroup.length === 1) {
+      // Single tool call - don't group
+      result.push({ type: "single", entry: currentToolGroup[0] });
+    } else {
+      // Multiple consecutive tool calls - group them
+      result.push({ type: "toolGroup", entries: [...currentToolGroup] });
+    }
+    currentToolGroup = [];
+  };
+
+  for (const entry of entries) {
+    if (isToolCallEntry(entry)) {
+      currentToolGroup.push(entry);
+    } else {
+      // Flush any accumulated tool calls before adding non-tool entry
+      flushToolGroup();
+      result.push({ type: "single", entry });
+    }
+  }
+
+  // Flush remaining tool calls
+  flushToolGroup();
+
+  return result;
+}
 
 interface ChatPanelProps {
   /** Whether this panel is rendered in a tab (vs sidebar) */
@@ -33,7 +76,7 @@ interface ChatPanelProps {
   sessionId?: string;
 }
 
-export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) {
+export function ChatPanel({ isTab = false, sessionId }: ChatPanelProps) {
   const { effectiveTheme } = useIdeSettingsContext();
   const isDark = effectiveTheme === "dark";
 
@@ -268,13 +311,17 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
   const isPrompting = status === "prompting";
   const canSend = inputValue.trim().length > 0 && isReady;
 
-  // Render an entry based on its type
-  const renderEntry = (entry: ChatEntry) => {
+  // Group consecutive tool calls for collapsed display
+  const groupedEntries = groupConsecutiveToolCalls(displayEntries);
+
+  // Render a single entry based on its type
+  const renderSingleEntry = (entry: ChatEntry) => {
     if (isMessageEntry(entry)) {
       return (
         <ChatMessage
           key={entry.id}
           entry={entry}
+          isTab={isTab}
         />
       );
     }
@@ -317,6 +364,15 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
     }
 
     return null;
+  };
+
+  // Render a grouped entry (either single or tool group)
+  const renderGroupedEntry = (grouped: GroupedEntry, index: number) => {
+    if (grouped.type === "single") {
+      return renderSingleEntry(grouped.entry);
+    }
+    // Tool group - render as collapsible group
+    return <ToolCallGroup key={`group-${index}`} entries={grouped.entries} />;
   };
 
   return (
@@ -489,7 +545,7 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
           </div>
         ) : (
           <div className="space-y-4">
-            {displayEntries.map(renderEntry)}
+            {groupedEntries.map(renderGroupedEntry)}
 
             {/* Pending approval cards (inline in chat) */}
             {sessionApprovals.map((approval) => (

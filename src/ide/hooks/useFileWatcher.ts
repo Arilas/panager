@@ -4,25 +4,49 @@
  * Listens for file system events and updates the file tree accordingly.
  */
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { useIdeStore } from "../stores/ide";
 import { useFilesStore } from "../stores/files";
-import { startWatcher, stopWatcher } from "../lib/tauri-ide";
+import { useEditorStore } from "../stores/editor";
+import { startWatcher, stopWatcher, readFile } from "../lib/tauri-ide";
 import type { IdeFileEvent } from "../types";
 
 const WINDOW_LABEL_PREFIX = "ide-";
 
 export function useFileWatcher() {
   const projectContext = useIdeStore((s) => s.projectContext);
-  const loadFileTree = useFilesStore((s) => s.loadFileTree);
   const addFileToTree = useFilesStore((s) => s.addFileToTree);
   const removeFileFromTree = useFilesStore((s) => s.removeFileFromTree);
+
+  // Track pending modified events for debouncing
+  const pendingModifiedRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Get window label from project ID
   const windowLabel = projectContext
     ? `${WINDOW_LABEL_PREFIX}${projectContext.projectId}`
     : null;
+
+  // Handle file content update for modified files
+  const handleFileModified = useCallback(async (path: string) => {
+    const editorStore = useEditorStore.getState();
+    const fileState = editorStore.getFileState(path);
+
+    // Only update if file is open and not dirty (has unsaved changes)
+    if (fileState && fileState.content === fileState.savedContent) {
+      try {
+        const fileContent = await readFile(path);
+        if (!fileContent.isBinary) {
+          // Update the content in the editor
+          editorStore.updateContent(path, fileContent.content);
+          // Also update savedContent so it doesn't show as dirty
+          editorStore.markSaved(path, fileContent.content);
+        }
+      } catch (error) {
+        console.error("Failed to reload modified file:", error);
+      }
+    }
+  }, []);
 
   // Handle file system events
   const handleFileEvent = useCallback(
@@ -30,34 +54,42 @@ export function useFileWatcher() {
       if (!projectContext) return;
 
       switch (event.type) {
-        case "created":
-          // Determine if it's a directory by checking for extension
-          const isDirectory = !event.path.includes(".");
+        case "created": {
+          // Determine if it's a directory - check if path has no extension or ends with /
+          const lastSegment = event.path.split("/").pop() || "";
+          const isDirectory = !lastSegment.includes(".");
           addFileToTree(event.path, isDirectory);
-          // Refresh the tree to get updated content
-          loadFileTree(projectContext.projectPath);
           break;
+        }
 
         case "deleted":
           removeFileFromTree(event.path);
-          // Refresh the tree
-          loadFileTree(projectContext.projectPath);
           break;
 
-        case "modified":
-          // For modified files, we might want to update content if open
-          // For now, just refresh the tree
+        case "modified": {
+          // Debounce modified events for the same file
+          const pending = pendingModifiedRef.current;
+          const existingTimeout = pending.get(event.path);
+          if (existingTimeout) {
+            clearTimeout(existingTimeout);
+          }
+          const timeout = setTimeout(() => {
+            pending.delete(event.path);
+            handleFileModified(event.path);
+          }, 100);
+          pending.set(event.path, timeout);
           break;
+        }
 
         case "renamed":
           removeFileFromTree(event.oldPath);
-          const isRenamedDirectory = !event.newPath.includes(".");
+          const lastSegment = event.newPath.split("/").pop() || "";
+          const isRenamedDirectory = !lastSegment.includes(".");
           addFileToTree(event.newPath, isRenamedDirectory);
-          loadFileTree(projectContext.projectPath);
           break;
       }
     },
-    [projectContext, loadFileTree, addFileToTree, removeFileFromTree]
+    [projectContext, addFileToTree, removeFileFromTree, handleFileModified]
   );
 
   // Start watcher and listen for events
@@ -90,6 +122,11 @@ export function useFileWatcher() {
       if (windowLabel) {
         stopWatcher(windowLabel).catch(console.error);
       }
+      // Clear pending modified timeouts
+      for (const timeout of pendingModifiedRef.current.values()) {
+        clearTimeout(timeout);
+      }
+      pendingModifiedRef.current.clear();
     };
   }, [projectContext, windowLabel, handleFileEvent]);
 }

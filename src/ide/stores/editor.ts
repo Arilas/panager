@@ -149,6 +149,7 @@ interface EditorState {
   ) => void;
   openDiffTab: (diff: DiffTabState, isPreview?: boolean) => void;
   openChatTab: (sessionId: string, sessionName: string) => void;
+  
   closeTab: (path: string) => void;
   closeOtherTabs: (path: string) => void;
   closeAllTabs: () => void;

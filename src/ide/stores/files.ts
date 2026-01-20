@@ -296,10 +296,26 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   // File Tree Updates
   // ============================================================
 
-  addFileToTree: (_path, _isDirectory) => {
-    // Trigger a refresh of the parent directory
-    // This is a simplified implementation
-    set((state) => ({ tree: state.tree })); // Force re-render
+  addFileToTree: (path, isDirectory) => {
+    set((state) => {
+      const parentPath = path.substring(0, path.lastIndexOf("/"));
+      const fileName = path.substring(path.lastIndexOf("/") + 1);
+
+      // Create the new entry
+      const newEntry: FileEntry = {
+        name: fileName,
+        path,
+        isDirectory,
+        isHidden: fileName.startsWith("."),
+        isGitignored: false, // Will be updated on next tree load
+        extension: isDirectory ? undefined : fileName.split(".").pop(),
+        children: isDirectory ? undefined : undefined,
+      };
+
+      // Add to parent's children
+      const newTree = addEntryToTree(state.tree, parentPath, newEntry);
+      return { tree: newTree };
+    });
   },
 
   removeFileFromTree: (path) => {
@@ -308,11 +324,61 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     if (editorStore.getFileState(path)) {
       editorStore.closeTab(path);
     }
+
+    // Remove from tree
+    set((state) => {
+      const newTree = removeEntryFromTree(state.tree, path);
+      // Also remove from expanded paths if it was a directory
+      const newExpanded = new Set(state.expandedPaths);
+      newExpanded.delete(path);
+      // Remove any expanded paths that are children of this path
+      for (const expandedPath of state.expandedPaths) {
+        if (expandedPath.startsWith(path + "/")) {
+          newExpanded.delete(expandedPath);
+        }
+      }
+      return { tree: newTree, expandedPaths: newExpanded };
+    });
   },
 
   updateFileTree: async () => {
-    // Will be called after file watcher events
-    // Re-load the root and any expanded directories
+    // Re-load only the root level, preserving expanded directories
+    const projectContext = useIdeStore.getState().projectContext;
+    if (!projectContext) return;
+
+    const { expandedPaths } = get();
+
+    try {
+      // Load root entries
+      const entries = await readDirectory(projectContext.projectPath, 1, false);
+
+      // For each expanded directory, reload its children
+      const loadExpandedChildren = async (
+        treeEntries: FileEntry[]
+      ): Promise<FileEntry[]> => {
+        const result: FileEntry[] = [];
+        for (const entry of treeEntries) {
+          if (entry.isDirectory && expandedPaths.has(entry.path)) {
+            try {
+              const children = await readDirectory(entry.path, 1, false);
+              const loadedChildren = await loadExpandedChildren(children);
+              result.push({ ...entry, children: loadedChildren });
+            } catch {
+              // If we can't load children, just include the entry without children
+              result.push({ ...entry, children: undefined });
+            }
+          } else {
+            result.push(entry);
+          }
+        }
+        return result;
+      };
+
+      const treeWithChildren = await loadExpandedChildren(entries);
+      set({ tree: treeWithChildren });
+    } catch (error) {
+      console.error("Failed to update file tree:", error);
+    }
   },
 }));
 
@@ -334,4 +400,52 @@ function updateTreeChildren(
     }
     return entry;
   });
+}
+
+// Helper to add an entry to the tree under a parent path
+function addEntryToTree(
+  tree: FileEntry[],
+  parentPath: string,
+  newEntry: FileEntry
+): FileEntry[] {
+  return tree.map((entry) => {
+    if (entry.path === parentPath && entry.isDirectory) {
+      // Found the parent - add the new entry to its children
+      const existingChildren = entry.children || [];
+      // Check if entry already exists (avoid duplicates)
+      if (existingChildren.some((child) => child.path === newEntry.path)) {
+        return entry;
+      }
+      // Add and sort: directories first, then alphabetically
+      const newChildren = [...existingChildren, newEntry].sort((a, b) => {
+        if (a.isDirectory !== b.isDirectory) {
+          return a.isDirectory ? -1 : 1;
+        }
+        return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+      });
+      return { ...entry, children: newChildren };
+    }
+    if (entry.children) {
+      return {
+        ...entry,
+        children: addEntryToTree(entry.children, parentPath, newEntry),
+      };
+    }
+    return entry;
+  });
+}
+
+// Helper to remove an entry from the tree
+function removeEntryFromTree(tree: FileEntry[], path: string): FileEntry[] {
+  return tree
+    .filter((entry) => entry.path !== path)
+    .map((entry) => {
+      if (entry.children) {
+        return {
+          ...entry,
+          children: removeEntryFromTree(entry.children, path),
+        };
+      }
+      return entry;
+    });
 }

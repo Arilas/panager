@@ -13,14 +13,19 @@ import { MarkdownContent } from "./MarkdownContent";
 
 interface ChatMessageProps {
   entry: MessageEntry;
+  /** Whether this is rendered in a tab (vs sidebar) - hides assistant avatar in sidebar */
+  isTab?: boolean;
 }
 
-export function ChatMessage({ entry }: ChatMessageProps) {
+export function ChatMessage({ entry, isTab = false }: ChatMessageProps) {
   const { effectiveTheme } = useIdeSettingsContext();
   const isDark = effectiveTheme === "dark";
 
   const isUser = entry.role === "user";
   const Icon = isUser ? User : Bot;
+
+  // Hide assistant avatar in sidebar mode to save space
+  const showAvatar = isUser || isTab;
 
   return (
     <div
@@ -29,21 +34,23 @@ export function ChatMessage({ entry }: ChatMessageProps) {
         isUser && "flex-row-reverse"
       )}
     >
-      {/* Avatar */}
-      <div
-        className={cn(
-          "w-7 h-7 rounded-full flex items-center justify-center shrink-0",
-          isUser
-            ? isDark
-              ? "bg-blue-500/20 text-blue-400"
-              : "bg-blue-500/10 text-blue-600"
-            : isDark
-              ? "bg-purple-500/20 text-purple-400"
-              : "bg-purple-500/10 text-purple-600"
-        )}
-      >
-        <Icon className="w-4 h-4" />
-      </div>
+      {/* Avatar - hidden for assistant in sidebar mode */}
+      {showAvatar && (
+        <div
+          className={cn(
+            "w-7 h-7 rounded-full flex items-center justify-center shrink-0",
+            isUser
+              ? isDark
+                ? "bg-blue-500/20 text-blue-400"
+                : "bg-blue-500/10 text-blue-600"
+              : isDark
+                ? "bg-purple-500/20 text-purple-400"
+                : "bg-purple-500/10 text-purple-600"
+          )}
+        >
+          <Icon className="w-4 h-4" />
+        </div>
+      )}
 
       {/* Content */}
       <div

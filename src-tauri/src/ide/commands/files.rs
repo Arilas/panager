@@ -107,11 +107,8 @@ fn read_directory_entries(
                 let is_hidden = name.starts_with('.');
                 let is_directory = entry_path.is_dir();
 
-                // Check if this entry is gitignored
-                let is_gitignored = gitignore
-                    .as_ref()
-                    .map(|gi| gi.matched(entry_path, is_directory).is_ignore())
-                    .unwrap_or(false);
+                // Check if this entry or any of its ancestors is gitignored
+                let is_gitignored = is_path_gitignored(entry_path, &gitignore);
 
                 let extension = if !is_directory {
                     entry_path
@@ -149,44 +146,93 @@ fn read_directory_entries(
     Ok(entries)
 }
 
-/// Build a gitignore matcher by finding .gitignore files from git root
-fn build_gitignore_matcher(dir_path: &Path) -> Option<ignore::gitignore::Gitignore> {
-    // Find the git root (contains .git directory)
+/// Find the git root directory for a given path
+pub fn find_git_root(dir_path: &Path) -> Option<&Path> {
     let mut current = dir_path;
-    let git_root = loop {
+    loop {
         if current.join(".git").exists() {
-            break Some(current);
+            return Some(current);
         }
         match current.parent() {
             Some(parent) => current = parent,
-            None => break None,
+            None => return None,
         }
-    };
+    }
+}
 
-    let git_root = git_root?;
+/// Build a gitignore matcher by finding .gitignore files from git root
+/// and all intermediate directories down to dir_path
+pub fn build_gitignore_matcher(dir_path: &Path) -> Option<ignore::gitignore::Gitignore> {
+    let git_root = find_git_root(dir_path)?;
     let mut builder = GitignoreBuilder::new(git_root);
 
-    // Add .gitignore from git root
-    let gitignore_path = git_root.join(".gitignore");
-    if gitignore_path.exists() {
-        let _ = builder.add(&gitignore_path);
-    }
-
-    // Add .git/info/exclude
+    // Add .git/info/exclude first
     let exclude_path = git_root.join(".git/info/exclude");
     if exclude_path.exists() {
         let _ = builder.add(&exclude_path);
     }
 
-    // If we're in a subdirectory, also check for .gitignore there
-    if dir_path != git_root {
-        let local_gitignore = dir_path.join(".gitignore");
-        if local_gitignore.exists() {
-            let _ = builder.add(&local_gitignore);
+    // Collect all directories from git root to dir_path
+    // We need to add .gitignore files in order from root to deepest
+    let mut dirs_to_check: Vec<&Path> = Vec::new();
+    let mut current = dir_path;
+    loop {
+        dirs_to_check.push(current);
+        if current == git_root {
+            break;
+        }
+        match current.parent() {
+            Some(parent) => current = parent,
+            None => break,
+        }
+    }
+
+    // Reverse to process from git root down to dir_path
+    dirs_to_check.reverse();
+
+    // Add .gitignore from each directory in the path
+    for dir in dirs_to_check {
+        let gitignore_path = dir.join(".gitignore");
+        if gitignore_path.exists() {
+            let _ = builder.add(&gitignore_path);
         }
     }
 
     builder.build().ok()
+}
+
+/// Check if a path or any of its ancestors (up to git root) is gitignored
+pub fn is_path_gitignored(path: &Path, gitignore: &Option<ignore::gitignore::Gitignore>) -> bool {
+    let Some(gi) = gitignore else {
+        return false;
+    };
+
+    // Find git root to know where to stop checking ancestors
+    let git_root = match find_git_root(path) {
+        Some(root) => root,
+        None => return false,
+    };
+
+    // Check the path itself and all ancestors up to (but not including) git root
+    let mut current = path;
+    loop {
+        let is_dir = current.is_dir();
+        if gi.matched(current, is_dir).is_ignore() {
+            return true;
+        }
+
+        // Stop at git root
+        if current == git_root {
+            break;
+        }
+
+        match current.parent() {
+            Some(parent) => current = parent,
+            None => break,
+        }
+    }
+
+    false
 }
 
 /// Reads the content of a file

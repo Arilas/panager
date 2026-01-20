@@ -88,7 +88,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
   return (
     <div
       className={cn(
-        "markdown-content prose prose-sm max-w-none",
+        "markdown-content prose prose-sm max-w-none overflow-x-auto",
         isDark ? "prose-invert" : "",
         // Custom styling overrides
         "[&_p]:mb-2 [&_p:last-child]:mb-0",
@@ -113,9 +113,9 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
           : "[&_code:not(pre_code)]:bg-black/5 [&_code:not(pre_code)]:text-pink-600",
         "[&_pre]:my-2 [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:text-xs",
         isDark ? "[&_pre]:bg-[#0d1117]" : "[&_pre]:bg-[#f6f8fa]",
-        // Table styling
-        "[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs",
-        "[&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-medium [&_th]:border",
+        // Table styling - wrap in scrollable container
+        "[&_table]:my-2 [&_table]:min-w-full [&_table]:border-collapse [&_table]:text-xs",
+        "[&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-medium [&_th]:border [&_th]:whitespace-nowrap",
         "[&_td]:px-2 [&_td]:py-1 [&_td]:border",
         isDark
           ? "[&_th]:border-white/10 [&_td]:border-white/10 [&_thead]:bg-white/5"

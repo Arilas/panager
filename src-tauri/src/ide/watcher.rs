@@ -2,12 +2,16 @@
 //!
 //! Uses the `notify` crate to watch for file system changes and emit events
 //! to the appropriate IDE window.
+//!
+//! Respects .gitignore patterns - events for ignored files are filtered out.
 
+use crate::ide::commands::files::{build_gitignore_matcher, is_path_gitignored};
 use crate::ide::types::IdeFileEvent;
+use ignore::gitignore::Gitignore;
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
@@ -20,6 +24,17 @@ static WATCHERS: Lazy<Arc<Mutex<HashMap<String, WatcherHandle>>>> =
 
 struct WatcherHandle {
     _watcher: RecommendedWatcher,
+}
+
+/// Check if a path should be ignored based on gitignore rules
+fn should_ignore_path(path: &Path, gitignore: &Option<Gitignore>) -> bool {
+    // Always ignore .git directory
+    if path.components().any(|c| c.as_os_str() == ".git") {
+        return true;
+    }
+
+    // Check gitignore patterns (including ancestor paths)
+    is_path_gitignored(path, gitignore)
 }
 
 /// Starts a file system watcher for a project
@@ -38,77 +53,37 @@ pub async fn start_watcher(
 
     let app_clone = app.clone();
     let window_label_clone = window_label.clone();
-    let _project_path_clone = project_path.clone();
 
-    // Create debounced event handler
-    let (_tx, mut rx) = tokio::sync::mpsc::channel::<IdeFileEvent>(100);
-
-    // Spawn event processor with debouncing
-    let app_for_events = app.clone();
-    let window_for_events = window_label.clone();
-    tokio::spawn(async move {
-        use std::collections::HashSet;
-        use tokio::time::{interval, Duration};
-
-        let mut pending_events: HashSet<String> = HashSet::new();
-        let mut debounce_timer = interval(Duration::from_millis(100));
-
-        loop {
-            tokio::select! {
-                Some(event) = rx.recv() => {
-                    // Collect events for debouncing
-                    let path = match &event {
-                        IdeFileEvent::Created { path } => path.clone(),
-                        IdeFileEvent::Deleted { path } => path.clone(),
-                        IdeFileEvent::Modified { path } => path.clone(),
-                        IdeFileEvent::Renamed { new_path, .. } => new_path.clone(),
-                    };
-
-                    // Store the event path (will be processed on next tick)
-                    pending_events.insert(format!("{:?}:{}", event, path));
-
-                    // Emit immediately for creates/deletes, debounce modifies
-                    match &event {
-                        IdeFileEvent::Created { .. } | IdeFileEvent::Deleted { .. } | IdeFileEvent::Renamed { .. } => {
-                            if let Some(window) = app_for_events.get_webview_window(&window_for_events) {
-                                if let Err(e) = window.emit("ide-file-event", &event) {
-                                    error!("Failed to emit file event: {}", e);
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-                _ = debounce_timer.tick() => {
-                    // Process debounced modification events
-                    // (This is a simplified version - in production you'd want more sophisticated debouncing)
-                }
-            }
-        }
-    });
+    // Build gitignore matcher for filtering events
+    let project_path_buf = PathBuf::from(&project_path);
+    let gitignore = build_gitignore_matcher(&project_path_buf);
 
     // Create the watcher
     let watcher = RecommendedWatcher::new(
         move |result: Result<Event, notify::Error>| {
             match result {
                 Ok(event) => {
-                    // Filter out irrelevant events
+                    // Get the first path from the event
+                    let Some(event_path) = event.paths.first() else {
+                        return;
+                    };
+
+                    // Filter out gitignored files and .git directory
+                    if should_ignore_path(event_path, &gitignore) {
+                        return;
+                    }
+
+                    // Convert to IDE event
                     let ide_event = match event.kind {
-                        EventKind::Create(_) => {
-                            event.paths.first().map(|p| IdeFileEvent::Created {
-                                path: p.to_string_lossy().to_string(),
-                            })
-                        }
-                        EventKind::Remove(_) => {
-                            event.paths.first().map(|p| IdeFileEvent::Deleted {
-                                path: p.to_string_lossy().to_string(),
-                            })
-                        }
-                        EventKind::Modify(_) => {
-                            event.paths.first().map(|p| IdeFileEvent::Modified {
-                                path: p.to_string_lossy().to_string(),
-                            })
-                        }
+                        EventKind::Create(_) => Some(IdeFileEvent::Created {
+                            path: event_path.to_string_lossy().to_string(),
+                        }),
+                        EventKind::Remove(_) => Some(IdeFileEvent::Deleted {
+                            path: event_path.to_string_lossy().to_string(),
+                        }),
+                        EventKind::Modify(_) => Some(IdeFileEvent::Modified {
+                            path: event_path.to_string_lossy().to_string(),
+                        }),
                         _ => None,
                     };
 
