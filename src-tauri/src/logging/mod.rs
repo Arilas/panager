@@ -25,9 +25,9 @@ use tracing_subscriber::{
 pub fn init() {
     // Default log level based on build type
     let default_level = if cfg!(debug_assertions) {
-        "panager=debug,info"
+        "panager=debug,panager_lib=debug,info"
     } else {
-        "panager=info,warn"
+        "panager=info,panager_lib=info,warn"
     };
 
     // Allow override via RUST_LOG environment variable

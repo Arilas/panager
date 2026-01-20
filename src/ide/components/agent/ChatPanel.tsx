@@ -1,21 +1,30 @@
 /**
  * Chat Panel - Main chat UI for agent interaction
  *
- * Displays chat messages, streaming responses, and input area.
- * Used in both the right sidebar and as a tab in the editor area.
+ * Displays chat entries (messages, tool calls, permission requests) with streaming support.
+ * Uses the unified "entry" architecture - see "Entry Processing Rules" in plan document.
  */
 
 import { useRef, useEffect, useCallback, useState } from "react";
 import { Send, StopCircle, Plus, Settings2, ChevronDown, MessageSquare, Trash2 } from "lucide-react";
-import { useAgentStore, createUserMessage } from "../../stores/agent";
+import { useAgentStore, createChatSession } from "../../stores/agent";
 import { useIdeStore } from "../../stores/ide";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
 import { ModeSelector } from "./ModeSelector";
+import { ModelSelector } from "./ModelSelector";
 import { ChatMessage } from "./ChatMessage";
 import { ApprovalBanner } from "./ApprovalBanner";
 import { DiffApprovalCard } from "./DiffApprovalCard";
+import { PermissionDialog } from "./PermissionDialog";
 import { useAcpEvents } from "../../hooks/useAcpEvents";
+import { acpListSessions, acpDeleteSession, acpLoadSession, type DbSessionInfo } from "../../lib/tauri-acp";
+import type { ChatEntry } from "../../types/acp";
+import { parseDbEntry, isMessageEntry, isThoughtEntry, isToolCallEntry, isPermissionRequestEntry, isMetaEntry, isPlanEntry, isModeChangeEntry } from "../../types/acp";
+import { ToolCallCard } from "./ToolCallCard";
+import { ThoughtCard } from "./ThoughtCard";
+import { PlanCard } from "./PlanCard";
+import { ModeChangeCard } from "./ModeChangeCard";
 
 interface ChatPanelProps {
   /** Whether this panel is rendered in a tab (vs sidebar) */
@@ -34,39 +43,56 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
   const sessions = useAgentStore((s) => s.sessions);
   const inputValue = useAgentStore((s) => s.inputValue);
   const contextMentions = useAgentStore((s) => s.contextMentions);
-  const streamingMessageId = useAgentStore((s) => s.streamingMessageId);
-  const streamingContent = useAgentStore((s) => s.streamingContent);
 
   // Agent store actions
   const setInputValue = useAgentStore((s) => s.setInputValue);
   const setCurrentSessionId = useAgentStore((s) => s.setCurrentSessionId);
   const deleteSession = useAgentStore((s) => s.deleteSession);
-  const addMessage = useAgentStore((s) => s.addMessage);
-  const clearContextMentions = useAgentStore((s) => s.clearContextMentions);
+  const storeCreateSession = useAgentStore((s) => s.createSession);
+  const setSessionCapabilities = useAgentStore((s) => s.setSessionCapabilities);
 
-  // Pending approvals
+  // Pending approvals and permissions
   const pendingApprovals = useAgentStore((s) => s.pendingApprovals);
+  const pendingPermission = useAgentStore((s) => s.pendingPermission);
 
   // IDE store for project context
   const projectContext = useIdeStore((s) => s.projectContext);
 
   // ACP events and commands
-  const { connect, newSession, sendPrompt, cancel, respondToPermission } = useAcpEvents();
+  const { connect, newSession, resumeSession, sendPrompt, cancel, respondToPermission } = useAcpEvents();
 
   // Local state
   const [showSessionDropdown, setShowSessionDropdown] = useState(false);
+  const [backendSessions, setBackendSessions] = useState<DbSessionInfo[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Get sorted session list (most recent first)
-  const sessionList = Object.values(sessions).sort((a, b) => b.updatedAt - a.updatedAt);
-
-  // Get current session
+  // Get current session from store (for real-time updates)
   const session = currentSessionId ? sessions[currentSessionId] : null;
-  const messages = session?.messages || [];
+  const entries = session?.entries || [];
+
+  // Filter entries for display (exclude meta entries)
+  const displayEntries = entries.filter(
+    (e) => isMessageEntry(e) || isThoughtEntry(e) || isToolCallEntry(e) || isPermissionRequestEntry(e) || isPlanEntry(e) || isModeChangeEntry(e)
+  );
+
+  // Fetch sessions from backend when dropdown opens
+  const fetchBackendSessions = useCallback(async () => {
+    if (!projectContext?.projectPath) return;
+    setIsLoadingSessions(true);
+    try {
+      const sessions = await acpListSessions(projectContext.projectPath);
+      setBackendSessions(sessions);
+    } catch (error) {
+      console.error("Failed to fetch sessions:", error);
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  }, [projectContext?.projectPath]);
 
   // Auto-connect when panel is opened and we have a project path
   useEffect(() => {
@@ -75,10 +101,10 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
     }
   }, [projectContext?.projectPath, status, connect]);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when entries change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamingContent]);
+  }, [displayEntries]);
 
   // Focus input on mount
   useEffect(() => {
@@ -98,6 +124,13 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
     }
   }, [showSessionDropdown]);
 
+  // Fetch sessions when dropdown opens
+  useEffect(() => {
+    if (showSessionDropdown) {
+      fetchBackendSessions();
+    }
+  }, [showSessionDropdown, fetchBackendSessions]);
+
   const handleNewSession = useCallback(async () => {
     if (!projectContext?.projectPath) return;
     setShowSessionDropdown(false);
@@ -105,15 +138,70 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
     await newSession();
   }, [projectContext?.projectPath, newSession]);
 
-  const handleSelectSession = useCallback((sessionId: string) => {
+  const handleSelectSession = useCallback(async (sessionId: string) => {
+    if (!projectContext?.projectPath) return;
     setCurrentSessionId(sessionId);
     setShowSessionDropdown(false);
-  }, [setCurrentSessionId]);
 
-  const handleDeleteSession = useCallback((sessionId: string, e: React.MouseEvent) => {
+    // Load session entries from backend if not already in store
+    if (!sessions[sessionId]) {
+      try {
+        const loaded = await acpLoadSession(projectContext.projectPath, sessionId);
+        if (loaded) {
+          // Parse entries from DB format to store format
+          const parsedEntries: ChatEntry[] = loaded.entries.map(parseDbEntry);
+
+          // Create session in store with loaded entries
+          const storeSession = createChatSession(
+            loaded.session.id,
+            projectContext.projectPath,
+            loaded.session.name
+          );
+          storeSession.entries = parsedEntries;
+          storeSession.createdAt = loaded.session.createdAt;
+          storeSession.updatedAt = loaded.session.updatedAt;
+          storeCreateSession(storeSession);
+
+          // Set capabilities from latest meta entry
+          const metaEntries = parsedEntries.filter(isMetaEntry);
+          const latestMeta = metaEntries[metaEntries.length - 1];
+          if (latestMeta) {
+            setSessionCapabilities({
+              availableModes: latestMeta.availableModes,
+              availableModels: latestMeta.availableModels,
+              currentModeId: latestMeta.currentModeId,
+              currentModelId: latestMeta.currentModelId,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load session:", error);
+      }
+    }
+
+    // Resume the session in the ACP backend
+    try {
+      await resumeSession(sessionId);
+    } catch (error) {
+      console.error("Failed to resume session in ACP:", error);
+    }
+  }, [projectContext?.projectPath, setCurrentSessionId, sessions, storeCreateSession, setSessionCapabilities, resumeSession]);
+
+  const handleDeleteSession = useCallback(async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    deleteSession(sessionId);
-  }, [deleteSession]);
+    if (!projectContext?.projectPath) return;
+
+    try {
+      // Delete from backend
+      await acpDeleteSession(projectContext.projectPath, sessionId);
+      // Delete from local store
+      deleteSession(sessionId);
+      // Refresh the list
+      fetchBackendSessions();
+    } catch (error) {
+      console.error("Failed to delete session:", error);
+    }
+  }, [projectContext?.projectPath, deleteSession, fetchBackendSessions]);
 
   const handleSendMessage = useCallback(async () => {
     if (!inputValue.trim()) return;
@@ -123,37 +211,30 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
       return;
     }
 
-    let sessionId = currentSessionId;
+    let sessionIdToUse = currentSessionId;
 
     // Auto-create session if needed
-    if (!sessionId) {
+    if (!sessionIdToUse) {
       console.log("Creating new session for first message...");
-      sessionId = await newSession();
-      if (!sessionId) {
+      sessionIdToUse = await newSession();
+      if (!sessionIdToUse) {
         console.error("Failed to create session");
         return;
       }
     }
 
-    // Create user message
-    const userMessage = createUserMessage(inputValue.trim(), contextMentions);
-    addMessage(sessionId, userMessage);
-
-    // Clear input and mentions
+    // Clear input (user entry is added by sendPrompt)
+    const messageText = inputValue.trim();
     setInputValue("");
-    clearContextMentions();
 
-    // Send prompt via ACP
-    console.log("Sending prompt to session:", sessionId);
-    await sendPrompt(sessionId, userMessage.content);
+    // Send prompt via ACP (this adds user entry and sends to backend)
+    console.log("Sending prompt to session:", sessionIdToUse);
+    await sendPrompt(sessionIdToUse, messageText);
   }, [
     inputValue,
     currentSessionId,
     status,
-    contextMentions,
-    addMessage,
     setInputValue,
-    clearContextMentions,
     sendPrompt,
     newSession,
   ]);
@@ -186,6 +267,57 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
   const isReady = status === "ready";
   const isPrompting = status === "prompting";
   const canSend = inputValue.trim().length > 0 && isReady;
+
+  // Render an entry based on its type
+  const renderEntry = (entry: ChatEntry) => {
+    if (isMessageEntry(entry)) {
+      return (
+        <ChatMessage
+          key={entry.id}
+          entry={entry}
+        />
+      );
+    }
+
+    if (isThoughtEntry(entry)) {
+      return <ThoughtCard key={entry.id} entry={entry} />;
+    }
+
+    if (isToolCallEntry(entry)) {
+      return <ToolCallCard key={entry.id} entry={entry} />;
+    }
+
+    if (isPermissionRequestEntry(entry)) {
+      // Permission requests that are already answered are shown inline
+      // Pending ones are shown via the pendingPermission dialog
+      if (entry.responseOption) {
+        // Show as answered permission request
+        return (
+          <div
+            key={entry.id}
+            className={cn(
+              "text-xs px-3 py-2 rounded-lg",
+              isDark ? "bg-white/5 text-neutral-400" : "bg-black/5 text-neutral-500"
+            )}
+          >
+            Permission: {entry.toolName} - {entry.responseOption}
+          </div>
+        );
+      }
+      // Unanswered ones are handled by the dialog
+      return null;
+    }
+
+    if (isPlanEntry(entry)) {
+      return <PlanCard key={entry.id} entry={entry} />;
+    }
+
+    if (isModeChangeEntry(entry)) {
+      return <ModeChangeCard key={entry.id} entry={entry} />;
+    }
+
+    return null;
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -253,12 +385,16 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
               </button>
 
               {/* Session list */}
-              {sessionList.length === 0 ? (
+              {isLoadingSessions ? (
+                <div className={cn("px-3 py-4 text-sm text-center", isDark ? "text-neutral-500" : "text-neutral-400")}>
+                  Loading...
+                </div>
+              ) : backendSessions.length === 0 ? (
                 <div className={cn("px-3 py-4 text-sm text-center", isDark ? "text-neutral-500" : "text-neutral-400")}>
                   No chat history
                 </div>
               ) : (
-                sessionList.map((s) => (
+                backendSessions.map((s) => (
                   <button
                     key={s.id}
                     onClick={() => handleSelectSession(s.id)}
@@ -277,7 +413,7 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
                     <div className="flex-1 min-w-0 text-left">
                       <div className="truncate">{s.name}</div>
                       <div className={cn("text-xs", isDark ? "text-neutral-500" : "text-neutral-400")}>
-                        {s.messages.length} messages · {new Date(s.updatedAt).toLocaleDateString()}
+                        {s.entryCount} entries · {new Date(s.updatedAt).toLocaleDateString()}
                       </div>
                     </div>
                     <button
@@ -326,11 +462,6 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
         </div>
       </div>
 
-      {/* Mode selector */}
-      <div className="px-3 py-2 border-b border-black/5 dark:border-white/5">
-        <ModeSelector />
-      </div>
-
       {/* Approval banner (shown when there are pending approvals) */}
       {sessionApprovals.length > 0 && (
         <div className="px-3 py-2 border-b border-black/5 dark:border-white/5">
@@ -345,9 +476,9 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
         </div>
       )}
 
-      {/* Messages area */}
+      {/* Entries area */}
       <div className="flex-1 overflow-y-auto px-3 py-2">
-        {messages.length === 0 ? (
+        {displayEntries.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <p className={cn("text-sm", isDark ? "text-neutral-400" : "text-neutral-500")}>
               Start a conversation with Claude Code
@@ -358,14 +489,7 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
           </div>
         ) : (
           <div className="space-y-4">
-            {messages.map((message) => (
-              <ChatMessage
-                key={message.id}
-                message={message}
-                isStreaming={message.id === streamingMessageId}
-                streamingContent={message.id === streamingMessageId ? streamingContent : undefined}
-              />
-            ))}
+            {displayEntries.map(renderEntry)}
 
             {/* Pending approval cards (inline in chat) */}
             {sessionApprovals.map((approval) => (
@@ -376,6 +500,22 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
                 onReject={(id) => handleApprovalResponse(id, false)}
               />
             ))}
+
+            {/* Permission request dialog */}
+            {pendingPermission && (
+              <PermissionDialog
+                request={pendingPermission}
+                onRespond={async (optionId) => {
+                  console.log("ChatPanel: Permission response clicked - requestId=", pendingPermission.requestId, "optionId=", optionId);
+                  try {
+                    await respondToPermission(pendingPermission.requestId, optionId);
+                    console.log("ChatPanel: respondToPermission completed successfully");
+                  } catch (error) {
+                    console.error("ChatPanel: respondToPermission failed:", error);
+                  }
+                }}
+              />
+            )}
 
             <div ref={messagesEndRef} />
           </div>
@@ -447,9 +587,10 @@ export function ChatPanel({ isTab: _isTab = false, sessionId }: ChatPanelProps) 
           </button>
         </div>
 
-        <p className={cn("text-xs mt-1", isDark ? "text-neutral-500" : "text-neutral-400")}>
-          Press Enter to send, Shift+Enter for new line
-        </p>
+        <div className="flex items-center gap-3 mt-1.5">
+          <ModeSelector />
+          <ModelSelector />
+        </div>
       </div>
     </div>
   );

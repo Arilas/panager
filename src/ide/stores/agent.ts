@@ -1,7 +1,11 @@
 /**
  * Agent state store for ACP (Agent Client Protocol) integration
  *
- * Manages chat sessions, messages, tool calls, and agent state.
+ * Manages chat sessions, entries, and agent state using a unified entry architecture.
+ *
+ * IMPORTANT: This store implements the Entry Processing Rules.
+ * The frontend (useAcpEvents.ts) MUST use the same logic as backend (process.rs).
+ * See: src/ide/docs/ENTRY_PROCESSING_RULES.md
  */
 
 import { create } from "zustand";
@@ -10,19 +14,23 @@ import type {
   AgentMode,
   AgentPlan,
   ApprovalMode,
-  ChatMessage,
+  ChatEntry,
   ChatSession,
   ContentBlock,
   ContextMention,
+  MessageEntry,
+  MetaEntry,
   PendingApproval,
   PermissionRequest,
+  PermissionRequestEntry,
+  SessionCapabilities,
   SessionStatus,
   TextBlock,
-  ToolCall,
+  ToolCallEntry,
 } from "../types/acp";
 
 interface AgentState {
-  // Connection status
+  // Connection status (runtime only, not persisted)
   status: SessionStatus;
   error: string | null;
 
@@ -30,7 +38,7 @@ interface AgentState {
   currentSessionId: string | null;
   sessions: Record<string, ChatSession>;
 
-  // Current mode
+  // Current mode (derived from latest meta entry, but cached here)
   mode: AgentMode;
 
   // Plan/tasks
@@ -40,17 +48,15 @@ interface AgentState {
   pendingApprovals: PendingApproval[];
   approvalMode: ApprovalMode;
 
-  // Streaming state
-  streamingMessageId: string | null;
-  streamingContent: string;
-  streamingThoughts: string[];
-
   // Input state
   inputValue: string;
   contextMentions: ContextMention[];
 
-  // Permission requests
+  // Permission requests (for dialog display)
   pendingPermission: PermissionRequest | null;
+
+  // Session capabilities (from latest meta entry)
+  sessionCapabilities: SessionCapabilities | null;
 
   // Actions - Connection
   setStatus: (status: SessionStatus) => void;
@@ -62,19 +68,11 @@ interface AgentState {
   updateSession: (sessionId: string, updates: Partial<ChatSession>) => void;
   deleteSession: (sessionId: string) => void;
 
-  // Actions - Messages
-  addMessage: (sessionId: string, message: ChatMessage) => void;
-  updateMessage: (sessionId: string, messageId: string, updates: Partial<ChatMessage>) => void;
-
-  // Actions - Streaming
-  startStreaming: (messageId: string) => void;
-  appendStreamingContent: (content: string) => void;
-  appendStreamingThought: (thought: string) => void;
-  finishStreaming: () => void;
-
-  // Actions - Tool calls
-  addToolCall: (sessionId: string, messageId: string, toolCall: ToolCall) => void;
-  updateToolCall: (sessionId: string, messageId: string, toolCallId: string, updates: Partial<ToolCall>) => void;
+  // Actions - Entries (unified)
+  addEntry: (sessionId: string, entry: ChatEntry) => void;
+  updateEntry: (sessionId: string, entryId: number, updates: Partial<ChatEntry>) => void;
+  updateEntryByToolCallId: (sessionId: string, toolCallId: string, updates: Partial<ToolCallEntry>) => void;
+  updateEntryByRequestId: (sessionId: string, requestId: string, updates: Partial<PermissionRequestEntry>) => void;
 
   // Actions - Mode
   setMode: (mode: AgentMode) => void;
@@ -98,12 +96,16 @@ interface AgentState {
   // Actions - Permission
   setPendingPermission: (request: PermissionRequest | null) => void;
 
+  // Actions - Capabilities
+  setSessionCapabilities: (capabilities: SessionCapabilities | null) => void;
+
   // Actions - Reset
   reset: () => void;
 
   // Computed helpers
   getCurrentSession: () => ChatSession | null;
-  getSessionMessages: (sessionId: string) => ChatMessage[];
+  getSessionEntries: (sessionId: string) => ChatEntry[];
+  getLatestMeta: (sessionId: string) => MetaEntry | null;
 }
 
 const initialState = {
@@ -115,12 +117,10 @@ const initialState = {
   currentPlan: null,
   pendingApprovals: [],
   approvalMode: "per_change" as ApprovalMode,
-  streamingMessageId: null,
-  streamingContent: "",
-  streamingThoughts: [],
   inputValue: "",
   contextMentions: [],
   pendingPermission: null,
+  sessionCapabilities: null,
 };
 
 export const useAgentStore = create<AgentState>()(
@@ -170,8 +170,8 @@ export const useAgentStore = create<AgentState>()(
           };
         }),
 
-      // Message actions
-      addMessage: (sessionId, message) =>
+      // Entry actions (unified)
+      addEntry: (sessionId, entry) =>
         set((state) => {
           const session = state.sessions[sessionId];
           if (!session) return state;
@@ -180,14 +180,14 @@ export const useAgentStore = create<AgentState>()(
               ...state.sessions,
               [sessionId]: {
                 ...session,
-                messages: [...session.messages, message],
+                entries: [...session.entries, entry],
                 updatedAt: Date.now(),
               },
             },
           };
         }),
 
-      updateMessage: (sessionId, messageId, updates) =>
+      updateEntry: (sessionId, entryId, updates) =>
         set((state) => {
           const session = state.sessions[sessionId];
           if (!session) return state;
@@ -196,8 +196,8 @@ export const useAgentStore = create<AgentState>()(
               ...state.sessions,
               [sessionId]: {
                 ...session,
-                messages: session.messages.map((msg) =>
-                  msg.id === messageId ? { ...msg, ...updates } : msg
+                entries: session.entries.map((e) =>
+                  e.id === entryId ? { ...e, ...updates } as ChatEntry : e
                 ),
                 updatedAt: Date.now(),
               },
@@ -205,33 +205,7 @@ export const useAgentStore = create<AgentState>()(
           };
         }),
 
-      // Streaming actions
-      startStreaming: (messageId) =>
-        set({
-          streamingMessageId: messageId,
-          streamingContent: "",
-          streamingThoughts: [],
-        }),
-
-      appendStreamingContent: (content) =>
-        set((state) => ({
-          streamingContent: state.streamingContent + content,
-        })),
-
-      appendStreamingThought: (thought) =>
-        set((state) => ({
-          streamingThoughts: [...state.streamingThoughts, thought],
-        })),
-
-      finishStreaming: () =>
-        set({
-          streamingMessageId: null,
-          streamingContent: "",
-          streamingThoughts: [],
-        }),
-
-      // Tool call actions
-      addToolCall: (sessionId, messageId, toolCall) =>
+      updateEntryByToolCallId: (sessionId, toolCallId, updates) =>
         set((state) => {
           const session = state.sessions[sessionId];
           if (!session) return state;
@@ -240,20 +214,18 @@ export const useAgentStore = create<AgentState>()(
               ...state.sessions,
               [sessionId]: {
                 ...session,
-                messages: session.messages.map((msg) => {
-                  if (msg.id !== messageId) return msg;
-                  return {
-                    ...msg,
-                    toolCalls: [...(msg.toolCalls || []), toolCall],
-                  };
-                }),
+                entries: session.entries.map((e) =>
+                  e.type === "tool_call" && e.toolCallId === toolCallId
+                    ? { ...e, ...updates }
+                    : e
+                ),
                 updatedAt: Date.now(),
               },
             },
           };
         }),
 
-      updateToolCall: (sessionId, messageId, toolCallId, updates) =>
+      updateEntryByRequestId: (sessionId, requestId, updates) =>
         set((state) => {
           const session = state.sessions[sessionId];
           if (!session) return state;
@@ -262,15 +234,11 @@ export const useAgentStore = create<AgentState>()(
               ...state.sessions,
               [sessionId]: {
                 ...session,
-                messages: session.messages.map((msg) => {
-                  if (msg.id !== messageId) return msg;
-                  return {
-                    ...msg,
-                    toolCalls: (msg.toolCalls || []).map((tc) =>
-                      tc.toolCallId === toolCallId ? { ...tc, ...updates } : tc
-                    ),
-                  };
-                }),
+                entries: session.entries.map((e) =>
+                  e.type === "permission_request" && e.requestId === requestId
+                    ? { ...e, ...updates }
+                    : e
+                ),
                 updatedAt: Date.now(),
               },
             },
@@ -323,6 +291,9 @@ export const useAgentStore = create<AgentState>()(
       // Permission actions
       setPendingPermission: (request) => set({ pendingPermission: request }),
 
+      // Capabilities actions
+      setSessionCapabilities: (capabilities) => set({ sessionCapabilities: capabilities }),
+
       // Reset
       reset: () => set(initialState),
 
@@ -333,16 +304,26 @@ export const useAgentStore = create<AgentState>()(
         return sessions[currentSessionId] || null;
       },
 
-      getSessionMessages: (sessionId) => {
+      getSessionEntries: (sessionId) => {
         const { sessions } = get();
-        return sessions[sessionId]?.messages || [];
+        return sessions[sessionId]?.entries || [];
+      },
+
+      getLatestMeta: (sessionId) => {
+        const { sessions } = get();
+        const session = sessions[sessionId];
+        if (!session) return null;
+        // Find the most recent meta entry
+        const metaEntries = session.entries.filter(
+          (e): e is MetaEntry => e.type === "meta"
+        );
+        return metaEntries[metaEntries.length - 1] || null;
       },
     }),
     {
       name: "panager-agent-store",
-      // Only persist specific fields
+      // Only persist user preferences, NOT sessions (stored in backend SQLite)
       partialize: (state) => ({
-        sessions: state.sessions,
         currentSessionId: state.currentSessionId,
         approvalMode: state.approvalMode,
         mode: state.mode,
@@ -352,9 +333,52 @@ export const useAgentStore = create<AgentState>()(
 );
 
 /**
- * Helper to create a user message from input
+ * Helper to create a user message entry from input
+ * See "Entry Processing Rules" - RULE 8: User Message
  */
-export function createUserMessage(text: string, mentions: ContextMention[]): ChatMessage {
+export function createUserMessageEntry(
+  sessionId: string,
+  text: string,
+  _mentions: ContextMention[]
+): MessageEntry {
+  // For now, just create a simple message entry with text content
+  // Context mentions could be expanded to resource entries if needed
+  return {
+    id: Date.now(), // Temporary ID for frontend (backend will assign real ID)
+    sessionId,
+    type: "message",
+    role: "user",
+    content: text,
+    createdAt: Date.now(),
+  };
+}
+
+/**
+ * Helper to create a new chat session
+ */
+export function createChatSession(
+  sessionId: string,
+  projectPath: string,
+  name?: string
+): ChatSession {
+  const timestamp = Date.now();
+  return {
+    id: sessionId, // ACP session ID (same as DB primary key)
+    name: name || `Chat ${new Date(timestamp).toLocaleString()}`,
+    entries: [],
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    projectPath,
+  };
+}
+
+/**
+ * Helper to create ContentBlock array from text for sending prompts
+ */
+export function createPromptContent(
+  text: string,
+  mentions: ContextMention[]
+): ContentBlock[] {
   const content: ContentBlock[] = [{ type: "text", text } as TextBlock];
 
   // Add context mentions as resource blocks
@@ -387,32 +411,5 @@ export function createUserMessage(text: string, mentions: ContextMention[]): Cha
     }
   }
 
-  return {
-    id: crypto.randomUUID(),
-    role: "user",
-    content,
-    timestamp: Date.now(),
-  };
-}
-
-/**
- * Helper to create a new chat session
- */
-export function createChatSession(
-  projectPath: string,
-  mode: AgentMode = "agent",
-  name?: string
-): ChatSession {
-  const id = crypto.randomUUID();
-  const timestamp = Date.now();
-  return {
-    id,
-    name: name || `Chat ${new Date(timestamp).toLocaleString()}`,
-    mode,
-    messages: [],
-    status: "ready",
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    projectPath,
-  };
+  return content;
 }

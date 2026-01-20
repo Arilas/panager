@@ -4,10 +4,12 @@
 //! to keep the codebase modular and maintainable.
 
 pub mod commands;
+pub mod db;
 pub mod settings;
 pub mod types;
 pub mod watcher;
 
 pub use commands::*;
+pub use db::{ChatDb, DbEntry, DbSession, DbSessionInfo, DbSessionWithEntries};
 pub use settings::*;
 pub use types::*;

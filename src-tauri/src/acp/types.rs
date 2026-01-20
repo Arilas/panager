@@ -590,3 +590,43 @@ pub struct AgentCapabilities {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub modes: Option<Vec<AgentMode>>,
 }
+
+// ============================================================
+// Session Capabilities (Modes & Models from ACP)
+// ============================================================
+
+/// Available session mode from ACP
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AcpSessionMode {
+    pub id: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+/// Available session model from ACP
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AcpSessionModel {
+    pub model_id: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+/// Session capabilities (modes and models available for a session)
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCapabilities {
+    /// Available modes for the session
+    pub available_modes: Vec<AcpSessionMode>,
+    /// Current mode ID
+    pub current_mode_id: String,
+    /// Available models for the session (if model selection is supported)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub available_models: Option<Vec<AcpSessionModel>>,
+    /// Current model ID (if model selection is supported)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_model_id: Option<String>,
+}

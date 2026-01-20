@@ -222,11 +222,17 @@ pub fn run() {
             acp::commands::acp_disconnect,
             acp::commands::acp_get_status,
             acp::commands::acp_new_session,
+            acp::commands::acp_resume_session,
             acp::commands::acp_send_prompt,
             acp::commands::acp_cancel,
             acp::commands::acp_set_mode,
             acp::commands::acp_respond_permission,
             acp::commands::acp_get_current_session,
+            // ACP - Chat Database
+            acp::commands::acp_list_sessions,
+            acp::commands::acp_load_session,
+            acp::commands::acp_delete_session,
+            acp::commands::acp_update_session_name,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -1,8 +1,8 @@
 /**
- * Mode Selector - Compact dropdown for selecting agent modes
+ * Model Selector - Compact dropdown for selecting AI model
  *
- * Uses dynamic modes from ACP session capabilities when available,
- * falls back to hardcoded Plan/Agent/Ask modes otherwise.
+ * Shows available models from ACP session capabilities.
+ * Only visible when models are available from the ACP backend.
  */
 
 import { useMemo, useState, useRef, useEffect } from "react";
@@ -10,25 +10,19 @@ import { ChevronDown } from "lucide-react";
 import { useAgentStore } from "../../stores/agent";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
-import type { AgentMode, AcpSessionMode } from "../../types/acp";
-import { AgentModeLabels, AgentModeDescriptions } from "../../types/acp";
+import type { AcpSessionModel } from "../../types/acp";
 
-// Fallback modes when ACP capabilities aren't available
-const FALLBACK_MODES: AgentMode[] = ["plan", "agent", "ask"];
-
-export function ModeSelector() {
+export function ModelSelector() {
   const { effectiveTheme } = useIdeSettingsContext();
   const isDark = effectiveTheme === "dark";
 
-  const mode = useAgentStore((s) => s.mode);
-  const setMode = useAgentStore((s) => s.setMode);
   const status = useAgentStore((s) => s.status);
   const sessionCapabilities = useAgentStore((s) => s.sessionCapabilities);
 
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Disable mode changes while prompting
+  // Disable model changes while prompting
   const isDisabled = status === "prompting";
 
   // Close dropdown when clicking outside
@@ -44,35 +38,25 @@ export function ModeSelector() {
     }
   }, [isOpen]);
 
-  // Use dynamic modes from capabilities, or fallback to hardcoded modes
-  const modes = useMemo(() => {
-    if (sessionCapabilities?.availableModes?.length) {
-      return sessionCapabilities.availableModes;
-    }
-    // Convert fallback modes to AcpSessionMode format
-    return FALLBACK_MODES.map((m) => ({
-      id: m,
-      name: AgentModeLabels[m],
-      description: AgentModeDescriptions[m],
-    }));
-  }, [sessionCapabilities?.availableModes]);
+  // Get available models from capabilities
+  const models = useMemo(() => {
+    return sessionCapabilities?.availableModels || [];
+  }, [sessionCapabilities?.availableModels]);
 
-  // Get current mode ID (may be from ACP or our local state)
-  const currentModeId = sessionCapabilities?.currentModeId || mode;
-  const currentMode = modes.find((m) => m.id === currentModeId) || modes[0];
+  // Get current model ID
+  const currentModelId = sessionCapabilities?.currentModelId || "default";
+  const currentModel = models.find((m) => m.modelId === currentModelId) || models[0];
 
-  const handleModeChange = (modeId: string) => {
+  // Don't render if no models available
+  if (!models.length) {
+    return null;
+  }
+
+  const handleModelChange = (modelId: string) => {
     if (isDisabled) return;
     setIsOpen(false);
-    // If it's a known AgentMode, use setMode directly
-    // Otherwise, we'll need to call the ACP setMode command
-    if (modeId === "plan" || modeId === "agent" || modeId === "ask") {
-      setMode(modeId as AgentMode);
-    } else {
-      // For dynamic ACP modes, we'll need to call ACP setMode
-      // For now, just set it locally (will be handled by ChatPanel/useAcpEvents)
-      setMode(modeId as AgentMode);
-    }
+    // TODO: Call ACP setModel command when available
+    console.log("Model selection not yet implemented:", modelId);
   };
 
   return (
@@ -88,25 +72,25 @@ export function ModeSelector() {
             : "text-neutral-500 hover:text-neutral-700"
         )}
       >
-        <span className="font-medium">{currentMode?.name || "Default"}</span>
+        <span className="font-medium">{currentModel?.name || "Default"}</span>
         <ChevronDown className="w-3 h-3" />
       </button>
 
       {isOpen && (
         <div
           className={cn(
-            "absolute bottom-full left-0 mb-1 min-w-24 rounded shadow-lg border z-50 py-1",
+            "absolute bottom-full right-0 mb-1 min-w-24 rounded shadow-lg border z-50 py-1",
             isDark
               ? "bg-neutral-800 border-white/10"
               : "bg-white border-black/10"
           )}
         >
-          {modes.map((m: AcpSessionMode) => {
-            const isActive = currentModeId === m.id;
+          {models.map((m: AcpSessionModel) => {
+            const isActive = currentModelId === m.modelId;
             return (
               <button
-                key={m.id}
-                onClick={() => handleModeChange(m.id)}
+                key={m.modelId}
+                onClick={() => handleModelChange(m.modelId)}
                 title={m.description || m.name}
                 className={cn(
                   "w-full px-2 py-1 text-xs text-left transition-colors",
