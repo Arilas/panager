@@ -15,10 +15,29 @@ import * as typescriptContribution from "monaco-editor/esm/vs/language/typescrip
  */
 export function configureTypeScript(_monaco: Monaco): void {
   // Disable TypeScript validation (we use backend LSP for diagnostics)
-  // @ts-expect-error For some reason, the javascriptDefaults property is not available on the typescriptContribution module.
+  // @ts-expect-error For some reason, the typescriptDefaults property is not available on the typescriptContribution module.
   typescriptContribution.typescriptDefaults.setDiagnosticsOptions({
     noSemanticValidation: true,
     noSyntaxValidation: true,
+  });
+
+  // Disable Monaco's built-in TypeScript language features (hover, completions, etc.)
+  // We use our own LSP backend for these features
+  // @ts-expect-error For some reason, the typescriptDefaults property is not available on the typescriptContribution module.
+  typescriptContribution.typescriptDefaults.setModeConfiguration({
+    completionItems: false,
+    hovers: false,
+    documentSymbols: false,
+    definitions: false,
+    references: false,
+    documentHighlights: false,
+    rename: false,
+    diagnostics: false,
+    documentRangeFormattingEdits: false,
+    signatureHelp: false,
+    onTypeFormattingEdits: false,
+    codeActions: false,
+    inlayHints: false,
   });
 
   // Disable JavaScript validation
@@ -28,5 +47,23 @@ export function configureTypeScript(_monaco: Monaco): void {
     noSyntaxValidation: true,
   });
 
-  console.log("[Monaco] Configured TypeScript/JavaScript support with JSX");
+  // Disable Monaco's built-in JavaScript language features
+  // @ts-expect-error For some reason, the javascriptDefaults property is not available on the typescriptContribution module.
+  typescriptContribution.javascriptDefaults.setModeConfiguration({
+    completionItems: false,
+    hovers: false,
+    documentSymbols: false,
+    definitions: false,
+    references: false,
+    documentHighlights: false,
+    rename: false,
+    diagnostics: false,
+    documentRangeFormattingEdits: false,
+    signatureHelp: false,
+    onTypeFormattingEdits: false,
+    codeActions: false,
+    inlayHints: false,
+  });
+
+  console.log("[Monaco] Configured TypeScript/JavaScript support - using backend LSP");
 }

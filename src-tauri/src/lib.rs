@@ -193,6 +193,7 @@ pub fn run() {
             ide::commands::ide_lsp_rename,
             ide::commands::ide_lsp_code_action,
             ide::commands::ide_lsp_document_symbols,
+            ide::commands::ide_lsp_inlay_hints,
             // IDE - Git commands (extended)
             ide::commands::ide_git_commit,
             ide::commands::ide_git_get_staged_summary,

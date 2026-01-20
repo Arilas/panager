@@ -4,7 +4,7 @@
  * Monaco editor configuration: fonts, indentation, display options.
  */
 
-import { Type, AlignLeft, Hash, Map, Eye } from "lucide-react";
+import { Type, AlignLeft, Hash, Map, Eye, Sparkles } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useIdeSettingsStore, useDialogEditorSettings } from "../../stores/settings";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
@@ -290,6 +290,87 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
             checked={editorSettings.scrollBeyondLastLine}
             onChange={(v) => handleUpdate("scrollBeyondLastLine", v)}
           />
+        </div>
+      </SettingSection>
+
+      {/* Inlay Hints */}
+      <SettingSection
+        title="Inlay Hints"
+        description="Configure inline hints for types and parameter names."
+        icon={<Sparkles className="w-4 h-4" />}
+      >
+        <div className="space-y-3">
+          <ToggleSetting
+            label="Enable Inlay Hints"
+            description="Show inline hints for type information and parameter names."
+            checked={editorSettings.inlayHints.enabled}
+            onChange={(v) => handleUpdate("inlayHints.enabled", v)}
+          />
+          {editorSettings.inlayHints.enabled && (
+            <>
+              <div className="flex items-center gap-3">
+                <label
+                  className={cn(
+                    "text-sm w-36",
+                    isDark ? "text-neutral-300" : "text-neutral-600"
+                  )}
+                >
+                  Parameter Names
+                </label>
+                <SelectInput
+                  value={editorSettings.inlayHints.parameterNames}
+                  onChange={(v) => handleUpdate("inlayHints.parameterNames", v)}
+                  options={[
+                    { value: "none", label: "None" },
+                    { value: "literals", label: "Literals Only" },
+                    { value: "all", label: "All" },
+                  ]}
+                />
+              </div>
+
+              <ToggleSetting
+                label="Suppress When Name Matches"
+                description="Hide parameter hints when argument name matches parameter name."
+                checked={editorSettings.inlayHints.parameterNamesWhenArgumentMatchesName}
+                onChange={(v) => handleUpdate("inlayHints.parameterNamesWhenArgumentMatchesName", v)}
+              />
+
+              <ToggleSetting
+                label="Parameter Types"
+                description="Show type hints for function parameters."
+                checked={editorSettings.inlayHints.parameterTypes}
+                onChange={(v) => handleUpdate("inlayHints.parameterTypes", v)}
+              />
+
+              <ToggleSetting
+                label="Variable Types"
+                description="Show type hints for variable declarations."
+                checked={editorSettings.inlayHints.variableTypes}
+                onChange={(v) => handleUpdate("inlayHints.variableTypes", v)}
+              />
+
+              <ToggleSetting
+                label="Property Declaration Types"
+                description="Show type hints for class property declarations."
+                checked={editorSettings.inlayHints.propertyDeclarationTypes}
+                onChange={(v) => handleUpdate("inlayHints.propertyDeclarationTypes", v)}
+              />
+
+              <ToggleSetting
+                label="Function Return Types"
+                description="Show return type hints for functions."
+                checked={editorSettings.inlayHints.functionReturnTypes}
+                onChange={(v) => handleUpdate("inlayHints.functionReturnTypes", v)}
+              />
+
+              <ToggleSetting
+                label="Enum Member Values"
+                description="Show values for enum members."
+                checked={editorSettings.inlayHints.enumMemberValues}
+                onChange={(v) => handleUpdate("inlayHints.enumMemberValues", v)}
+              />
+            </>
+          )}
         </div>
       </SettingSection>
 

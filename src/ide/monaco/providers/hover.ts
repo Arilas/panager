@@ -22,11 +22,14 @@ export function registerHoverProvider(
       _token: CancellationToken
     ) {
       try {
+        console.log("[LSP] hover request:", model.uri.path, position.lineNumber - 1, position.column - 1);
         const hover = await lspApi.lspHover(
           model.uri.path,
           position.lineNumber - 1,
           position.column - 1
         );
+
+        console.log("[LSP] hover response:", hover);
 
         if (!hover) return null;
 

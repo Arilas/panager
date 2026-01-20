@@ -87,6 +87,29 @@ export interface PaddingSettings {
   bottom: number;
 }
 
+/** Parameter name hints display mode */
+export type ParameterNameHints = "none" | "literals" | "all";
+
+/** Inlay hints settings */
+export interface InlayHintsSettings {
+  /** Master toggle for all inlay hints */
+  enabled: boolean;
+  /** When to show parameter name hints */
+  parameterNames: ParameterNameHints;
+  /** Suppress parameter hints when argument matches the parameter name */
+  parameterNamesWhenArgumentMatchesName: boolean;
+  /** Show type hints for parameters */
+  parameterTypes: boolean;
+  /** Show type hints for variable declarations */
+  variableTypes: boolean;
+  /** Show type hints for property declarations */
+  propertyDeclarationTypes: boolean;
+  /** Show return type hints for functions */
+  functionReturnTypes: boolean;
+  /** Show values for enum members */
+  enumMemberValues: boolean;
+}
+
 export interface EditorSettings {
   /** Font size in pixels */
   fontSize: number;
@@ -110,6 +133,8 @@ export interface EditorSettings {
   bracketPairColorization: BracketPairColorizationSettings;
   /** Editor guides */
   guides: GuidesSettings;
+  /** Inlay hints settings */
+  inlayHints: InlayHintsSettings;
   /** Cursor blinking style */
   cursorBlinking: CursorBlinking;
   /** Cursor style */
@@ -326,6 +351,16 @@ export const DEFAULT_IDE_SETTINGS: IdeSettings = {
     renderWhitespace: "selection",
     bracketPairColorization: { enabled: true },
     guides: { bracketPairs: "active", indentation: true },
+    inlayHints: {
+      enabled: true,
+      parameterNames: "literals",
+      parameterNamesWhenArgumentMatchesName: false,
+      parameterTypes: false,
+      variableTypes: false,
+      propertyDeclarationTypes: false,
+      functionReturnTypes: true,
+      enumMemberValues: true,
+    },
     cursorBlinking: "smooth",
     cursorStyle: "line",
     cursorSmoothCaretAnimation: "on",

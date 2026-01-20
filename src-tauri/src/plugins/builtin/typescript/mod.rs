@@ -15,8 +15,9 @@ use tracing::{debug, info, warn};
 
 use crate::plugins::context::PluginContext;
 use crate::plugins::types::{
-    HostEvent, LspCodeAction, LspCompletionList, LspDocumentSymbol, LspHover, LspLocation,
-    LspProvider, LspWorkspaceEdit, Plugin, PluginManifest, StatusBarAlignment, StatusBarItem,
+    HostEvent, LspCodeAction, LspCompletionList, LspDocumentSymbol, LspHover, LspInlayHint,
+    LspLocation, LspProvider, LspWorkspaceEdit, Plugin, PluginManifest, StatusBarAlignment,
+    StatusBarItem,
 };
 
 use lsp::LspClient;
@@ -377,5 +378,19 @@ impl LspProvider for TypeScriptPlugin {
         let result = lsp.document_symbols(path).await;
         debug!("document_symbols result: {:?} symbols", result.as_ref().map(|v| v.len()));
         result
+    }
+
+    async fn inlay_hints(
+        &self,
+        path: &PathBuf,
+        start_line: u32,
+        start_character: u32,
+        end_line: u32,
+        end_character: u32,
+    ) -> Result<Vec<LspInlayHint>, String> {
+        let lsp = self.lsp.read().await;
+        let lsp = lsp.as_ref().ok_or("LSP not running")?;
+        lsp.inlay_hints(path, start_line, start_character, end_line, end_character)
+            .await
     }
 }

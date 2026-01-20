@@ -13,6 +13,7 @@ import { registerReferencesProvider } from "./references";
 import { registerRenameProvider } from "./rename";
 import { registerCodeActionProvider } from "./codeAction";
 import { registerCodeLensProvider } from "./codeLens";
+import { registerInlayHintsProvider } from "./inlayHints";
 
 // Languages that use the backend LSP
 // Include both Monaco IDs (typescriptreact/javascriptreact) and Shiki IDs (tsx/jsx)
@@ -59,6 +60,9 @@ export function registerAllProviders(monaco: Monaco): void {
 
     // Code action provider (lightbulb/quick fixes)
     disposables.push(registerCodeActionProvider(monaco, languageId));
+
+    // Inlay hints provider (inline type/parameter hints)
+    disposables.push(registerInlayHintsProvider(monaco, languageId));
   }
 
   // CodeLens provider (blame above functions) - registered once for all languages

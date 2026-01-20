@@ -346,6 +346,7 @@ import type {
   LspWorkspaceEdit,
   LspCodeAction,
   LspDocumentSymbol,
+  LspInlayHint,
 } from "../types/lsp";
 
 export async function lspGotoDefinition(
@@ -423,6 +424,22 @@ export async function lspDocumentSymbols(
   filePath: string
 ): Promise<LspDocumentSymbol[]> {
   return invoke("ide_lsp_document_symbols", { filePath });
+}
+
+export async function lspInlayHints(
+  filePath: string,
+  startLine: number,
+  startCharacter: number,
+  endLine: number,
+  endCharacter: number
+): Promise<LspInlayHint[]> {
+  return invoke("ide_lsp_inlay_hints", {
+    filePath,
+    startLine,
+    startCharacter,
+    endLine,
+    endCharacter,
+  });
 }
 
 // Settings operations

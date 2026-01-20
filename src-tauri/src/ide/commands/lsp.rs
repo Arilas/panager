@@ -9,7 +9,8 @@ use tauri::State;
 
 use crate::plugins::host::PluginHost;
 use crate::plugins::types::{
-    LspCodeAction, LspCompletionList, LspDocumentSymbol, LspHover, LspLocation, LspWorkspaceEdit,
+    LspCodeAction, LspCompletionList, LspDocumentSymbol, LspHover, LspInlayHint, LspLocation,
+    LspWorkspaceEdit,
 };
 
 /// Get language ID from file path
@@ -134,4 +135,20 @@ pub async fn ide_lsp_document_symbols(
     let language = get_language_from_path(&file_path);
     let path = PathBuf::from(&file_path);
     host.lsp_document_symbols(&language, &path).await
+}
+
+/// Get inlay hints for a range
+#[tauri::command]
+pub async fn ide_lsp_inlay_hints(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    start_line: u32,
+    start_character: u32,
+    end_line: u32,
+    end_character: u32,
+) -> Result<Vec<LspInlayHint>, String> {
+    let language = get_language_from_path(&file_path);
+    let path = PathBuf::from(&file_path);
+    host.lsp_inlay_hints(&language, &path, start_line, start_character, end_line, end_character)
+        .await
 }

@@ -17,8 +17,8 @@ use serde::de::DeserializeOwned;
 use crate::plugins::context::PluginContext;
 use crate::plugins::types::{
     Diagnostic, DiagnosticSeverity, LspCodeAction, LspCompletionItem, LspCompletionList,
-    LspDocumentSymbol, LspHover, LspLocation, LspMarkupContent, LspPosition, LspRange,
-    LspTextEdit, LspWorkspaceEdit,
+    LspDocumentSymbol, LspHover, LspInlayHint, LspInlayHintKind, LspLocation, LspMarkupContent,
+    LspPosition, LspRange, LspTextEdit, LspWorkspaceEdit,
 };
 
 /// LSP message ID counter
@@ -104,6 +104,7 @@ impl LspClient {
         let ctx_clone = ctx.clone();
         let root_clone = root.clone();
         let pending_clone = pending_requests.clone();
+        let stdin_tx_clone = stdin_tx.clone();
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout);
             let mut header_buf = String::new();
@@ -154,7 +155,16 @@ impl LspClient {
 
                 // Parse JSON
                 if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&content) {
-                    Self::handle_message(&ctx_clone, &root_clone, &pending_clone, json).await;
+                    // Log all incoming messages for debugging
+                    if let Some(method) = json.get("method").and_then(|m| m.as_str()) {
+                        debug!("LSP incoming notification: {}", method);
+                    } else if let Some(id) = json.get("id") {
+                        debug!("LSP incoming response for id: {:?}, has_result: {}, has_error: {}",
+                            id, json.get("result").is_some(), json.get("error").is_some());
+                    }
+                    Self::handle_message(&ctx_clone, &root_clone, &pending_clone, json, &stdin_tx_clone).await;
+                } else {
+                    warn!("LSP failed to parse JSON response");
                 }
             }
         });
@@ -192,84 +202,194 @@ impl LspClient {
         Ok(client)
     }
 
-    /// Send initialize request
+    /// Send initialize request and wait for response
     async fn initialize(&self) {
         let root_uri = format!("file://{}", self.root.display());
 
-        let msg = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": next_id(),
-            "method": "initialize",
-            "params": {
-                "processId": std::process::id(),
-                "rootUri": root_uri,
-                "capabilities": {
-                    "textDocument": {
-                        "publishDiagnostics": {
-                            "relatedInformation": true,
-                            "codeDescriptionSupport": true
-                        },
-                        "synchronization": {
-                            "didSave": true,
-                            "willSave": false,
-                            "willSaveWaitUntil": false
-                        },
-                        "documentSymbol": {
-                            "hierarchicalDocumentSymbolSupport": true,
-                            "symbolKind": {
-                                "valueSet": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
-                            }
-                        },
-                        "hover": {
-                            "contentFormat": ["markdown", "plaintext"]
-                        },
-                        "completion": {
-                            "completionItem": {
-                                "snippetSupport": true,
-                                "documentationFormat": ["markdown", "plaintext"]
-                            }
-                        },
-                        "definition": {
-                            "linkSupport": true
-                        },
-                        "references": {},
-                        "rename": {
-                            "prepareSupport": true
-                        },
-                        "codeAction": {
-                            "codeActionLiteralSupport": {
-                                "codeActionKind": {
-                                    "valueSet": ["quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports"]
-                                }
-                            }
+        let params = serde_json::json!({
+            "processId": std::process::id(),
+            "rootUri": root_uri,
+            "capabilities": {
+                "textDocument": {
+                    "publishDiagnostics": {
+                        "relatedInformation": true,
+                        "codeDescriptionSupport": true
+                    },
+                    "synchronization": {
+                        "didSave": true,
+                        "willSave": false,
+                        "willSaveWaitUntil": false
+                    },
+                    "documentSymbol": {
+                        "hierarchicalDocumentSymbolSupport": true,
+                        "symbolKind": {
+                            "valueSet": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
                         }
                     },
-                    "workspace": {
-                        "workspaceFolders": true
+                    "hover": {
+                        "contentFormat": ["markdown", "plaintext"]
+                    },
+                    "completion": {
+                        "completionItem": {
+                            "snippetSupport": true,
+                            "documentationFormat": ["markdown", "plaintext"]
+                        }
+                    },
+                    "definition": {
+                        "linkSupport": true
+                    },
+                    "references": {},
+                    "rename": {
+                        "prepareSupport": true
+                    },
+                    "codeAction": {
+                        "codeActionLiteralSupport": {
+                            "codeActionKind": {
+                                "valueSet": ["quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports"]
+                            }
+                        }
                     }
                 },
-                "workspaceFolders": [{
-                    "uri": root_uri,
-                    "name": self.root.file_name()
-                        .map(|n| n.to_string_lossy().to_string())
-                        .unwrap_or_else(|| "workspace".to_string())
-                }]
+                "workspace": {
+                    "workspaceFolders": true,
+                    "configuration": true,
+                    "didChangeConfiguration": {
+                        "dynamicRegistration": true
+                    }
+                }
+            },
+            "workspaceFolders": [{
+                "uri": root_uri,
+                "name": self.root.file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "workspace".to_string())
+            }],
+            "initializationOptions": {
+                "hostInfo": "Panager IDE",
+                "tsserver": {
+                    "useSyntaxServer": "auto",
+                    "logVerbosity": "off"
+                },
+                "preferences": {
+                    "importModuleSpecifierPreference": "shortest",
+                    "includePackageJsonAutoImports": "auto",
+                    "allowIncompleteCompletions": true,
+                    "includeCompletionsForModuleExports": true
+                },
+                "disableAutomaticTypingAcquisition": false
             }
         });
 
-        self.send(msg);
+        // Send initialize request and wait for response (with longer timeout for cold start)
+        let result: Result<serde_json::Value, String> = self
+            .request_with_timeout("initialize", params, Duration::from_secs(30))
+            .await;
 
-        // Send initialized notification after a short delay
-        let stdin_tx = self.stdin_tx.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-            let msg = serde_json::json!({
-                "jsonrpc": "2.0",
-                "method": "initialized",
-                "params": {}
-            });
-            let _ = stdin_tx.send(msg.to_string());
+        match result {
+            Ok(capabilities) => {
+                info!("LSP initialized successfully, capabilities: {:?}",
+                    capabilities.get("capabilities").map(|c| c.to_string().chars().take(200).collect::<String>()));
+            }
+            Err(e) => {
+                error!("LSP initialize failed: {}", e);
+                return;
+            }
+        }
+
+        // NOW send initialized notification (after receiving initialize response)
+        let initialized_msg = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "initialized",
+            "params": {}
         });
+        self.send(initialized_msg);
+        debug!("Sent initialized notification");
+
+        // Send workspace configuration with balanced defaults for inlay hints
+        // Note: Settings are loaded at LSP startup. Changing settings requires project restart.
+        let config_msg = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeConfiguration",
+            "params": {
+                "settings": {
+                    "typescript": {
+                        "inlayHints": {
+                            "includeInlayParameterNameHints": "literals",
+                            "includeInlayParameterNameHintsWhenArgumentMatchesName": false,
+                            "includeInlayFunctionParameterTypeHints": false,
+                            "includeInlayVariableTypeHints": false,
+                            "includeInlayPropertyDeclarationTypeHints": false,
+                            "includeInlayFunctionLikeReturnTypeHints": true,
+                            "includeInlayEnumMemberValueHints": true
+                        },
+                        "preferences": {
+                            "importModuleSpecifierPreference": "shortest",
+                            "includePackageJsonAutoImports": "auto"
+                        },
+                        "tsserver": {
+                            "enableProjectDiagnostics": true
+                        }
+                    },
+                    "javascript": {
+                        "inlayHints": {
+                            "includeInlayParameterNameHints": "literals",
+                            "includeInlayParameterNameHintsWhenArgumentMatchesName": false,
+                            "includeInlayFunctionParameterTypeHints": false,
+                            "includeInlayVariableTypeHints": false,
+                            "includeInlayPropertyDeclarationTypeHints": false,
+                            "includeInlayFunctionLikeReturnTypeHints": true,
+                            "includeInlayEnumMemberValueHints": true
+                        },
+                        "preferences": {
+                            "importModuleSpecifierPreference": "shortest",
+                            "includePackageJsonAutoImports": "auto"
+                        }
+                    }
+                }
+            }
+        });
+        self.send(config_msg);
+        debug!("Sent workspace configuration");
+    }
+
+    /// Send a request with a custom timeout
+    async fn request_with_timeout<T: DeserializeOwned>(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+        timeout: Duration,
+    ) -> Result<T, String> {
+        let id = next_id();
+        let (tx, rx) = oneshot::channel();
+
+        // Register pending request
+        self.pending_requests.write().await.insert(id, tx);
+
+        debug!("LSP request id={} method={}", id, method);
+
+        // Send request
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": method,
+            "params": params
+        });
+        self.send(request);
+
+        // Wait for response with custom timeout
+        let response = tokio::time::timeout(timeout, rx)
+            .await
+            .map_err(|_| format!("LSP request '{}' timed out after {:?}", method, timeout))?
+            .map_err(|_| "LSP response channel closed".to_string())?;
+
+        // Handle null response (error case)
+        if response.is_null() {
+            return Err(format!("LSP request '{}' returned error", method));
+        }
+
+        // Parse result
+        serde_json::from_value(response)
+            .map_err(|e| format!("Failed to parse LSP response for '{}': {}", method, e))
     }
 
     /// Handle incoming LSP message
@@ -278,20 +398,106 @@ impl LspClient {
         _root: &PathBuf,
         pending: &Arc<RwLock<HashMap<u64, oneshot::Sender<serde_json::Value>>>>,
         msg: serde_json::Value,
+        stdin_tx: &mpsc::UnboundedSender<String>,
     ) {
-        // Check if this is a response to a request (has "id" and "result" or "error")
-        if let Some(id) = msg.get("id").and_then(|id| id.as_u64()) {
-            // This is a response
-            if let Some(sender) = pending.write().await.remove(&id) {
-                if let Some(result) = msg.get("result") {
-                    let _ = sender.send(result.clone());
-                } else if let Some(error) = msg.get("error") {
-                    warn!("LSP error response for id {}: {:?}", id, error);
-                    // Send null to indicate error
-                    let _ = sender.send(serde_json::Value::Null);
+        // Check if this is a request FROM the server (has "id" and "method")
+        if let (Some(id), Some(method)) = (msg.get("id"), msg.get("method").and_then(|m| m.as_str())) {
+            debug!("LSP server request: method={}, id={:?}", method, id);
+
+            // Handle workspace/configuration request - server asking for config
+            if method == "workspace/configuration" {
+                let items = msg.get("params")
+                    .and_then(|p| p.get("items"))
+                    .and_then(|i| i.as_array())
+                    .map(|arr| arr.len())
+                    .unwrap_or(0);
+
+                // Respond with configuration for each requested item
+                // The server expects an array of config objects, one per item requested
+                // Using balanced defaults for inlay hints
+                let config_response: Vec<serde_json::Value> = (0..items)
+                    .map(|_| {
+                        serde_json::json!({
+                            "inlayHints": {
+                                "includeInlayParameterNameHints": "literals",
+                                "includeInlayParameterNameHintsWhenArgumentMatchesName": false,
+                                "includeInlayFunctionParameterTypeHints": false,
+                                "includeInlayVariableTypeHints": false,
+                                "includeInlayPropertyDeclarationTypeHints": false,
+                                "includeInlayFunctionLikeReturnTypeHints": true,
+                                "includeInlayEnumMemberValueHints": true
+                            },
+                            "preferences": {
+                                "importModuleSpecifierPreference": "shortest",
+                                "includePackageJsonAutoImports": "auto"
+                            }
+                        })
+                    })
+                    .collect();
+
+                let response = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": config_response
+                });
+
+                debug!("LSP responding to workspace/configuration with {} items", items);
+                let _ = stdin_tx.send(response.to_string());
+                return;
+            }
+
+            // Handle other server requests we don't support - respond with null
+            if method == "window/workDoneProgress/create" {
+                let response = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": null
+                });
+                let _ = stdin_tx.send(response.to_string());
+                return;
+            }
+
+            // Unknown server request - log it
+            debug!("LSP unhandled server request: {}", method);
+            return;
+        }
+
+        // Check if this is a response to a request (has "id" and "result" or "error", but no "method")
+        if let Some(id_value) = msg.get("id") {
+            if msg.get("method").is_none() {
+                // Parse ID - could be number or string
+                let id: Option<u64> = if let Some(n) = id_value.as_u64() {
+                    Some(n)
+                } else if let Some(n) = id_value.as_i64() {
+                    Some(n as u64)
+                } else if let Some(s) = id_value.as_str() {
+                    s.parse().ok()
+                } else {
+                    None
+                };
+
+                if let Some(id) = id {
+                    // This is a response
+                    let has_result = msg.get("result").is_some();
+                    let has_error = msg.get("error").is_some();
+
+                    if has_result || has_error {
+                        if let Some(sender) = pending.write().await.remove(&id) {
+                            if let Some(result) = msg.get("result") {
+                                debug!("LSP response received for id {}", id);
+                                let _ = sender.send(result.clone());
+                            } else if let Some(error) = msg.get("error") {
+                                warn!("LSP error response for id {}: {:?}", id, error);
+                                // Send null to indicate error
+                                let _ = sender.send(serde_json::Value::Null);
+                            }
+                        } else {
+                            debug!("LSP response for unknown id {}: has_result={}, has_error={}", id, has_result, has_error);
+                        }
+                        return;
+                    }
                 }
             }
-            return;
         }
 
         // Check for diagnostics notification
@@ -409,6 +615,8 @@ impl LspClient {
         // Register pending request
         self.pending_requests.write().await.insert(id, tx);
 
+        debug!("LSP request id={} method={}", id, method);
+
         // Send request
         let request = serde_json::json!({
             "jsonrpc": "2.0",
@@ -480,11 +688,16 @@ impl LspClient {
             )
             .await?;
 
+        debug!("LSP hover raw result: {}", result.to_string().chars().take(500).collect::<String>());
+
         if result.is_null() {
+            debug!("LSP hover result is null");
             return Ok(None);
         }
 
-        Self::parse_hover(result)
+        let parsed = Self::parse_hover(result);
+        debug!("LSP hover parsed result: {:?}", parsed.as_ref().map(|r| r.as_ref().map(|h| h.contents.value.chars().take(100).collect::<String>())));
+        parsed
     }
 
     /// Get completions
@@ -608,6 +821,33 @@ impl LspClient {
             .await?;
 
         Self::parse_document_symbols(result)
+    }
+
+    /// Get inlay hints for a range
+    pub async fn inlay_hints(
+        &self,
+        path: &PathBuf,
+        start_line: u32,
+        start_character: u32,
+        end_line: u32,
+        end_character: u32,
+    ) -> Result<Vec<LspInlayHint>, String> {
+        let uri = format!("file://{}", path.display());
+
+        let result: serde_json::Value = self
+            .request(
+                "textDocument/inlayHint",
+                serde_json::json!({
+                    "textDocument": { "uri": uri },
+                    "range": {
+                        "start": { "line": start_line, "character": start_character },
+                        "end": { "line": end_line, "character": end_character }
+                    }
+                }),
+            )
+            .await?;
+
+        Self::parse_inlay_hints(result)
     }
 
     // =========================================================================
@@ -940,6 +1180,56 @@ impl LspClient {
         })
     }
 
+    fn parse_inlay_hints(value: serde_json::Value) -> Result<Vec<LspInlayHint>, String> {
+        if value.is_null() {
+            return Ok(vec![]);
+        }
+
+        let arr = value.as_array().ok_or("Expected array of inlay hints")?;
+
+        let hints: Vec<LspInlayHint> = arr
+            .iter()
+            .filter_map(|item| Self::parse_inlay_hint(item))
+            .collect();
+
+        Ok(hints)
+    }
+
+    fn parse_inlay_hint(value: &serde_json::Value) -> Option<LspInlayHint> {
+        let position = Self::parse_position(value.get("position")?)?;
+
+        // Label can be a string or an array of InlayHintLabelPart
+        let label = if let Some(s) = value.get("label").and_then(|l| l.as_str()) {
+            s.to_string()
+        } else if let Some(arr) = value.get("label").and_then(|l| l.as_array()) {
+            // Concatenate all label parts
+            arr.iter()
+                .filter_map(|part| part.get("value").and_then(|v| v.as_str()))
+                .collect::<Vec<_>>()
+                .join("")
+        } else {
+            return None;
+        };
+
+        // Kind: 1 = Type, 2 = Parameter
+        let kind = value.get("kind").and_then(|k| k.as_u64()).map(|k| match k {
+            1 => LspInlayHintKind::Type,
+            2 => LspInlayHintKind::Parameter,
+            _ => LspInlayHintKind::Type,
+        });
+
+        let padding_left = value.get("paddingLeft").and_then(|p| p.as_bool());
+        let padding_right = value.get("paddingRight").and_then(|p| p.as_bool());
+
+        Some(LspInlayHint {
+            position,
+            label,
+            kind,
+            padding_left,
+            padding_right,
+        })
+    }
+
     // =========================================================================
     // Document Notifications
     // =========================================================================
@@ -955,6 +1245,8 @@ impl LspClient {
             "javascript" => "javascript",
             _ => "typescript",
         };
+
+        debug!("LSP didOpen: uri={}, languageId={}, content_len={}", uri, language_id, content.len());
 
         // Store version
         self.doc_versions.write().await.insert(uri.clone(), 1);

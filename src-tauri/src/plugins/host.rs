@@ -16,8 +16,8 @@ use std::path::PathBuf;
 
 use super::context::PluginContext;
 use super::types::{
-    HostEvent, LspCodeAction, LspCompletionList, LspDocumentSymbol, LspHover, LspLocation,
-    LspWorkspaceEdit, Plugin, PluginEvent, PluginManifest, PluginState,
+    HostEvent, LspCodeAction, LspCompletionList, LspDocumentSymbol, LspHover, LspInlayHint,
+    LspLocation, LspWorkspaceEdit, Plugin, PluginEvent, PluginManifest, PluginState,
 };
 
 /// A registered plugin instance with its state
@@ -406,6 +406,24 @@ impl PluginHost {
         let provider = Self::find_lsp_provider_for_language(&plugins, language)
             .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
         provider.document_symbols(path).await
+    }
+
+    /// Get inlay hints
+    pub async fn lsp_inlay_hints(
+        &self,
+        language: &str,
+        path: &PathBuf,
+        start_line: u32,
+        start_character: u32,
+        end_line: u32,
+        end_character: u32,
+    ) -> Result<Vec<LspInlayHint>, String> {
+        let plugins = self.plugins.read().await;
+        let provider = Self::find_lsp_provider_for_language(&plugins, language)
+            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
+        provider
+            .inlay_hints(path, start_line, start_character, end_line, end_character)
+            .await
     }
 }
 

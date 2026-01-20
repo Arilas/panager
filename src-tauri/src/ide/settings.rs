@@ -142,6 +142,19 @@ pub enum MinimapSide {
     Right,
 }
 
+/// Parameter name hints display mode
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ParameterNameHints {
+    /// Never show parameter name hints
+    None,
+    /// Show hints only for literal arguments
+    #[default]
+    Literals,
+    /// Always show parameter name hints
+    All,
+}
+
 /// Agent mode for Claude Code interactions
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Default)]
 #[serde(rename_all = "lowercase")]
@@ -279,6 +292,43 @@ impl Default for PaddingSettings {
     }
 }
 
+/// Inlay hints settings (nested under editor)
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase", default)]
+pub struct InlayHintsSettings {
+    /// Master toggle for all inlay hints
+    pub enabled: bool,
+    /// When to show parameter name hints
+    pub parameter_names: ParameterNameHints,
+    /// Suppress parameter hints when argument matches the parameter name
+    pub parameter_names_when_argument_matches_name: bool,
+    /// Show type hints for parameters
+    pub parameter_types: bool,
+    /// Show type hints for variable declarations
+    pub variable_types: bool,
+    /// Show type hints for property declarations
+    pub property_declaration_types: bool,
+    /// Show return type hints for functions
+    pub function_return_types: bool,
+    /// Show values for enum members
+    pub enum_member_values: bool,
+}
+
+impl Default for InlayHintsSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            parameter_names: ParameterNameHints::Literals,
+            parameter_names_when_argument_matches_name: false,
+            parameter_types: false,
+            variable_types: false,
+            property_declaration_types: false,
+            function_return_types: true,
+            enum_member_values: true,
+        }
+    }
+}
+
 /// Editor settings
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]
@@ -297,6 +347,8 @@ pub struct EditorSettings {
     pub bracket_pair_colorization: BracketPairColorizationSettings,
     #[serde(default)]
     pub guides: GuidesSettings,
+    #[serde(default)]
+    pub inlay_hints: InlayHintsSettings,
     pub cursor_blinking: CursorBlinking,
     pub cursor_style: CursorStyle,
     pub cursor_smooth_caret_animation: CursorSmoothCaretAnimation,
@@ -322,6 +374,7 @@ impl Default for EditorSettings {
             render_whitespace: RenderWhitespace::Selection,
             bracket_pair_colorization: BracketPairColorizationSettings::default(),
             guides: GuidesSettings::default(),
+            inlay_hints: InlayHintsSettings::default(),
             cursor_blinking: CursorBlinking::Smooth,
             cursor_style: CursorStyle::Line,
             cursor_smooth_caret_animation: CursorSmoothCaretAnimation::On,

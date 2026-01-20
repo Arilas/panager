@@ -403,6 +403,35 @@ pub struct LspDocumentSymbol {
     pub children: Option<Vec<LspDocumentSymbol>>,
 }
 
+/// LSP Inlay Hint Kind (1=Type, 2=Parameter)
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum LspInlayHintKind {
+    /// Type hint (shows inferred type)
+    Type = 1,
+    /// Parameter hint (shows parameter name)
+    Parameter = 2,
+}
+
+/// LSP Inlay Hint - inline hints for type/parameter information
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LspInlayHint {
+    /// Position where the hint should be displayed
+    pub position: LspPosition,
+    /// Label text to display
+    pub label: String,
+    /// Kind of inlay hint (Type or Parameter)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<LspInlayHintKind>,
+    /// Add padding before the hint
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub padding_left: Option<bool>,
+    /// Add padding after the hint
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub padding_right: Option<bool>,
+}
+
 // ============================================================================
 // LSP Provider Trait
 // ============================================================================
@@ -466,4 +495,14 @@ pub trait LspProvider: Send + Sync {
 
     /// Get document symbols (functions, classes, etc.)
     async fn document_symbols(&self, path: &PathBuf) -> Result<Vec<LspDocumentSymbol>, String>;
+
+    /// Get inlay hints for a range
+    async fn inlay_hints(
+        &self,
+        path: &PathBuf,
+        start_line: u32,
+        start_character: u32,
+        end_line: u32,
+        end_character: u32,
+    ) -> Result<Vec<LspInlayHint>, String>;
 }

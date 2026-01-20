@@ -138,3 +138,25 @@ export interface LspDocumentSymbol {
   /** Children symbols (nested declarations) */
   children?: LspDocumentSymbol[];
 }
+
+/** Inlay hint kind constants (from LSP specification) */
+export const InlayHintKind = {
+  /** Type hint - shows inferred type */
+  Type: 1,
+  /** Parameter hint - shows parameter name */
+  Parameter: 2,
+} as const;
+
+/** LSP Inlay Hint - inline hints for type/parameter information */
+export interface LspInlayHint {
+  /** Position where the hint should be displayed */
+  position: LspPosition;
+  /** Label text to display */
+  label: string;
+  /** Kind of inlay hint (Type or Parameter) */
+  kind?: (typeof InlayHintKind)[keyof typeof InlayHintKind];
+  /** Add padding before the hint */
+  paddingLeft?: boolean;
+  /** Add padding after the hint */
+  paddingRight?: boolean;
+}
