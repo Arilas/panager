@@ -12,6 +12,7 @@ import { useGitStore } from "./stores/git";
 import { useIdeSettingsStore } from "./stores/settings";
 import { IdeSettingsProvider } from "./contexts/IdeSettingsContext";
 import { IdeLayout } from "./components/layout/IdeLayout";
+import { MonacoContextMenuProvider } from "./monaco/contextMenu";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { useFileWatcher } from "./hooks/useFileWatcher";
 import { usePersistedIdeState } from "./hooks/usePersistedIdeState";
@@ -158,7 +159,9 @@ export function GlideApp() {
 
   return (
     <IdeSettingsProvider>
-      <IdeLayout />
+      <MonacoContextMenuProvider>
+        <IdeLayout />
+      </MonacoContextMenuProvider>
     </IdeSettingsProvider>
   );
 }

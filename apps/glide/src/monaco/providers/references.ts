@@ -13,6 +13,7 @@ import type {
   languages,
 } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
+import { ensureModelsForUris } from "../fileContentProvider";
 
 /**
  * Register references provider for a language.
@@ -36,7 +37,8 @@ export function registerReferencesProvider(
           context.includeDeclaration
         );
 
-        return locations.map((loc) => ({
+        // Map to Monaco format
+        const monacoLocations = locations.map((loc) => ({
           uri: monaco.Uri.parse(loc.uri),
           range: {
             startLineNumber: loc.range.start.line + 1,
@@ -45,6 +47,11 @@ export function registerReferencesProvider(
             endColumn: loc.range.end.character + 1,
           },
         }));
+
+        // Pre-create models for all referenced files so peek widget can display them
+        await ensureModelsForUris(monacoLocations.map((loc) => loc.uri));
+
+        return monacoLocations;
       } catch (e) {
         console.error("[LSP] references error:", e);
         return [];

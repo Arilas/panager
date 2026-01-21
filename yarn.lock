@@ -2526,10 +2526,11 @@ __metadata:
     "@types/react-dom": "npm:^19.1.6"
     "@vitejs/plugin-react": "npm:^4.6.0"
     clsx: "npm:^2.1.1"
+    cmdk: "npm:^1.0.4"
     diff: "npm:^8.0.3"
     lucide-react: "npm:^0.468.0"
     markdown-it: "npm:^14.1.0"
-    monaco-editor: "npm:^0.55.1"
+    monaco-editor: "patch:monaco-editor@npm%3A0.55.1#~/.yarn/patches/monaco-editor-npm-0.55.1-b77bdd7053.patch"
     postcss: "npm:^8.4.49"
     react: "npm:^19.1.0"
     react-dom: "npm:^19.1.0"
@@ -3050,13 +3051,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"monaco-editor@npm:^0.55.1":
+"monaco-editor@npm:0.55.1":
   version: 0.55.1
   resolution: "monaco-editor@npm:0.55.1"
   dependencies:
     dompurify: "npm:3.2.7"
     marked: "npm:14.0.0"
   checksum: 10c0/c1a0cf887657b42c8996518bc5ee96bbd39c977f862d2a2b2018427c45f14b0dd25d1452278202056f6b1ead97981282ccacd7d7ad918d8f0ef084159f974a25
+  languageName: node
+  linkType: hard
+
+"monaco-editor@patch:monaco-editor@npm%3A0.55.1#~/.yarn/patches/monaco-editor-npm-0.55.1-b77bdd7053.patch":
+  version: 0.55.1
+  resolution: "monaco-editor@patch:monaco-editor@npm%3A0.55.1#~/.yarn/patches/monaco-editor-npm-0.55.1-b77bdd7053.patch::version=0.55.1&hash=46aced"
+  dependencies:
+    dompurify: "npm:3.2.7"
+    marked: "npm:14.0.0"
+  checksum: 10c0/8224fd40648d8fee100783a571e8be6239d76b1ca5a4865b5a3b7aca1c7871f01435e65c1e2828a8b836e1e4c5f5ef00b77d69e8394763fc0606e2cac860c69d
   languageName: node
   linkType: hard
 

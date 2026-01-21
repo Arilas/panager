@@ -51,7 +51,7 @@ export function MonacoEditor({
         updateContent(path, value);
       }
     },
-    [path, content, updateContent]
+    [path, content, updateContent],
   );
 
   // Show error state
@@ -60,7 +60,9 @@ export function MonacoEditor({
       <div
         className={cn(
           "h-full w-full flex flex-col items-center justify-center gap-4",
-          isDark ? "bg-neutral-900 text-neutral-300" : "bg-white text-neutral-600"
+          isDark
+            ? "bg-neutral-900 text-neutral-300"
+            : "bg-white text-neutral-600",
         )}
       >
         <div className="text-red-500">Failed to load editor</div>
@@ -70,7 +72,7 @@ export function MonacoEditor({
             "px-4 py-2 rounded text-sm",
             isDark
               ? "bg-neutral-700 hover:bg-neutral-600"
-              : "bg-neutral-200 hover:bg-neutral-300"
+              : "bg-neutral-200 hover:bg-neutral-300",
           )}
         >
           Reload
@@ -128,6 +130,8 @@ export function MonacoEditor({
             verticalScrollbarSize: 10,
             horizontalScrollbarSize: 10,
           },
+          // Disable shadow DOM so we can style widgets
+          useShadowDOM: false,
         }}
         loading={
           <div
@@ -135,7 +139,7 @@ export function MonacoEditor({
               "h-full w-full flex items-center justify-center",
               isDark
                 ? "bg-neutral-900 text-neutral-500"
-                : "bg-white text-neutral-400"
+                : "bg-white text-neutral-400",
             )}
           >
             {isLoading ? "Initializing editor..." : "Loading editor..."}

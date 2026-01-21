@@ -53,7 +53,7 @@ const SUPPORTED_LANGUAGES = new Set([
  */
 function flattenBlameableSymbols(
   symbols: LspDocumentSymbol[],
-  result: LspDocumentSymbol[] = []
+  result: LspDocumentSymbol[] = [],
 ): LspDocumentSymbol[] {
   for (const symbol of symbols) {
     if (BLAME_SYMBOL_KINDS.has(symbol.kind)) {
@@ -122,7 +122,10 @@ async function loadSymbols(filePath: string, language: string): Promise<void> {
 
   // Check if already loading or have symbols
   const fileState = store.getFileState(filePath);
-  if (fileState?.symbolsLoading || (fileState?.symbols && fileState.symbols.length > 0)) {
+  if (
+    fileState?.symbolsLoading ||
+    (fileState?.symbols && fileState.symbols.length > 0)
+  ) {
     return;
   }
 
@@ -137,7 +140,12 @@ async function loadSymbols(filePath: string, language: string): Promise<void> {
 
       if (flattened.length > 0 || attempt === maxRetries - 1) {
         store.setSymbols(filePath, flattened);
-        console.log("[useEditor] Loaded", flattened.length, "symbols for", filePath);
+        console.log(
+          "[useEditor] Loaded",
+          flattened.length,
+          "symbols for",
+          filePath,
+        );
         return;
       }
 
@@ -249,7 +257,14 @@ export function useEditor({ filePath, language }: UseEditorOptions) {
       // Focus the editor
       editorInstance.focus();
     },
-    [filePath, language, setActiveEditor, saveCursorPosition, saveScrollPosition, setCursorPosition]
+    [
+      filePath,
+      language,
+      setActiveEditor,
+      saveCursorPosition,
+      saveScrollPosition,
+      setCursorPosition,
+    ],
   );
 
   // Cleanup on unmount

@@ -10,14 +10,18 @@
 import { loader } from "@monaco-editor/react";
 import type { Monaco } from "@monaco-editor/react";
 import * as monacoEditor from "monaco-editor";
+// @ts-expect-error We made overrides to the standaloneServices module
+import * as StandaloneServices from "monaco-editor/esm/vs/editor/standalone/browser/standaloneServices.js";
 import { useEditorStore } from "../stores/editor";
 import { configureTypeScript } from "./typescript";
 import { initializeShiki } from "./themes";
 import { registerAllProviders } from "./providers";
 import { injectEditorStyles } from "./decorations";
 import { registerEditorOpener } from "./editorOpener";
+import { initFileContentProvider } from "./fileContentProvider";
 import { setupStoreSubscriptions } from "./subscriptions";
 import { setupDiagnosticsMarkers } from "./diagnosticsMarkers";
+import { getContextMenuServiceOverride } from "./contextMenu";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
@@ -42,6 +46,9 @@ export async function initializeMonaco(): Promise<Monaco> {
 async function doInitialize(): Promise<Monaco> {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
+      StandaloneServices.StandaloneServices.override(
+        getContextMenuServiceOverride(),
+      );
       useEditorStore.getState().setInitStatus("loading");
 
       console.log(`[Monaco] Initialization attempt ${attempt}/${MAX_RETRIES}`);
@@ -56,7 +63,6 @@ async function doInitialize(): Promise<Monaco> {
       console.log("[Monaco] Loading from CDN...");
       const monaco = await loader.init();
       console.log("[Monaco] Loaded from CDN");
-
       // Configure TypeScript/JavaScript
       configureTypeScript(monaco);
 
@@ -75,6 +81,9 @@ async function doInitialize(): Promise<Monaco> {
 
       // Register editor opener for file navigation
       registerEditorOpener(monaco);
+
+      // Initialize file content provider for peek widgets and references
+      initFileContentProvider(monaco);
 
       // Setup store subscriptions for provider/decoration updates
       setupStoreSubscriptions();

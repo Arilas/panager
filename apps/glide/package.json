@@ -30,7 +30,7 @@
     "diff": "^8.0.3",
     "lucide-react": "^0.468.0",
     "markdown-it": "^14.1.0",
-    "monaco-editor": "^0.55.1",
+    "monaco-editor": "patch:monaco-editor@npm%3A0.55.1#~/.yarn/patches/monaco-editor-npm-0.55.1-b77bdd7053.patch",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "shiki": "^3.21.0",

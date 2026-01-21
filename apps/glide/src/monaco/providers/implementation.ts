@@ -6,8 +6,14 @@
  */
 
 import type { Monaco } from "@monaco-editor/react";
-import type { editor, Position, CancellationToken, IDisposable } from "monaco-editor";
+import type {
+  editor,
+  Position,
+  CancellationToken,
+  IDisposable,
+} from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
+import { ensureModelsForUris } from "../fileContentProvider";
 
 /**
  * Register implementation provider for a language.
@@ -29,7 +35,8 @@ export function registerImplementationProvider(
           position.column - 1
         );
 
-        return locations.map((loc) => ({
+        // Map to Monaco format
+        const monacoLocations = locations.map((loc) => ({
           uri: monaco.Uri.parse(loc.uri),
           range: {
             startLineNumber: loc.range.start.line + 1,
@@ -38,6 +45,11 @@ export function registerImplementationProvider(
             endColumn: loc.range.end.character + 1,
           },
         }));
+
+        // Pre-create models for all referenced files so peek widget can display them
+        await ensureModelsForUris(monacoLocations.map((loc) => loc.uri));
+
+        return monacoLocations;
       } catch (e) {
         console.error("[LSP] implementation error:", e);
         return [];

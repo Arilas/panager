@@ -12,7 +12,6 @@ import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { mapMonacoToShikiLanguage } from "../../lib/languageMapping";
 import { getMonacoTheme } from "../../monaco/themes";
 
-
 interface DiffEditorProps {
   original: string;
   modified: string;
@@ -51,7 +50,7 @@ export function DiffEditor({
         });
       });
     },
-    [setCursorPosition]
+    [setCursorPosition],
   );
 
   return (

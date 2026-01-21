@@ -65,5 +65,7 @@ export function configureTypeScript(_monaco: Monaco): void {
     inlayHints: false,
   });
 
-  console.log("[Monaco] Configured TypeScript/JavaScript support - using backend LSP");
+  console.log(
+    "[Monaco] Configured TypeScript/JavaScript support - using backend LSP",
+  );
 }

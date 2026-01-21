@@ -1,9 +1,13 @@
 /**
- * CSS styles for Monaco editor decorations
+ * CSS styles for Monaco editor decorations and widgets
  *
  * Injects styles for:
  * - Git blame inline decorations
  * - Git gutter decorations (added/modified lines)
+ * - Hover widgets (liquid glass styling)
+ *
+ * Note: Context menus are handled by our custom React component
+ * (MonacoContextMenu) instead of Monaco's built-in menus.
  */
 
 let stylesInjected = false;
@@ -59,6 +63,25 @@ export function injectEditorStyles(): void {
 
     .git-blame-widget--committed {
       color: rgba(139, 148, 158, 0.7);
+    }
+
+    /* ========================================
+       Native Liquid Glass Support (macOS 26+)
+       For hover widgets only - context menus
+       are handled by our custom React component
+       ======================================== */
+
+    @supports (-apple-visual-effect: -apple-system-glass-material) {
+      /* Hover widget styling with native liquid glass */
+      html:not(.no-glass) .monaco-editor .monaco-hover {
+        background: transparent !important;
+        -apple-visual-effect: -apple-system-glass-material;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 8px !important;
+      }
     }
   `;
   document.head.appendChild(style);
