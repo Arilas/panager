@@ -46,6 +46,7 @@ export function QuickOpenDialog({ open, onOpenChange }: QuickOpenDialogProps) {
   const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
   const setShowGoToLine = useIdeStore((s) => s.setShowGoToLine);
   const setShowGoToSymbol = useIdeStore((s) => s.setShowGoToSymbol);
+  const setShowBranchSwitch = useIdeStore((s) => s.setShowBranchSwitch);
 
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<string[]>([]);
@@ -110,6 +111,11 @@ export function QuickOpenDialog({ open, onOpenChange }: QuickOpenDialogProps) {
     onOpenChange(false);
     setShowGoToSymbol(true);
   }, [onOpenChange, setShowGoToSymbol]);
+
+  const handleSwitchBranch = useCallback(() => {
+    onOpenChange(false);
+    setShowBranchSwitch(true);
+  }, [onOpenChange, setShowBranchSwitch]);
 
   const handleToggleSidebar = useCallback(() => {
     toggleSidebar();
@@ -231,6 +237,19 @@ export function QuickOpenDialog({ open, onOpenChange }: QuickOpenDialogProps) {
           >
             <AtSign className="h-4 w-4" />
             Go to Symbol
+          </Command.Item>
+          <Command.Item
+            value="switch branch git checkout"
+            onSelect={handleSwitchBranch}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer",
+              "text-[13px] text-foreground/90",
+              "aria-selected:bg-primary/10 aria-selected:text-primary",
+              "transition-colors"
+            )}
+          >
+            <GitBranch className="h-4 w-4" />
+            Switch Branch
           </Command.Item>
         </Command.Group>
 

@@ -35,6 +35,7 @@ import { RightActivityBar } from "./RightActivityBar";
 import { QuickOpenDialog } from "../dialogs/QuickOpenDialog";
 import { GoToLineDialog } from "../dialogs/GoToLineDialog";
 import { GoToSymbolDialog } from "../dialogs/GoToSymbolDialog";
+import { BranchSwitchDialog } from "../dialogs/BranchSwitchDialog";
 import { IdeSettingsDialog } from "../settings/IdeSettingsDialog";
 import { useIdeKeyboard } from "../../hooks/useIdeKeyboard";
 import { usePluginEvents } from "../../hooks/usePluginEvents";
@@ -51,6 +52,8 @@ export function IdeLayout() {
   const setShowGoToSymbol = useIdeStore((s) => s.setShowGoToSymbol);
   const showSettingsDialog = useIdeStore((s) => s.showSettingsDialog);
   const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
+  const showBranchSwitch = useIdeStore((s) => s.showBranchSwitch);
+  const setShowBranchSwitch = useIdeStore((s) => s.setShowBranchSwitch);
   const rightSidebarPanel = useIdeStore((s) => s.rightSidebarPanel);
   const rightSidebarCollapsed = useIdeStore((s) => s.rightSidebarCollapsed);
   const effectiveTheme = useEffectiveTheme();
@@ -136,6 +139,7 @@ export function IdeLayout() {
       <QuickOpenDialog open={showQuickOpen} onOpenChange={setShowQuickOpen} />
       <GoToLineDialog open={showGoToLine} onOpenChange={setShowGoToLine} />
       <GoToSymbolDialog open={showGoToSymbol} onOpenChange={setShowGoToSymbol} />
+      <BranchSwitchDialog open={showBranchSwitch} onOpenChange={setShowBranchSwitch} />
       <IdeSettingsDialog
         open={showSettingsDialog}
         onOpenChange={setShowSettingsDialog}

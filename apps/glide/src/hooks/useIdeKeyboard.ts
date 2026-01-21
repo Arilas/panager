@@ -12,6 +12,7 @@ export function useIdeKeyboard() {
   const setShowGoToLine = useIdeStore((s) => s.setShowGoToLine);
   const setShowGoToSymbol = useIdeStore((s) => s.setShowGoToSymbol);
   const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
+  const setShowBranchSwitch = useIdeStore((s) => s.setShowBranchSwitch);
   const togglePanel = useIdeStore((s) => s.togglePanel);
   const toggleSidebar = useIdeStore((s) => s.toggleSidebar);
   const toggleBottomPanel = useIdeStore((s) => s.toggleBottomPanel);
@@ -118,6 +119,13 @@ export function useIdeKeyboard() {
         openBottomPanelTab("problems");
         return;
       }
+
+      // Cmd+Shift+B - Switch Branch
+      if (isMod && isShift && e.key === "b") {
+        e.preventDefault();
+        setShowBranchSwitch(true);
+        return;
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -127,6 +135,7 @@ export function useIdeKeyboard() {
     setShowGoToLine,
     setShowGoToSymbol,
     setShowSettingsDialog,
+    setShowBranchSwitch,
     togglePanel,
     toggleSidebar,
     toggleBottomPanel,
