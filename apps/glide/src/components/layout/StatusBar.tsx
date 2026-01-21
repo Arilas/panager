@@ -15,6 +15,7 @@ import { BranchSelector } from "../git/BranchSelector";
 
 export function StatusBar() {
   const cursorPosition = useIdeStore((s) => s.cursorPosition);
+  const setShowGoToLine = useIdeStore((s) => s.setShowGoToLine);
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
   const tabStates = useEditorStore((s) => s.tabStates);
   const previewTab = useEditorStore((s) => s.previewTab);
@@ -81,11 +82,14 @@ export function StatusBar() {
 
       {/* Right section - File info and plugin items */}
       <div className="flex items-center gap-4">
-        {/* Cursor position */}
+        {/* Cursor position - clickable to open Go to Line */}
         {cursorPosition && (
-          <span>
+          <button
+            onClick={() => setShowGoToLine(true)}
+            className="hover:text-foreground transition-colors"
+          >
             Ln {cursorPosition.line}, Col {cursorPosition.column}
-          </span>
+          </button>
         )}
 
         {/* Language (only for file tabs) */}

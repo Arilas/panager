@@ -145,7 +145,7 @@ export function BranchSelector({ compact: _compact = false }: BranchSelectorProp
       {isOpen && (
         <div
           className={cn(
-            "absolute left-0 bottom-full mb-1 z-50 min-w-[240px] max-w-[300px]",
+            "absolute left-0 bottom-full mb-1 z-50 w-[280px]",
             "rounded-lg shadow-xl overflow-hidden",
             isDark
               ? "bg-neutral-900 border border-white/10"

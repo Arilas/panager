@@ -10,6 +10,7 @@ import { useEditorStore } from "../stores/editor";
 export function useIdeKeyboard() {
   const setShowQuickOpen = useIdeStore((s) => s.setShowQuickOpen);
   const setShowGoToLine = useIdeStore((s) => s.setShowGoToLine);
+  const setShowGoToSymbol = useIdeStore((s) => s.setShowGoToSymbol);
   const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
   const togglePanel = useIdeStore((s) => s.togglePanel);
   const toggleSidebar = useIdeStore((s) => s.toggleSidebar);
@@ -43,6 +44,13 @@ export function useIdeKeyboard() {
       if (isMod && e.key === "g" && !isShift) {
         e.preventDefault();
         setShowGoToLine(true);
+        return;
+      }
+
+      // Cmd+Shift+O - Go to Symbol
+      if (isMod && isShift && e.key === "o") {
+        e.preventDefault();
+        setShowGoToSymbol(true);
         return;
       }
 
@@ -117,6 +125,7 @@ export function useIdeKeyboard() {
   }, [
     setShowQuickOpen,
     setShowGoToLine,
+    setShowGoToSymbol,
     setShowSettingsDialog,
     togglePanel,
     toggleSidebar,

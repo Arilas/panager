@@ -162,6 +162,12 @@ interface PersistedFileSession {
   foldedRegions: number[];
 }
 
+/** Navigation history entry - stores path and position for back/forward */
+interface NavigationEntry {
+  path: string;
+  position: { line: number; column: number };
+}
+
 /** Editor store state */
 interface EditorState {
   // Monaco instances (not persisted)
@@ -184,7 +190,7 @@ interface EditorState {
   sessionData: Record<string, PersistedFileSession>; // Session data for restoration
 
   // === NAVIGATION HISTORY ===
-  navigationHistory: string[]; // Stack of visited tab paths
+  navigationHistory: NavigationEntry[]; // Stack of visited locations (path + position)
   navigationIndex: number; // Current position in history (-1 = at end)
 
   // Settings
@@ -205,6 +211,7 @@ interface EditorState {
     content: string,
     language: string,
     isPreview?: boolean,
+    options?: { position?: { line: number; column: number } },
   ) => void;
   openDiffTab: (diff: DiffTabState, isPreview?: boolean) => void;
   openChatTab: (sessionId: string, sessionName: string) => void;
@@ -237,7 +244,8 @@ interface EditorState {
   closeTab: (path: string) => void;
   closeOtherTabs: (path: string) => void;
   closeAllTabs: () => void;
-  setActiveTab: (path: string, pushHistory?: boolean) => void;
+  /** Set active tab with optional history tracking. Position is used for history entries. */
+  setActiveTab: (path: string, pushHistory?: boolean, position?: { line: number; column: number }) => void;
   convertPreviewToPermanent: () => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   pinTab: (path: string) => void;
@@ -345,6 +353,7 @@ function createDefaultFileState(
   content: string,
   language: string,
   existingSession?: PersistedFileSession,
+  initialPosition?: { line: number; column: number },
 ): FileTabState {
   return {
     type: "file",
@@ -358,7 +367,8 @@ function createDefaultFileState(
     blameLoading: false,
     symbols: [],
     symbolsLoading: false,
-    cursorPosition: existingSession?.cursorPosition ?? { line: 1, column: 1 },
+    // Initial position takes precedence, then existing session, then default
+    cursorPosition: initialPosition ?? existingSession?.cursorPosition ?? { line: 1, column: 1 },
     scrollPosition: existingSession?.scrollPosition ?? { top: 0, left: 0 },
     selections: existingSession?.selections ?? [],
     foldedRegions: existingSession?.foldedRegions ?? [],
@@ -412,8 +422,50 @@ export const useEditorStore = create<EditorState>()(
 
       // === TAB ACTIONS ===
 
-      openTab: (path, content, language, isPreview = false) => {
+      openTab: (path, content, language, isPreview = false, options) => {
         const state = get();
+        const initialPosition = options?.position;
+
+        // First, save current location to history if we're navigating away
+        // This ensures back navigation returns to where we were
+        if (state.activeTabPath && state.activeTabPath !== path) {
+          const currentFileState = state.getFileState(state.activeTabPath);
+          if (currentFileState) {
+            // Push current location to history before navigating away
+            const currentPosition = currentFileState.cursorPosition;
+            const newHistory = [...state.navigationHistory];
+
+            // Truncate forward history if we're not at the end
+            if (
+              state.navigationIndex >= 0 &&
+              state.navigationIndex < newHistory.length - 1
+            ) {
+              newHistory.splice(state.navigationIndex + 1);
+            }
+
+            // Add current location
+            const currentEntry: NavigationEntry = {
+              path: state.activeTabPath,
+              position: currentPosition,
+            };
+
+            // Don't push consecutive duplicates
+            const lastEntry = newHistory[newHistory.length - 1];
+            const isDuplicate = lastEntry &&
+              lastEntry.path === currentEntry.path &&
+              lastEntry.position.line === currentEntry.position.line &&
+              lastEntry.position.column === currentEntry.position.column;
+
+            if (!isDuplicate) {
+              newHistory.push(currentEntry);
+              if (newHistory.length > 50) {
+                newHistory.shift();
+              }
+            }
+
+            set({ navigationHistory: newHistory, navigationIndex: -1 });
+          }
+        }
 
         // Check if already open as permanent tab
         if (state.tabStates[path] || state.openTabs.includes(path)) {
@@ -425,21 +477,43 @@ export const useEditorStore = create<EditorState>()(
               content,
               language,
               existingSession,
+              initialPosition,
             );
             set((s) => ({
               tabStates: { ...s.tabStates, [path]: newFileState },
-              activeTabPath: path,
             }));
+            // Add destination to history and set active
+            const destPosition = initialPosition ?? { line: 1, column: 1 };
+            const newHistoryWithDest = [...get().navigationHistory, { path, position: destPosition }];
+            if (newHistoryWithDest.length > 50) newHistoryWithDest.shift();
+            set({ navigationHistory: newHistoryWithDest, activeTabPath: path });
             notifyFileOpened(path, content).catch(console.error);
             return;
           }
-          set({ activeTabPath: path });
+          // Update position if provided
+          if (initialPosition) {
+            get().saveCursorPosition(path, initialPosition);
+          }
+          // Add destination to history and set active
+          const destPosition = initialPosition ?? get().getFileState(path)?.cursorPosition ?? { line: 1, column: 1 };
+          const newHistoryWithDest = [...get().navigationHistory, { path, position: destPosition }];
+          if (newHistoryWithDest.length > 50) newHistoryWithDest.shift();
+          set({ navigationHistory: newHistoryWithDest, activeTabPath: path });
           return;
         }
 
         // Check if it's the current preview tab
         if (state.previewTab?.path === path) {
-          set({ activeTabPath: path });
+          // Update position if provided
+          if (initialPosition) {
+            get().saveCursorPosition(path, initialPosition);
+          }
+          // Add destination to history and set active
+          const previewCursorPos = isFileTab(state.previewTab) ? state.previewTab.cursorPosition : { line: 1, column: 1 };
+          const destPosition = initialPosition ?? previewCursorPos;
+          const newHistoryWithDest = [...get().navigationHistory, { path, position: destPosition }];
+          if (newHistoryWithDest.length > 50) newHistoryWithDest.shift();
+          set({ navigationHistory: newHistoryWithDest, activeTabPath: path });
           return;
         }
 
@@ -462,10 +536,16 @@ export const useEditorStore = create<EditorState>()(
             content,
             language,
             existingSession,
+            initialPosition,
           );
 
+          // Add destination to history and set state
+          const destPosition = initialPosition ?? newPreviewTab.cursorPosition;
+          const newHistoryWithDest = [...get().navigationHistory, { path, position: destPosition }];
+          if (newHistoryWithDest.length > 50) newHistoryWithDest.shift();
           set({
             previewTab: newPreviewTab,
+            navigationHistory: newHistoryWithDest,
             activeTabPath: path,
           });
         } else {
@@ -475,11 +555,17 @@ export const useEditorStore = create<EditorState>()(
             content,
             language,
             existingSession,
+            initialPosition,
           );
 
-          set((state) => ({
-            openTabs: [...state.openTabs, path],
-            tabStates: { ...state.tabStates, [path]: newFileState },
+          // Add destination to history and set state
+          const destPosition = initialPosition ?? newFileState.cursorPosition;
+          const newHistoryWithDest = [...get().navigationHistory, { path, position: destPosition }];
+          if (newHistoryWithDest.length > 50) newHistoryWithDest.shift();
+          set((s) => ({
+            openTabs: [...s.openTabs, path],
+            tabStates: { ...s.tabStates, [path]: newFileState },
+            navigationHistory: newHistoryWithDest,
             activeTabPath: path,
           }));
         }
@@ -905,7 +991,7 @@ export const useEditorStore = create<EditorState>()(
         });
       },
 
-      setActiveTab: (path, pushHistory = true) => {
+      setActiveTab: (path, pushHistory = true, position) => {
         const state = get();
 
         // Push to navigation history if different from current
@@ -920,9 +1006,22 @@ export const useEditorStore = create<EditorState>()(
             newHistory.splice(state.navigationIndex + 1);
           }
 
-          // Don't push consecutive duplicates
-          if (newHistory[newHistory.length - 1] !== path) {
-            newHistory.push(path);
+          // Get position - use provided position, or get from file state, or default
+          const fileState = state.getFileState(path);
+          const entryPosition = position ?? fileState?.cursorPosition ?? { line: 1, column: 1 };
+
+          // Create navigation entry
+          const newEntry: NavigationEntry = { path, position: entryPosition };
+
+          // Don't push consecutive duplicates (same path and position)
+          const lastEntry = newHistory[newHistory.length - 1];
+          const isDuplicate = lastEntry &&
+            lastEntry.path === path &&
+            lastEntry.position.line === entryPosition.line &&
+            lastEntry.position.column === entryPosition.column;
+
+          if (!isDuplicate) {
+            newHistory.push(newEntry);
             // Limit history to 50 entries
             if (newHistory.length > 50) {
               newHistory.shift();
@@ -1042,18 +1141,35 @@ export const useEditorStore = create<EditorState>()(
         if (currentIndex <= 0) return;
 
         const newIndex = currentIndex - 1;
-        const targetPath = history[newIndex];
+        const targetEntry = history[newIndex];
 
         // Only navigate if tab still exists
         if (
-          state.openTabs.includes(targetPath) ||
-          state.previewTab?.path === targetPath ||
-          state.tabStates[targetPath]
+          state.openTabs.includes(targetEntry.path) ||
+          state.previewTab?.path === targetEntry.path ||
+          state.tabStates[targetEntry.path]
         ) {
+          // Update cursor position for the target file
+          state.saveCursorPosition(targetEntry.path, targetEntry.position);
+
           set({
-            activeTabPath: targetPath,
+            activeTabPath: targetEntry.path,
             navigationIndex: newIndex,
           });
+
+          // Navigate editor to the position if available
+          const editor = state.activeEditor;
+          if (editor) {
+            // Use setTimeout to ensure the editor has switched
+            setTimeout(() => {
+              editor.setPosition({
+                lineNumber: targetEntry.position.line,
+                column: targetEntry.position.column,
+              });
+              editor.revealLineInCenter(targetEntry.position.line);
+              editor.focus();
+            }, 0);
+          }
         } else {
           // Tab was closed, remove from history and try again
           const newHistory = history.filter((_, i) => i !== newIndex);
@@ -1074,18 +1190,35 @@ export const useEditorStore = create<EditorState>()(
         }
 
         const newIndex = state.navigationIndex + 1;
-        const targetPath = history[newIndex];
+        const targetEntry = history[newIndex];
 
         // Only navigate if tab still exists
         if (
-          state.openTabs.includes(targetPath) ||
-          state.previewTab?.path === targetPath ||
-          state.tabStates[targetPath]
+          state.openTabs.includes(targetEntry.path) ||
+          state.previewTab?.path === targetEntry.path ||
+          state.tabStates[targetEntry.path]
         ) {
+          // Update cursor position for the target file
+          state.saveCursorPosition(targetEntry.path, targetEntry.position);
+
           set({
-            activeTabPath: targetPath,
+            activeTabPath: targetEntry.path,
             navigationIndex: newIndex === history.length - 1 ? -1 : newIndex,
           });
+
+          // Navigate editor to the position if available
+          const editor = state.activeEditor;
+          if (editor) {
+            // Use setTimeout to ensure the editor has switched
+            setTimeout(() => {
+              editor.setPosition({
+                lineNumber: targetEntry.position.line,
+                column: targetEntry.position.column,
+              });
+              editor.revealLineInCenter(targetEntry.position.line);
+              editor.focus();
+            }, 0);
+          }
         } else {
           // Tab was closed, remove from history and try again
           const newHistory = history.filter((_, i) => i !== newIndex);

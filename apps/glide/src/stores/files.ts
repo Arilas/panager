@@ -272,23 +272,39 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   },
 
   openFileAtPosition: async (path, position) => {
-    const { openFile } = get();
     const editorStore = useEditorStore.getState();
 
-    // Store the pending navigation
+    // Store the pending navigation for the editor hook
     pendingNavigation = { path, position };
 
     // Check if already open
     const existingState = editorStore.getFileState(path);
     if (existingState) {
-      // File is already open, just activate it
-      // The editor will pick up the pending navigation
+      // File is already open - update position and activate
+      editorStore.saveCursorPosition(path, position);
       editorStore.setActiveTab(path);
       return;
     }
 
-    // Open the file - the editor will navigate when it mounts
-    await openFile(path);
+    try {
+      const fileContent = await readFile(path);
+
+      if (fileContent.isBinary) {
+        console.warn("Cannot open binary file:", path);
+        return;
+      }
+
+      // Open as permanent tab with initial position
+      editorStore.openTab(
+        path,
+        fileContent.content,
+        fileContent.language,
+        false,
+        { position }
+      );
+    } catch (error) {
+      console.error("Failed to open file at position:", error);
+    }
   },
 
   saveFile: async (path) => {

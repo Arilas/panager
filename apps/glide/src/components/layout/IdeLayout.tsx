@@ -34,6 +34,7 @@ import { RightSidebar } from "./RightSidebar";
 import { RightActivityBar } from "./RightActivityBar";
 import { QuickOpenDialog } from "../dialogs/QuickOpenDialog";
 import { GoToLineDialog } from "../dialogs/GoToLineDialog";
+import { GoToSymbolDialog } from "../dialogs/GoToSymbolDialog";
 import { IdeSettingsDialog } from "../settings/IdeSettingsDialog";
 import { useIdeKeyboard } from "../../hooks/useIdeKeyboard";
 import { usePluginEvents } from "../../hooks/usePluginEvents";
@@ -42,6 +43,12 @@ import { cn } from "../../lib/utils";
 export function IdeLayout() {
   const sidebarCollapsed = useIdeStore((s) => s.sidebarCollapsed);
   const activePanel = useIdeStore((s) => s.activePanel);
+  const showQuickOpen = useIdeStore((s) => s.showQuickOpen);
+  const setShowQuickOpen = useIdeStore((s) => s.setShowQuickOpen);
+  const showGoToLine = useIdeStore((s) => s.showGoToLine);
+  const setShowGoToLine = useIdeStore((s) => s.setShowGoToLine);
+  const showGoToSymbol = useIdeStore((s) => s.showGoToSymbol);
+  const setShowGoToSymbol = useIdeStore((s) => s.setShowGoToSymbol);
   const showSettingsDialog = useIdeStore((s) => s.showSettingsDialog);
   const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
   const rightSidebarPanel = useIdeStore((s) => s.rightSidebarPanel);
@@ -126,8 +133,9 @@ export function IdeLayout() {
       {!liquidGlass && <StatusBar />}
 
       {/* Dialogs */}
-      <QuickOpenDialog />
-      <GoToLineDialog />
+      <QuickOpenDialog open={showQuickOpen} onOpenChange={setShowQuickOpen} />
+      <GoToLineDialog open={showGoToLine} onOpenChange={setShowGoToLine} />
+      <GoToSymbolDialog open={showGoToSymbol} onOpenChange={setShowGoToSymbol} />
       <IdeSettingsDialog
         open={showSettingsDialog}
         onOpenChange={setShowSettingsDialog}

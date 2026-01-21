@@ -2,13 +2,12 @@
  * Editor Opener Registration
  *
  * Intercepts Monaco's file opening requests (e.g., from go-to-definition)
- * and routes them through the editor store.
+ * and routes them through the files store for proper history tracking.
  */
 
 import type { Monaco } from "@monaco-editor/react";
 import type { editor, IDisposable, IPosition, IRange } from "monaco-editor";
-import { useEditorStore } from "../stores/editor";
-import { readFile } from "../lib/tauri-ide";
+import { useFilesStore } from "../stores/files";
 
 let openerRegistered = false;
 let openerDisposable: IDisposable | null = null;
@@ -42,8 +41,8 @@ export function registerEditorOpener(monaco: Monaco): IDisposable | null {
 
       console.log("[EditorOpener] Opening file:", filePath, "at position:", position);
 
-      // Open the file through the editor store
-      openFileAtPosition(filePath, position);
+      // Open the file through the files store (handles history tracking and position)
+      useFilesStore.getState().openFileAtPosition(filePath, position);
       return true; // We handled it
     },
   });
@@ -51,58 +50,6 @@ export function registerEditorOpener(monaco: Monaco): IDisposable | null {
   openerRegistered = true;
   console.log("[Monaco] Registered editor opener for file navigation");
   return openerDisposable;
-}
-
-/**
- * Open a file at a specific position.
- * This reads the file and opens it in the editor store.
- */
-async function openFileAtPosition(
-  filePath: string,
-  position: { line: number; column: number }
-): Promise<void> {
-  try {
-    const store = useEditorStore.getState();
-
-    // Check if file is already open
-    const existingState = store.getFileState(filePath);
-    if (existingState) {
-      // File already open, just activate and navigate
-      store.setActiveTab(filePath);
-      store.saveCursorPosition(filePath, position);
-
-      // Navigate the editor if available
-      const editor = store.activeEditor;
-      if (editor) {
-        editor.setPosition({
-          lineNumber: position.line,
-          column: position.column,
-        });
-        editor.revealLineInCenter(position.line);
-        editor.focus();
-      }
-      return;
-    }
-
-    // Read the file
-    const fileContent = await readFile(filePath);
-
-    if (fileContent.isBinary) {
-      console.warn("[EditorOpener] Cannot open binary file:", filePath);
-      return;
-    }
-
-    // Open the file (not as preview since we're navigating to a specific position)
-    store.openTab(filePath, fileContent.content, fileContent.language, false);
-
-    // Save the position for restoration when editor mounts
-    store.saveCursorPosition(filePath, position);
-
-    // The editor will navigate to the position when it mounts
-    // (handled in useEditor hook)
-  } catch (error) {
-    console.error("[EditorOpener] Failed to open file:", error);
-  }
 }
 
 /**
