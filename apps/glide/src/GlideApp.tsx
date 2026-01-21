@@ -1,8 +1,10 @@
 /**
- * Glide Application Root Component
+ * Glide IDE Application Root Component
  *
- * Wraps the editor layout with settings provider for theme and liquid glass support.
- * Shows a welcome screen when no project is opened.
+ * This component is the root for project windows only.
+ * Welcome windows use WelcomeApp.tsx instead.
+ *
+ * Requires URL parameters: projectId, projectPath, projectName
  */
 
 import { useEffect, useState } from "react";
@@ -16,9 +18,9 @@ import {
 } from "./contexts/IdeSettingsContext";
 import { IdeLayout } from "./components/layout/IdeLayout";
 import { MonacoContextMenuProvider } from "./monaco/contextMenu";
-import { WelcomeScreen } from "./components/WelcomeScreen";
 import { useFileWatcher } from "./hooks/useFileWatcher";
 import { usePersistedIdeState } from "./hooks/usePersistedIdeState";
+import { useWindowGeometry } from "./hooks/useWindowGeometry";
 import type { IdeProjectContext } from "./types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -28,10 +30,15 @@ import {
   addRecentProject,
   windowWillClose,
 } from "./lib/tauri-ide";
+import { cn } from "./lib/utils";
+import { useEffectiveTheme, useLiquidGlass } from "./hooks/useEffectiveTheme";
 
 export function GlideApp() {
   const [loading, setLoading] = useState(true);
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const effectiveTheme = useEffectiveTheme();
+  const isDark = effectiveTheme === "dark";
+  const liquidGlass = useLiquidGlass();
 
   const setProjectContext = useIdeStore((s) => s.setProjectContext);
   const projectContext = useIdeStore((s) => s.projectContext);
@@ -47,8 +54,10 @@ export function GlideApp() {
     const projectName = params.get("projectName");
 
     if (!projectId || !projectPath || !projectName) {
-      // No project provided - show welcome screen
-      setShowWelcome(true);
+      // This should not happen - project windows must have URL params
+      setError(
+        "Missing project parameters. This window should have been opened with a project.",
+      );
       setLoading(false);
       return;
     }
@@ -62,25 +71,6 @@ export function GlideApp() {
     setProjectContext(context);
     setLoading(false);
   }, [setProjectContext]);
-
-  // Handle project selection from welcome screen
-  const handleProjectSelected = (
-    projectId: string,
-    projectPath: string,
-    projectName: string,
-  ) => {
-    const context: IdeProjectContext = {
-      projectId,
-      projectPath,
-      projectName,
-    };
-
-    setProjectContext(context);
-    setShowWelcome(false);
-
-    // Update window title
-    getCurrentWindow().setTitle(projectName).catch(console.error);
-  };
 
   // Load file tree, git status, and notify plugins when context is set
   useEffect(() => {
@@ -114,17 +104,20 @@ export function GlideApp() {
   // Set up state persistence (only when project is open)
   usePersistedIdeState();
 
+  // Set up window geometry tracking for session restore
+  const { cleanupAndRemove } = useWindowGeometry(projectContext);
+
   // Handle window close - cleanup watcher and notify plugins
   useEffect(() => {
     const currentWindow = getCurrentWindow();
+    const windowLabel = currentWindow.label;
 
     const unlisten = currentWindow.onCloseRequested(async () => {
-      const hasProject = !!projectContext;
+      // Cancel pending geometry saves and remove window from session
+      await cleanupAndRemove();
 
-      // Notify backend about close behavior before cleanup
-      // - If hasProject: spawn new welcome window after close
-      // - If !hasProject (welcome screen): allow app to exit
-      await windowWillClose(hasProject).catch(console.error);
+      // Notify backend - project window closing should spawn welcome window
+      await windowWillClose(windowLabel, true).catch(console.error);
 
       if (projectContext) {
         // Notify plugins about project being closed (stops LSP servers, etc.)
@@ -136,7 +129,7 @@ export function GlideApp() {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [projectContext]);
+  }, [projectContext, cleanupAndRemove]);
 
   // Listen for liquid-glass-ready event from Tauri backend
   useEffect(() => {
@@ -179,7 +172,14 @@ export function GlideApp() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 text-neutral-500 dark:text-neutral-400">
+      <div
+        className={cn(
+          "h-screen w-screen flex items-center justify-center",
+          isDark ? "bg-neutral-900/60" : "bg-white/60",
+          liquidGlass && "liquid-glass",
+          isDark ? "text-neutral-100" : "text-neutral-900",
+        )}
+      >
         <div className="flex flex-col items-center gap-2">
           <div className="w-6 h-6 border-2 border-neutral-300 dark:border-neutral-600 border-t-neutral-500 dark:border-t-neutral-400 rounded-full animate-spin" />
           <span className="text-sm">Loading...</span>
@@ -188,9 +188,23 @@ export function GlideApp() {
     );
   }
 
-  // Show welcome screen if no project
-  if (showWelcome || !projectContext) {
-    return <WelcomeScreen onProjectSelected={handleProjectSelected} />;
+  if (error || !projectContext) {
+    return (
+      <div
+        className={cn(
+          "h-screen w-screen flex items-center justify-center",
+          isDark ? "bg-neutral-900/60" : "bg-white/60",
+          liquidGlass && "liquid-glass",
+          isDark ? "text-neutral-100" : "text-neutral-900",
+        )}
+      >
+        <div className="flex flex-col items-center gap-2 max-w-md text-center px-4">
+          <span className="text-sm">
+            {error || "Failed to load project context"}
+          </span>
+        </div>
+      </div>
+    );
   }
 
   return (

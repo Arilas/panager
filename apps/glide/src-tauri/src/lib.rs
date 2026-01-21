@@ -11,7 +11,8 @@ pub mod platform;
 pub mod plugins;
 pub mod utils;
 
-use ide::commands::window::{create_window, SHOULD_SPAWN_WELCOME};
+use ide::commands::session::get_restorable_windows;
+use ide::commands::window::{create_window, register_window, SHOULD_SPAWN_WELCOME};
 use plugins::host::PluginHost;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -19,28 +20,15 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuild
 use tauri::{Manager, RunEvent, TitleBarStyle, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 /// Run the application with optional project context from CLI
-/// If project is None, shows the welcome screen
+/// If project is None, tries to restore previous session or shows welcome screen
 pub fn run_with_project(project: Option<(&str, &str, &str)>) {
     // Initialize logging
     logging::init();
 
-    // Build URL based on whether we have a project
-    let (url, window_title) = match project {
-        Some((project_id, project_path, project_name)) => {
-            tracing::info!("Starting Glide with project: {}", project_name);
-            let encoded_path = urlencoding::encode(project_path);
-            let encoded_name = urlencoding::encode(project_name);
-            let url = format!(
-                "index.html?projectId={}&projectPath={}&projectName={}",
-                project_id, encoded_path, encoded_name
-            );
-            (url, project_name.to_string())
-        }
-        None => {
-            tracing::info!("Starting Glide without project (welcome screen)");
-            ("index.html".to_string(), "Glide".to_string())
-        }
-    };
+    // Convert project to owned data for the closure
+    let project_owned = project.map(|(id, path, name)| {
+        (id.to_string(), path.to_string(), name.to_string())
+    });
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -72,17 +60,55 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
             let menu = create_app_menu(app_handle)?;
             app.set_menu(menu)?;
 
-            // Create the main window
-            let webview_url = WebviewUrl::App(url.clone().into());
-            let _window = WebviewWindowBuilder::new(app, "main", webview_url)
-                .title(&window_title)
-                .inner_size(1400.0, 900.0)
-                .min_inner_size(800.0, 600.0)
-                .transparent(true)
-                .decorations(true)
-                .title_bar_style(TitleBarStyle::Overlay)
-                .hidden_title(true)
-                .build()?;
+            // Determine what windows to create
+            if let Some((project_id, project_path, project_name)) = &project_owned {
+                // CLI specified a project - open only that project (no session restore)
+                tracing::info!("Starting Glide with CLI project: {}", project_name);
+                // Clear session since we're starting fresh with a CLI project
+                let _ = ide::commands::session::ide_clear_session();
+                create_main_window(app, Some((project_id, project_path, project_name)))?;
+            } else {
+                // No CLI project - try to restore previous session
+                match get_restorable_windows() {
+                    Ok(windows) if !windows.is_empty() => {
+                        tracing::info!("Restoring {} window(s) from previous session", windows.len());
+
+                        // Clear old session data - new windows will save their state with new labels
+                        let _ = ide::commands::session::ide_clear_session();
+
+                        for (i, window_state) in windows.iter().enumerate() {
+                            if i == 0 {
+                                // First window uses "main" label for compatibility
+                                create_main_window_with_geometry(
+                                    app,
+                                    Some((
+                                        &window_state.project_id,
+                                        &window_state.project_path,
+                                        &window_state.project_name,
+                                    )),
+                                    &window_state.geometry,
+                                )?;
+                            } else {
+                                // Additional windows use dynamic labels
+                                let _ = create_window(
+                                    app.handle(),
+                                    Some((
+                                        &window_state.project_id,
+                                        &window_state.project_path,
+                                        &window_state.project_name,
+                                    )),
+                                    Some(&window_state.geometry),
+                                );
+                            }
+                        }
+                    }
+                    _ => {
+                        // No session to restore - show welcome screen
+                        tracing::info!("No previous session, showing welcome screen");
+                        create_main_window(app, None)?;
+                    }
+                }
+            }
 
             // Platform-specific setup (vibrancy on macOS)
             platform::setup(app)?;
@@ -180,6 +206,12 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
             ide::commands::ide_open_window,
             ide::commands::ide_close_window,
             ide::commands::ide_window_will_close,
+            // IDE - Session management
+            ide::commands::ide_load_session,
+            ide::commands::ide_save_window_state,
+            ide::commands::ide_remove_window_state,
+            ide::commands::ide_update_window_geometry,
+            ide::commands::ide_clear_session,
             // ACP - Agent Client Protocol
             acp::commands::acp_connect,
             acp::commands::acp_disconnect,
@@ -204,7 +236,7 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
                 match menu_event.id().0.as_str() {
                     "new_window" => {
                         tracing::info!("Menu: New Window");
-                        let _ = create_window(&app_handle, None);
+                        let _ = create_window(&app_handle, None, None);
                     }
                     "close_window" => {
                         tracing::info!("Menu: Close Window");
@@ -232,7 +264,7 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
                             "Last project window closed, spawning new welcome window"
                         );
                         SHOULD_SPAWN_WELCOME.store(false, Ordering::SeqCst);
-                        let _ = create_window(&app_handle, None);
+                        let _ = create_window(&app_handle, None, None);
                     } else {
                         tracing::info!("Welcome window closed, allowing app to exit");
                         // App will exit naturally when no windows remain
@@ -299,4 +331,59 @@ fn create_app_menu(
         .build()?;
 
     Ok(menu)
+}
+
+/// Creates the main window with optional project context
+fn create_main_window(
+    app: &tauri::App,
+    project: Option<(&str, &str, &str)>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let default_geometry = ide::commands::session::WindowGeometry::default();
+    create_main_window_with_geometry(app, project, &default_geometry)
+}
+
+/// Creates the main window with optional project context and specific geometry
+fn create_main_window_with_geometry(
+    app: &tauri::App,
+    project: Option<(&str, &str, &str)>,
+    geometry: &ide::commands::session::WindowGeometry,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Build URL based on whether we have a project
+    // - Project windows use index.html with URL params
+    // - Welcome windows use welcome.html (separate lightweight entry)
+    let (url, window_title, project_path) = match project {
+        Some((project_id, project_path, project_name)) => {
+            let encoded_path = urlencoding::encode(project_path);
+            let encoded_name = urlencoding::encode(project_name);
+            let url = format!(
+                "index.html?projectId={}&projectPath={}&projectName={}",
+                project_id, encoded_path, encoded_name
+            );
+            (url, project_name.to_string(), Some(project_path.to_string()))
+        }
+        None => ("welcome.html".to_string(), "Glide".to_string(), None),
+    };
+
+    let webview_url = WebviewUrl::App(url.into());
+    let builder = WebviewWindowBuilder::new(app, "main", webview_url)
+        .title(&window_title)
+        .inner_size(geometry.width, geometry.height)
+        .min_inner_size(800.0, 600.0)
+        .transparent(true)
+        .decorations(true)
+        .title_bar_style(TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .position(geometry.x, geometry.y);
+
+    let window = builder.build()?;
+
+    // Set maximized state after build if needed
+    if geometry.is_maximized {
+        let _ = window.maximize();
+    }
+
+    // Register window in the registry
+    register_window("main", project_path.as_deref());
+
+    Ok(())
 }

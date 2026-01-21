@@ -12,19 +12,16 @@ import { cn } from "../lib/utils";
 import { useAppearanceSettings } from "../stores/settings";
 import { useEffectiveTheme } from "../hooks/useEffectiveTheme";
 import md5 from "../lib/md5";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   getRecentProjects,
   removeRecentProject,
+  openIdeWindow,
   type RecentProject,
 } from "../lib/tauri-ide";
 
-interface WelcomeScreenProps {
-  onProjectSelected: (
-    projectId: string,
-    projectPath: string,
-    projectName: string,
-  ) => void;
-}
+// Note: WelcomeScreen no longer uses onProjectSelected callback.
+// Instead, it calls openIdeWindow directly and closes itself.
 
 /**
  * Format relative time (e.g., "2 days ago", "Just now")
@@ -54,7 +51,7 @@ function formatRelativeTime(dateString: string): string {
   return "Just now";
 }
 
-export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
+export function WelcomeScreen() {
   const [loading, setLoading] = useState(false);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
@@ -94,7 +91,16 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
         // Generate project ID from path hash
         const projectId = md5(selected);
 
-        onProjectSelected(projectId, selected, projectName);
+        // Check if project is already open in another window
+        const createdNew = await openIdeWindow(projectId, selected, projectName);
+
+        if (createdNew) {
+          // New window was created, close this welcome window
+          getCurrentWindow().close();
+        } else {
+          // Existing window was focused, close this welcome window
+          getCurrentWindow().close();
+        }
       }
     } catch (error) {
       console.error("Failed to open folder:", error);
@@ -103,8 +109,17 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
     }
   };
 
-  const handleOpenRecent = (project: RecentProject) => {
-    onProjectSelected(project.id, project.path, project.name);
+  const handleOpenRecent = async (project: RecentProject) => {
+    // Check if project is already open in another window
+    const createdNew = await openIdeWindow(project.id, project.path, project.name);
+
+    if (createdNew) {
+      // New window was created, close this welcome window
+      getCurrentWindow().close();
+    } else {
+      // Existing window was focused, close this welcome window
+      getCurrentWindow().close();
+    }
   };
 
   const handleRemoveRecent = async (

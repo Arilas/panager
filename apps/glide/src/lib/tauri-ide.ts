@@ -29,12 +29,13 @@ export async function openNewWindow(): Promise<void> {
 
 /**
  * Opens a new window for a specific project
+ * Returns true if a new window was created, false if an existing window was focused
  */
 export async function openIdeWindow(
   projectId: string,
   projectPath: string,
   projectName: string
-): Promise<void> {
+): Promise<boolean> {
   return invoke("ide_open_window", { projectId, projectPath, projectName });
 }
 
@@ -47,8 +48,81 @@ export async function closeIdeWindow(projectId: string): Promise<void> {
  * - If hasProject is true: spawn a new welcome window after close
  * - If hasProject is false: allow app to exit after close
  */
-export async function windowWillClose(hasProject: boolean): Promise<void> {
-  return invoke("ide_window_will_close", { hasProject });
+export async function windowWillClose(windowLabel: string, hasProject: boolean): Promise<void> {
+  return invoke("ide_window_will_close", { windowLabel, hasProject });
+}
+
+// Session management
+
+export interface WindowGeometry {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isMaximized: boolean;
+}
+
+export interface WindowState {
+  windowLabel: string;
+  projectId: string;
+  projectPath: string;
+  projectName: string;
+  geometry: WindowGeometry;
+}
+
+export interface AppSession {
+  windows: WindowState[];
+  lastUpdated: string | null;
+}
+
+/**
+ * Load the saved session (all window states)
+ */
+export async function loadSession(): Promise<AppSession> {
+  return invoke("ide_load_session");
+}
+
+/**
+ * Save a window's state to the session
+ */
+export async function saveWindowState(
+  windowLabel: string,
+  projectId: string,
+  projectPath: string,
+  projectName: string,
+  geometry: WindowGeometry
+): Promise<void> {
+  return invoke("ide_save_window_state", {
+    windowLabel,
+    projectId,
+    projectPath,
+    projectName,
+    geometry,
+  });
+}
+
+/**
+ * Remove a window from the session (called when window closes)
+ */
+export async function removeWindowState(windowLabel: string): Promise<void> {
+  return invoke("ide_remove_window_state", { windowLabel });
+}
+
+/**
+ * Update only the geometry of a window (for move/resize events)
+ */
+export async function updateWindowGeometry(
+  windowLabel: string,
+  geometry: WindowGeometry
+): Promise<void> {
+  return invoke("ide_update_window_geometry", { windowLabel, geometry });
+}
+
+/**
+ * Clear all session data
+ */
+export async function clearSession(): Promise<void> {
+  return invoke("ide_clear_session");
 }
 
 // File operations
