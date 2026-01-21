@@ -4,14 +4,25 @@
  * Styled with theme support to match Panager's design.
  */
 
-import { useMemo } from "react";
-import { useEditorStore, isFileTab, isDiffTab, isChatTab } from "../../stores/editor";
+import { useMemo, useEffect } from "react";
+import {
+  useEditorStore,
+  isFileTab,
+  isDiffTab,
+  isChatTab,
+  isLazyTab,
+  isLazyFileTab,
+  isLazyDiffTab,
+} from "../../stores/editor";
+import { useIdeStore } from "../../stores/ide";
+import { readFile, getFileDiff } from "../../lib/tauri-ide";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { EditorTabs } from "../editor/EditorTabs";
+import { Breadcrumb } from "../editor/Breadcrumb";
 import { MonacoEditor } from "../editor/MonacoEditor";
 import { DiffEditor } from "../editor/DiffEditor";
 import { ChatTabContent } from "../agent/ChatTabContent";
-import { FileCode2 } from "lucide-react";
+import { FileCode2, Loader2 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 
 export function ContentArea() {
@@ -19,6 +30,9 @@ export function ContentArea() {
   const previewTab = useEditorStore((s) => s.previewTab);
   const tabStates = useEditorStore((s) => s.tabStates);
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
+  const loadLazyTab = useEditorStore((s) => s.loadLazyTab);
+  const loadLazyDiffTab = useEditorStore((s) => s.loadLazyDiffTab);
+  const projectContext = useIdeStore((s) => s.projectContext);
   const { effectiveTheme, useLiquidGlass } = useIdeSettingsContext();
 
   // Get the active tab state (either from permanent tabs or preview)
@@ -30,6 +44,40 @@ export function ContentArea() {
 
   // Check if we have any tabs (permanent + preview)
   const hasTabs = openTabs.length > 0 || previewTab !== null;
+
+  // Lazy load tab content when switching to a lazy tab
+  useEffect(() => {
+    if (!activeTab || !isLazyTab(activeTab)) return;
+
+    const loadContent = async () => {
+      try {
+        if (isLazyFileTab(activeTab)) {
+          // Load file content
+          const fileContent = await readFile(activeTab.path);
+          if (!fileContent.isBinary) {
+            loadLazyTab(activeTab.path, fileContent.content, fileContent.language);
+          }
+        } else if (isLazyDiffTab(activeTab) && projectContext?.projectPath) {
+          // Load diff content
+          const diff = await getFileDiff(
+            projectContext.projectPath,
+            activeTab.filePath,
+            activeTab.staged,
+          );
+          loadLazyDiffTab(
+            activeTab.path,
+            diff.originalContent,
+            diff.modifiedContent,
+            activeTab.language,
+          );
+        }
+      } catch (error) {
+        console.warn(`Failed to load lazy tab content: ${activeTab.path}`, error);
+      }
+    };
+
+    loadContent();
+  }, [activeTab, projectContext?.projectPath, loadLazyTab, loadLazyDiffTab]);
 
   const isDark = effectiveTheme === "dark";
 
@@ -47,9 +95,15 @@ export function ContentArea() {
       {/* Tabs */}
       {hasTabs && <EditorTabs />}
 
+      {/* Breadcrumb for file and diff tabs */}
+      {isFileTab(activeTab) && <Breadcrumb path={activeTab.path} />}
+      {isDiffTab(activeTab) && <Breadcrumb path={activeTab.filePath} />}
+
       {/* Editor or Welcome */}
       <div className="flex-1 min-h-0">
-        {isDiffTab(activeTab) ? (
+        {isLazyTab(activeTab) ? (
+          <LoadingScreen />
+        ) : isDiffTab(activeTab) ? (
           <DiffEditor
             original={activeTab.originalContent}
             modified={activeTab.modifiedContent}
@@ -71,6 +125,23 @@ export function ContentArea() {
           <WelcomeScreen />
         )}
       </div>
+    </div>
+  );
+}
+
+function LoadingScreen() {
+  const { effectiveTheme } = useIdeSettingsContext();
+  const isDark = effectiveTheme === "dark";
+
+  return (
+    <div
+      className={cn(
+        "h-full flex flex-col items-center justify-center",
+        isDark ? "text-neutral-500" : "text-neutral-400"
+      )}
+    >
+      <Loader2 className="w-8 h-8 animate-spin opacity-50" />
+      <p className="text-sm mt-3">Loading file...</p>
     </div>
   );
 }

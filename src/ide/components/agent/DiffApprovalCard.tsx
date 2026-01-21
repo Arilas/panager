@@ -59,7 +59,8 @@ export function DiffApprovalCard({ approval, onApprove, onReject }: DiffApproval
     // Open the diff in a full editor tab
     openDiffTab({
       type: "diff",
-      path: `diff://${approval.filePath}`,
+      path: approval.filePath,
+      filePath: approval.filePath,
       fileName,
       originalContent: approval.diff.oldText,
       modifiedContent: approval.diff.newText,

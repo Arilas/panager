@@ -172,9 +172,11 @@ export function GitPanel() {
 
       // Open the diff in a new tab (as preview by default)
       const fileName = file.path.split("/").pop() || file.path;
+      const fullPath = `${projectContext.projectPath}/${file.path}`;
       openDiffTab({
         type: "diff",
-        path: `${projectContext.projectPath}/${file.path}`,
+        path: fullPath,
+        filePath: fullPath,
         fileName,
         originalContent: diff.originalContent,
         modifiedContent: diff.modifiedContent,

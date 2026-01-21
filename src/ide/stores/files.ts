@@ -43,11 +43,15 @@ interface FilesState {
   treeLoading: boolean;
   treeError: string | null;
 
+  // Reveal in sidebar - path to scroll into view
+  revealFilePath: string | null;
+
   // Tree actions
   loadFileTree: (rootPath: string) => Promise<void>;
   expandDirectory: (path: string, projectPath: string) => Promise<void>;
   collapseDirectory: (path: string) => void;
   toggleDirectory: (path: string, projectPath: string) => Promise<void>;
+  setRevealFilePath: (path: string | null) => void;
 
   // File I/O actions (delegate to editorStore for tab management)
   openFile: (path: string) => Promise<void>;
@@ -70,6 +74,7 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   loadingPaths: new Set(),
   treeLoading: false,
   treeError: null,
+  revealFilePath: null,
 
   // ============================================================
   // Tree Actions
@@ -128,6 +133,10 @@ export const useFilesStore = create<FilesState>((set, get) => ({
       newExpanded.delete(path);
       return { expandedPaths: newExpanded };
     });
+  },
+
+  setRevealFilePath: (path) => {
+    set({ revealFilePath: path });
   },
 
   toggleDirectory: async (path, projectPath) => {

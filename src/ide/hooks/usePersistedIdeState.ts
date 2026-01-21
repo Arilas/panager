@@ -7,17 +7,68 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useIdeStore } from "../stores/ide";
 import { useFilesStore } from "../stores/files";
-import { useEditorStore } from "../stores/editor";
+import {
+  useEditorStore,
+  isFileTab,
+  isDiffTab,
+  isLazyTab,
+  type TabState,
+} from "../stores/editor";
 
 const STORAGE_KEY_PREFIX = "ide-state-";
 const DEBOUNCE_MS = 500;
 
+/** Persisted metadata for a tab */
+interface PersistedTab {
+  path: string;
+  type: "file" | "diff";
+  fileName: string;
+  // Diff-specific fields
+  filePath?: string;
+  staged?: boolean;
+}
+
 interface PersistedState {
-  openFilePaths: string[];
+  /** Tab metadata for lazy restoration */
+  tabs: PersistedTab[];
   activeFilePath: string | null;
+  pinnedTabs: string[];
   sidebarWidth: number;
   activePanel: "files" | "git" | "search" | "settings" | null;
   expandedPaths: string[];
+}
+
+/** Convert tab state to persisted format */
+function tabToPersistedTab(path: string, tabState: TabState | null): PersistedTab | null {
+  if (!tabState) return null;
+
+  if (isFileTab(tabState) || (isLazyTab(tabState) && tabState.targetType === "file")) {
+    const fileName = path.split("/").pop() ?? path;
+    return { path, type: "file", fileName };
+  }
+
+  if (isDiffTab(tabState)) {
+    return {
+      path,
+      type: "diff",
+      fileName: tabState.fileName,
+      filePath: tabState.filePath,
+      staged: tabState.staged,
+    };
+  }
+
+  if (isLazyTab(tabState) && tabState.targetType === "diff") {
+    return {
+      path,
+      type: "diff",
+      fileName: tabState.fileName,
+      filePath: tabState.filePath,
+      staged: tabState.staged,
+    };
+  }
+
+  // Chat tabs are not persisted
+  return null;
 }
 
 export function usePersistedIdeState() {
@@ -28,10 +79,14 @@ export function usePersistedIdeState() {
   const setActivePanel = useIdeStore((s) => s.setActivePanel);
 
   const openTabs = useEditorStore((s) => s.openTabs);
+  const tabStates = useEditorStore((s) => s.tabStates);
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
+  const pinnedTabs = useEditorStore((s) => s.pinnedTabs);
   const setActiveTab = useEditorStore((s) => s.setActiveTab);
+  const setPinnedTabs = useEditorStore((s) => s.setPinnedTabs);
+  const registerLazyFileTab = useEditorStore((s) => s.registerLazyFileTab);
+  const registerLazyDiffTab = useEditorStore((s) => s.registerLazyDiffTab);
   const expandedPaths = useFilesStore((s) => s.expandedPaths);
-  const openFile = useFilesStore((s) => s.openFile);
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRestoredRef = useRef(false);
@@ -45,9 +100,20 @@ export function usePersistedIdeState() {
   const saveState = useCallback(() => {
     if (!storageKey) return;
 
+    // Convert open tabs to persisted format
+    const tabs: PersistedTab[] = [];
+    for (const path of openTabs) {
+      const tabState = tabStates[path] ?? null;
+      const persistedTab = tabToPersistedTab(path, tabState);
+      if (persistedTab) {
+        tabs.push(persistedTab);
+      }
+    }
+
     const state: PersistedState = {
-      openFilePaths: openTabs,
+      tabs,
       activeFilePath: activeTabPath,
+      pinnedTabs,
       sidebarWidth,
       activePanel,
       expandedPaths: Array.from(expandedPaths),
@@ -61,7 +127,9 @@ export function usePersistedIdeState() {
   }, [
     storageKey,
     openTabs,
+    tabStates,
     activeTabPath,
+    pinnedTabs,
     sidebarWidth,
     activePanel,
     expandedPaths,
@@ -85,7 +153,9 @@ export function usePersistedIdeState() {
   }, [
     storageKey,
     openTabs,
+    tabStates,
     activeTabPath,
+    pinnedTabs,
     sidebarWidth,
     activePanel,
     expandedPaths,
@@ -96,7 +166,7 @@ export function usePersistedIdeState() {
   useEffect(() => {
     if (!storageKey || hasRestoredRef.current) return;
 
-    const restoreState = async () => {
+    const restoreState = () => {
       try {
         const savedState = localStorage.getItem(storageKey);
         if (!savedState) {
@@ -116,19 +186,32 @@ export function usePersistedIdeState() {
           setActivePanel(state.activePanel);
         }
 
-        // Restore open files (with error handling for missing files)
-        if (state.openFilePaths && state.openFilePaths.length > 0) {
-          for (const filePath of state.openFilePaths) {
-            try {
-              await openFile(filePath);
-            } catch (error) {
-              console.warn(`Failed to restore file: ${filePath}`, error);
+        // Register all tabs as lazy tabs (instant, no content loading)
+        if (state.tabs && state.tabs.length > 0) {
+          for (const tab of state.tabs) {
+            if (tab.type === "file") {
+              registerLazyFileTab(tab.path, tab.fileName);
+            } else if (tab.type === "diff" && tab.filePath !== undefined && tab.staged !== undefined) {
+              registerLazyDiffTab(tab.path, tab.fileName, tab.filePath, tab.staged);
             }
           }
 
-          // Restore active file
-          if (state.activeFilePath) {
-            setActiveTab(state.activeFilePath);
+          // Restore pinned tabs (filter to only include tabs that were restored)
+          if (state.pinnedTabs && state.pinnedTabs.length > 0) {
+            const restoredPaths = new Set(state.tabs.map((t) => t.path));
+            const validPinnedTabs = state.pinnedTabs.filter((p) => restoredPaths.has(p));
+            if (validPinnedTabs.length > 0) {
+              setPinnedTabs(validPinnedTabs);
+            }
+          }
+
+          // Set the active tab (content will be lazy-loaded by ContentArea)
+          const activeFile = state.activeFilePath;
+          const tabPaths = state.tabs.map((t) => t.path);
+          if (activeFile && tabPaths.includes(activeFile)) {
+            setActiveTab(activeFile, false); // Don't push to history
+          } else if (tabPaths.length > 0) {
+            setActiveTab(tabPaths[0], false);
           }
         }
 
@@ -143,7 +226,7 @@ export function usePersistedIdeState() {
     const timer = setTimeout(restoreState, 100);
 
     return () => clearTimeout(timer);
-  }, [storageKey, setSidebarWidth, setActivePanel, openFile, setActiveTab]);
+  }, [storageKey, setSidebarWidth, setActivePanel, setPinnedTabs, setActiveTab, registerLazyFileTab, registerLazyDiffTab]);
 
   // Clear state for a project
   const clearState = useCallback(() => {

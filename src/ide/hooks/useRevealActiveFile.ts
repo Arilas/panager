@@ -121,6 +121,8 @@ export function useRevealActiveFile({
   const tree = useFilesStore((s) => s.tree);
   const expandedPaths = useFilesStore((s) => s.expandedPaths);
   const expandDirectory = useFilesStore((s) => s.expandDirectory);
+  const revealFilePath = useFilesStore((s) => s.revealFilePath);
+  const setRevealFilePath = useFilesStore((s) => s.setRevealFilePath);
   const projectContext = useIdeStore((s) => s.projectContext);
 
   const debounceTimeoutRef = useRef<number | null>(null);
@@ -181,7 +183,7 @@ export function useRevealActiveFile({
     [tree, expandedPaths, expandDirectory, projectContext, containerRef]
   );
 
-  // Debounced reveal trigger
+  // Debounced reveal trigger for active tab changes
   useEffect(() => {
     if (
       !enabled ||
@@ -209,6 +211,17 @@ export function useRevealActiveFile({
       }
     };
   }, [enabled, activeTabPath, revealFile]);
+
+  // Handle explicit reveal requests (e.g., from "Reveal in Sidebar" action)
+  useEffect(() => {
+    if (!revealFilePath) return;
+
+    // Reveal immediately without debounce for explicit requests
+    revealFile(revealFilePath);
+
+    // Clear the reveal path after handling
+    setRevealFilePath(null);
+  }, [revealFilePath, revealFile, setRevealFilePath]);
 
   // Cleanup
   useEffect(() => {

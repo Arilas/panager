@@ -64,6 +64,8 @@ export interface DiffTabState extends BaseTabState {
   type: "diff";
   /** Display name for the tab */
   fileName: string;
+  /** Original file path (for breadcrumb, copy path, etc.) */
+  filePath: string;
   /** Original content (from HEAD) */
   originalContent: string;
   /** Modified content (current working tree or staged) */
@@ -81,25 +83,75 @@ export interface ChatTabState extends BaseTabState {
   sessionName: string;
 }
 
+/** Lazy file tab state - placeholder until content is loaded */
+export interface LazyFileTabState extends BaseTabState {
+  type: "lazy";
+  targetType: "file";
+  /** Display name for the tab */
+  fileName: string;
+}
+
+/** Lazy diff tab state - placeholder until content is loaded */
+export interface LazyDiffTabState extends BaseTabState {
+  type: "lazy";
+  targetType: "diff";
+  /** Display name for the tab */
+  fileName: string;
+  /** Original file path (for breadcrumb, copy path, etc.) */
+  filePath: string;
+  /** Whether this is showing staged changes */
+  staged: boolean;
+}
+
+/** Union type for lazy tab states */
+export type LazyTabState = LazyFileTabState | LazyDiffTabState;
+
 /** Union type for all tab states */
-export type TabState = FileTabState | DiffTabState | ChatTabState;
+export type TabState = FileTabState | DiffTabState | ChatTabState | LazyTabState;
 
 /** @deprecated Use FileTabState instead */
 export type FileEditorState = FileTabState;
 
 /** Type guard to check if a tab is a file tab */
-export function isFileTab(tab: TabState | null | undefined): tab is FileTabState {
+export function isFileTab(
+  tab: TabState | null | undefined,
+): tab is FileTabState {
   return tab !== null && tab !== undefined && tab.type === "file";
 }
 
 /** Type guard to check if a tab is a diff tab */
-export function isDiffTab(tab: TabState | null | undefined): tab is DiffTabState {
+export function isDiffTab(
+  tab: TabState | null | undefined,
+): tab is DiffTabState {
   return tab !== null && tab !== undefined && tab.type === "diff";
 }
 
 /** Type guard to check if a tab is a chat tab */
-export function isChatTab(tab: TabState | null | undefined): tab is ChatTabState {
+export function isChatTab(
+  tab: TabState | null | undefined,
+): tab is ChatTabState {
   return tab !== null && tab !== undefined && tab.type === "chat";
+}
+
+/** Type guard to check if a tab is a lazy tab */
+export function isLazyTab(
+  tab: TabState | null | undefined,
+): tab is LazyTabState {
+  return tab !== null && tab !== undefined && tab.type === "lazy";
+}
+
+/** Type guard to check if a tab is a lazy file tab */
+export function isLazyFileTab(
+  tab: TabState | null | undefined,
+): tab is LazyFileTabState {
+  return isLazyTab(tab) && tab.targetType === "file";
+}
+
+/** Type guard to check if a tab is a lazy diff tab */
+export function isLazyDiffTab(
+  tab: TabState | null | undefined,
+): tab is LazyDiffTabState {
+  return isLazyTab(tab) && tab.targetType === "diff";
 }
 
 /** Persisted session data (subset of FileTabState) */
@@ -123,12 +175,17 @@ interface EditorState {
   openTabs: string[]; // Ordered list of tab paths (tab order)
   activeTabPath: string | null; // Currently active tab
   previewTab: TabState | null; // Single preview tab (replaced on new preview)
+  pinnedTabs: string[]; // Paths of pinned tabs (order matters)
 
   // === TAB STATE (keyed by path) ===
   tabStates: Record<string, TabState>; // Permanent tabs only
 
   // === PERSISTED SESSION DATA ===
   sessionData: Record<string, PersistedFileSession>; // Session data for restoration
+
+  // === NAVIGATION HISTORY ===
+  navigationHistory: string[]; // Stack of visited tab paths
+  navigationIndex: number; // Current position in history (-1 = at end)
 
   // Settings
   gitBlameEnabled: boolean;
@@ -137,7 +194,9 @@ interface EditorState {
 
   // === INITIALIZATION ACTIONS ===
   setMonacoInstance: (monaco: Monaco) => void;
-  setActiveEditor: (editor: monacoEditor.editor.IStandaloneCodeEditor | null) => void;
+  setActiveEditor: (
+    editor: monacoEditor.editor.IStandaloneCodeEditor | null,
+  ) => void;
   setInitStatus: (status: InitStatus, error?: string) => void;
 
   // === TAB ACTIONS ===
@@ -145,17 +204,53 @@ interface EditorState {
     path: string,
     content: string,
     language: string,
-    isPreview?: boolean
+    isPreview?: boolean,
   ) => void;
   openDiffTab: (diff: DiffTabState, isPreview?: boolean) => void;
   openChatTab: (sessionId: string, sessionName: string) => void;
-  
+  /** Register a lazy file tab (placeholder until content is loaded) */
+  registerLazyFileTab: (path: string, fileName: string) => void;
+  /** Register a lazy diff tab (placeholder until content is loaded) */
+  registerLazyDiffTab: (
+    path: string,
+    fileName: string,
+    filePath: string,
+    staged: boolean,
+  ) => void;
+  /** Load a lazy tab - replaces it with the actual content */
+  loadLazyTab: (
+    path: string,
+    content: string,
+    language: string,
+    headContent?: string | null,
+  ) => void;
+  /** Load a lazy diff tab - replaces it with actual diff content */
+  loadLazyDiffTab: (
+    path: string,
+    originalContent: string,
+    modifiedContent: string,
+    language: string,
+  ) => void;
+  /** Check if a tab is lazy (needs content to be loaded) */
+  isLazyTab: (path: string) => boolean;
+
   closeTab: (path: string) => void;
   closeOtherTabs: (path: string) => void;
   closeAllTabs: () => void;
-  setActiveTab: (path: string) => void;
+  setActiveTab: (path: string, pushHistory?: boolean) => void;
   convertPreviewToPermanent: () => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
+  pinTab: (path: string) => void;
+  unpinTab: (path: string) => void;
+  isTabPinned: (path: string) => boolean;
+  /** Set pinned tabs (for restoration) */
+  setPinnedTabs: (paths: string[]) => void;
+
+  // === NAVIGATION ACTIONS ===
+  navigateBack: () => void;
+  navigateForward: () => void;
+  canNavigateBack: () => boolean;
+  canNavigateForward: () => boolean;
 
   // === CONTENT ACTIONS ===
   updateContent: (path: string, content: string) => void;
@@ -172,11 +267,11 @@ interface EditorState {
   // === SESSION ACTIONS ===
   saveCursorPosition: (
     path: string,
-    pos: { line: number; column: number }
+    pos: { line: number; column: number },
   ) => void;
   saveScrollPosition: (
     path: string,
-    pos: { top: number; left: number }
+    pos: { top: number; left: number },
   ) => void;
   saveSelections: (path: string, selections: monacoEditor.ISelection[]) => void;
   saveFoldedRegions: (path: string, regions: number[]) => void;
@@ -249,7 +344,7 @@ function createDefaultFileState(
   path: string,
   content: string,
   language: string,
-  existingSession?: PersistedFileSession
+  existingSession?: PersistedFileSession,
 ): FileTabState {
   return {
     type: "file",
@@ -287,8 +382,11 @@ export const useEditorStore = create<EditorState>()(
       openTabs: [],
       activeTabPath: null,
       previewTab: null,
+      pinnedTabs: [],
       tabStates: {},
       sessionData: {},
+      navigationHistory: [],
+      navigationIndex: -1,
       gitBlameEnabled: true,
       codeLensEnabled: true,
       gitGutterEnabled: true,
@@ -326,7 +424,7 @@ export const useEditorStore = create<EditorState>()(
               path,
               content,
               language,
-              existingSession
+              existingSession,
             );
             set((s) => ({
               tabStates: { ...s.tabStates, [path]: newFileState },
@@ -350,7 +448,11 @@ export const useEditorStore = create<EditorState>()(
 
         if (isPreview) {
           // Close existing preview if different file (only for file tabs)
-          if (state.previewTab && state.previewTab.path !== path && isFileTab(state.previewTab)) {
+          if (
+            state.previewTab &&
+            state.previewTab.path !== path &&
+            isFileTab(state.previewTab)
+          ) {
             notifyFileClosed(state.previewTab.path).catch(console.error);
           }
 
@@ -359,7 +461,7 @@ export const useEditorStore = create<EditorState>()(
             path,
             content,
             language,
-            existingSession
+            existingSession,
           );
 
           set({
@@ -372,7 +474,7 @@ export const useEditorStore = create<EditorState>()(
             path,
             content,
             language,
-            existingSession
+            existingSession,
           );
 
           set((state) => ({
@@ -405,11 +507,16 @@ export const useEditorStore = create<EditorState>()(
         const diffTabState: DiffTabState = {
           ...diff,
           path: diffPath,
+          filePath: diff.path, // Store original file path for breadcrumb/copy path
         };
 
         if (isPreview) {
           // Close existing preview if different
-          if (state.previewTab && state.previewTab.path !== diffPath && isFileTab(state.previewTab)) {
+          if (
+            state.previewTab &&
+            state.previewTab.path !== diffPath &&
+            isFileTab(state.previewTab)
+          ) {
             notifyFileClosed(state.previewTab.path).catch(console.error);
           }
 
@@ -458,6 +565,175 @@ export const useEditorStore = create<EditorState>()(
         }));
       },
 
+      registerLazyFileTab: (path: string, fileName: string) => {
+        const state = get();
+
+        // Skip if already open
+        if (state.openTabs.includes(path) || state.tabStates[path]) {
+          return;
+        }
+
+        // Detect language from file extension
+        const ext = path.split(".").pop()?.toLowerCase() ?? "";
+        const languageMap: Record<string, string> = {
+          ts: "typescript",
+          tsx: "typescriptreact",
+          js: "javascript",
+          jsx: "javascriptreact",
+          json: "json",
+          md: "markdown",
+          css: "css",
+          scss: "scss",
+          html: "html",
+          py: "python",
+          rs: "rust",
+          go: "go",
+          yaml: "yaml",
+          yml: "yaml",
+          toml: "toml",
+        };
+        const language = languageMap[ext] ?? "plaintext";
+
+        const lazyTab: LazyFileTabState = {
+          type: "lazy",
+          targetType: "file",
+          path,
+          fileName,
+          language,
+        };
+
+        set((s) => ({
+          openTabs: [...s.openTabs, path],
+          tabStates: { ...s.tabStates, [path]: lazyTab },
+        }));
+      },
+
+      registerLazyDiffTab: (
+        path: string,
+        fileName: string,
+        filePath: string,
+        staged: boolean,
+      ) => {
+        const state = get();
+
+        // Skip if already open
+        if (state.openTabs.includes(path) || state.tabStates[path]) {
+          return;
+        }
+
+        // Detect language from file extension
+        const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+        const languageMap: Record<string, string> = {
+          ts: "typescript",
+          tsx: "typescriptreact",
+          js: "javascript",
+          jsx: "javascriptreact",
+          json: "json",
+          md: "markdown",
+          css: "css",
+          scss: "scss",
+          html: "html",
+          py: "python",
+          rs: "rust",
+          go: "go",
+          yaml: "yaml",
+          yml: "yaml",
+          toml: "toml",
+        };
+        const language = languageMap[ext] ?? "plaintext";
+
+        const lazyTab: LazyDiffTabState = {
+          type: "lazy",
+          targetType: "diff",
+          path,
+          fileName,
+          filePath,
+          staged,
+          language,
+        };
+
+        set((s) => ({
+          openTabs: [...s.openTabs, path],
+          tabStates: { ...s.tabStates, [path]: lazyTab },
+        }));
+      },
+
+      loadLazyTab: (
+        path: string,
+        content: string,
+        language: string,
+        headContent?: string | null,
+      ) => {
+        const state = get();
+        const lazyTab = state.tabStates[path];
+
+        // Only load if it's actually a lazy file tab
+        if (!lazyTab || lazyTab.type !== "lazy" || lazyTab.targetType !== "file") {
+          return;
+        }
+
+        // Get existing session data for restoration
+        const existingSession = state.sessionData[path];
+
+        const fileTab = createDefaultFileState(
+          path,
+          content,
+          language,
+          existingSession,
+        );
+
+        // Set head content if provided
+        if (headContent !== undefined) {
+          fileTab.headContent = headContent;
+          if (headContent !== null) {
+            fileTab.lineDiff = computeLineDiff(headContent, content);
+          }
+        }
+
+        set((s) => ({
+          tabStates: { ...s.tabStates, [path]: fileTab },
+        }));
+
+        // Notify LSP about file open
+        notifyFileOpened(path, content).catch(console.error);
+      },
+
+      loadLazyDiffTab: (
+        path: string,
+        originalContent: string,
+        modifiedContent: string,
+        language: string,
+      ) => {
+        const state = get();
+        const lazyTab = state.tabStates[path];
+
+        // Only load if it's actually a lazy diff tab
+        if (!lazyTab || lazyTab.type !== "lazy" || lazyTab.targetType !== "diff") {
+          return;
+        }
+
+        const diffTab: DiffTabState = {
+          type: "diff",
+          path,
+          fileName: lazyTab.fileName,
+          filePath: lazyTab.filePath,
+          originalContent,
+          modifiedContent,
+          staged: lazyTab.staged,
+          language,
+        };
+
+        set((s) => ({
+          tabStates: { ...s.tabStates, [path]: diffTab },
+        }));
+      },
+
+      isLazyTab: (path: string) => {
+        const state = get();
+        const tab = state.tabStates[path];
+        return tab?.type === "lazy";
+      },
+
       closeTab: (path) => {
         const state = get();
 
@@ -476,7 +752,7 @@ export const useEditorStore = create<EditorState>()(
               previewTab: null,
               activeTabPath:
                 s.activeTabPath === path
-                  ? s.openTabs[s.openTabs.length - 1] ?? null
+                  ? (s.openTabs[s.openTabs.length - 1] ?? null)
                   : s.activeTabPath,
               sessionData: { ...s.sessionData, [path]: session },
             }));
@@ -488,7 +764,7 @@ export const useEditorStore = create<EditorState>()(
               previewTab: null,
               activeTabPath:
                 s.activeTabPath === path
-                  ? s.openTabs[s.openTabs.length - 1] ?? null
+                  ? (s.openTabs[s.openTabs.length - 1] ?? null)
                   : s.activeTabPath,
             }));
           }
@@ -546,9 +822,12 @@ export const useEditorStore = create<EditorState>()(
       closeOtherTabs: (path) => {
         const state = get();
 
-        // Close all tabs except the specified one
+        // Keep pinned tabs and the specified tab
+        const tabsToKeep = new Set([path, ...state.pinnedTabs]);
+
+        // Close all tabs except pinned ones and the specified one
         for (const tabPath of state.openTabs) {
-          if (tabPath !== path) {
+          if (!tabsToKeep.has(tabPath)) {
             const tabState = state.tabStates[tabPath];
             if (isFileTab(tabState)) {
               notifyFileClosed(tabPath).catch(console.error);
@@ -556,20 +835,30 @@ export const useEditorStore = create<EditorState>()(
           }
         }
 
-        // Close preview if it's not the specified path
+        // Close preview if it's not the specified path (preview can't be pinned)
         if (state.previewTab && state.previewTab.path !== path) {
           if (isFileTab(state.previewTab)) {
             notifyFileClosed(state.previewTab.path).catch(console.error);
           }
         }
 
-        const keepTabState = state.tabStates[path];
+        // Build new tab states, keeping only the tabs we want to preserve
+        const newTabStates: typeof state.tabStates = {};
+        const newOpenTabs: string[] = [];
+
+        for (const tabPath of state.openTabs) {
+          if (tabsToKeep.has(tabPath) && state.tabStates[tabPath]) {
+            newTabStates[tabPath] = state.tabStates[tabPath];
+            newOpenTabs.push(tabPath);
+          }
+        }
+
         const keepPreview =
           state.previewTab?.path === path ? state.previewTab : null;
 
         set({
-          openTabs: keepTabState ? [path] : [],
-          tabStates: keepTabState ? { [path]: keepTabState } : {},
+          openTabs: newOpenTabs,
+          tabStates: newTabStates,
           previewTab: keepPreview,
           activeTabPath: path,
         });
@@ -578,27 +867,76 @@ export const useEditorStore = create<EditorState>()(
       closeAllTabs: () => {
         const state = get();
 
-        // Notify LSP about all closed file tabs
+        // Keep only pinned tabs
+        const pinnedSet = new Set(state.pinnedTabs);
+
+        // Notify LSP about closed file tabs (non-pinned only)
         for (const path of state.openTabs) {
-          const tabState = state.tabStates[path];
-          if (isFileTab(tabState)) {
-            notifyFileClosed(path).catch(console.error);
+          if (!pinnedSet.has(path)) {
+            const tabState = state.tabStates[path];
+            if (isFileTab(tabState)) {
+              notifyFileClosed(path).catch(console.error);
+            }
           }
         }
         if (state.previewTab && isFileTab(state.previewTab)) {
           notifyFileClosed(state.previewTab.path).catch(console.error);
         }
 
+        // Build new state keeping only pinned tabs
+        const newTabStates: typeof state.tabStates = {};
+        const newOpenTabs: string[] = [];
+
+        for (const tabPath of state.openTabs) {
+          if (pinnedSet.has(tabPath) && state.tabStates[tabPath]) {
+            newTabStates[tabPath] = state.tabStates[tabPath];
+            newOpenTabs.push(tabPath);
+          }
+        }
+
+        // Set active tab to first pinned tab, or null if none
+        const newActiveTab = newOpenTabs.length > 0 ? newOpenTabs[0] : null;
+
         set({
-          openTabs: [],
-          tabStates: {},
+          openTabs: newOpenTabs,
+          tabStates: newTabStates,
           previewTab: null,
-          activeTabPath: null,
+          activeTabPath: newActiveTab,
         });
       },
 
-      setActiveTab: (path) => {
-        set({ activeTabPath: path });
+      setActiveTab: (path, pushHistory = true) => {
+        const state = get();
+
+        // Push to navigation history if different from current
+        if (pushHistory && path !== state.activeTabPath) {
+          const newHistory = [...state.navigationHistory];
+
+          // If we're not at the end of history, truncate forward history
+          if (
+            state.navigationIndex >= 0 &&
+            state.navigationIndex < newHistory.length - 1
+          ) {
+            newHistory.splice(state.navigationIndex + 1);
+          }
+
+          // Don't push consecutive duplicates
+          if (newHistory[newHistory.length - 1] !== path) {
+            newHistory.push(path);
+            // Limit history to 50 entries
+            if (newHistory.length > 50) {
+              newHistory.shift();
+            }
+          }
+
+          set({
+            activeTabPath: path,
+            navigationHistory: newHistory,
+            navigationIndex: -1, // -1 means at the end
+          });
+        } else {
+          set({ activeTabPath: path });
+        }
       },
 
       convertPreviewToPermanent: () => {
@@ -618,9 +956,159 @@ export const useEditorStore = create<EditorState>()(
         set((state) => {
           const newTabs = [...state.openTabs];
           const [removed] = newTabs.splice(fromIndex, 1);
-          newTabs.splice(toIndex, 0, removed);
+
+          // Ensure we don't move unpinned tabs before pinned tabs
+          const pinnedCount = state.pinnedTabs.length;
+          const isMovingPinned = state.pinnedTabs.includes(removed);
+
+          let adjustedToIndex = toIndex;
+          if (!isMovingPinned && adjustedToIndex < pinnedCount) {
+            adjustedToIndex = pinnedCount; // Can't move before pinned tabs
+          }
+          if (isMovingPinned && adjustedToIndex >= pinnedCount) {
+            adjustedToIndex = pinnedCount - 1; // Can't move pinned tabs after unpinned
+          }
+
+          newTabs.splice(adjustedToIndex, 0, removed);
           return { openTabs: newTabs };
         });
+      },
+
+      pinTab: (path) => {
+        set((state) => {
+          if (state.pinnedTabs.includes(path)) return state;
+
+          const newPinnedTabs = [...state.pinnedTabs, path];
+
+          // Move pinned tab to the pinned section (before unpinned tabs)
+          const newOpenTabs = [...state.openTabs];
+          const currentIndex = newOpenTabs.indexOf(path);
+          if (currentIndex > -1) {
+            newOpenTabs.splice(currentIndex, 1);
+            newOpenTabs.splice(state.pinnedTabs.length, 0, path);
+          }
+
+          return {
+            pinnedTabs: newPinnedTabs,
+            openTabs: newOpenTabs,
+          };
+        });
+      },
+
+      unpinTab: (path) => {
+        set((state) => {
+          const pinIndex = state.pinnedTabs.indexOf(path);
+          if (pinIndex === -1) return state;
+
+          const newPinnedTabs = state.pinnedTabs.filter((p) => p !== path);
+
+          // Move unpinned tab to after the remaining pinned tabs
+          const newOpenTabs = [...state.openTabs];
+          const currentIndex = newOpenTabs.indexOf(path);
+          if (currentIndex > -1 && currentIndex < newPinnedTabs.length) {
+            newOpenTabs.splice(currentIndex, 1);
+            newOpenTabs.splice(newPinnedTabs.length, 0, path);
+          }
+
+          return {
+            pinnedTabs: newPinnedTabs,
+            openTabs: newOpenTabs,
+          };
+        });
+      },
+
+      isTabPinned: (path) => {
+        return get().pinnedTabs.includes(path);
+      },
+
+      setPinnedTabs: (paths) => {
+        set({ pinnedTabs: paths });
+      },
+
+      // === NAVIGATION ACTIONS ===
+
+      navigateBack: () => {
+        const state = get();
+        const history = state.navigationHistory;
+
+        if (history.length < 2) return;
+
+        // Calculate current position
+        const currentIndex =
+          state.navigationIndex === -1
+            ? history.length - 1
+            : state.navigationIndex;
+
+        if (currentIndex <= 0) return;
+
+        const newIndex = currentIndex - 1;
+        const targetPath = history[newIndex];
+
+        // Only navigate if tab still exists
+        if (
+          state.openTabs.includes(targetPath) ||
+          state.previewTab?.path === targetPath ||
+          state.tabStates[targetPath]
+        ) {
+          set({
+            activeTabPath: targetPath,
+            navigationIndex: newIndex,
+          });
+        } else {
+          // Tab was closed, remove from history and try again
+          const newHistory = history.filter((_, i) => i !== newIndex);
+          set({ navigationHistory: newHistory });
+          get().navigateBack();
+        }
+      },
+
+      navigateForward: () => {
+        const state = get();
+        const history = state.navigationHistory;
+
+        if (
+          state.navigationIndex === -1 ||
+          state.navigationIndex >= history.length - 1
+        ) {
+          return;
+        }
+
+        const newIndex = state.navigationIndex + 1;
+        const targetPath = history[newIndex];
+
+        // Only navigate if tab still exists
+        if (
+          state.openTabs.includes(targetPath) ||
+          state.previewTab?.path === targetPath ||
+          state.tabStates[targetPath]
+        ) {
+          set({
+            activeTabPath: targetPath,
+            navigationIndex: newIndex === history.length - 1 ? -1 : newIndex,
+          });
+        } else {
+          // Tab was closed, remove from history and try again
+          const newHistory = history.filter((_, i) => i !== newIndex);
+          set({ navigationHistory: newHistory });
+          get().navigateForward();
+        }
+      },
+
+      canNavigateBack: () => {
+        const state = get();
+        const currentIndex =
+          state.navigationIndex === -1
+            ? state.navigationHistory.length - 1
+            : state.navigationIndex;
+        return currentIndex > 0;
+      },
+
+      canNavigateForward: () => {
+        const state = get();
+        return (
+          state.navigationIndex !== -1 &&
+          state.navigationIndex < state.navigationHistory.length - 1
+        );
       },
 
       // === CONTENT ACTIONS ===
@@ -1054,7 +1542,6 @@ export const useEditorStore = create<EditorState>()(
       // to avoid duplicate restoration issues
       partialize: (state) => ({
         sessionData: {
-          ...state.sessionData,
           // Also include current session data from open file tabs
           ...Object.fromEntries(
             Object.entries(state.tabStates)
@@ -1070,7 +1557,7 @@ export const useEditorStore = create<EditorState>()(
                     foldedRegions: fileState.foldedRegions,
                   },
                 ];
-              })
+              }),
           ),
           // Include preview tab session (only for file tabs)
           ...(state.previewTab && isFileTab(state.previewTab)
@@ -1084,10 +1571,8 @@ export const useEditorStore = create<EditorState>()(
               }
             : {}),
         },
-        gitBlameEnabled: state.gitBlameEnabled,
-        codeLensEnabled: state.codeLensEnabled,
-        gitGutterEnabled: state.gitGutterEnabled,
+        // NOTE: pinnedTabs is persisted per-project in usePersistedIdeState, not here
       }),
-    }
-  )
+    },
+  ),
 );
