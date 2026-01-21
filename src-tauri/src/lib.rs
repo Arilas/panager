@@ -174,6 +174,12 @@ pub fn run() {
             ide::commands::ide_create_file,
             ide::commands::ide_delete_file,
             ide::commands::ide_rename_file,
+            ide::commands::ide_create_directory,
+            ide::commands::ide_delete_directory,
+            ide::commands::ide_copy_path,
+            ide::commands::ide_copy_directory,
+            ide::commands::ide_path_exists,
+            ide::commands::ide_reveal_in_finder,
             // IDE - Plugin notifications (for LSP/plugins)
             ide::commands::ide_notify_file_opened,
             ide::commands::ide_notify_file_changed,

@@ -289,6 +289,36 @@ export async function renameFile(
   return invoke("ide_rename_file", { oldPath, newPath });
 }
 
+export async function createDirectory(dirPath: string): Promise<void> {
+  return invoke("ide_create_directory", { dirPath });
+}
+
+export async function deleteDirectory(dirPath: string): Promise<void> {
+  return invoke("ide_delete_directory", { dirPath });
+}
+
+export async function copyPath(
+  sourcePath: string,
+  destPath: string
+): Promise<void> {
+  return invoke("ide_copy_path", { sourcePath, destPath });
+}
+
+export async function copyDirectory(
+  sourcePath: string,
+  destPath: string
+): Promise<void> {
+  return invoke("ide_copy_directory", { sourcePath, destPath });
+}
+
+export async function pathExists(path: string): Promise<boolean> {
+  return invoke("ide_path_exists", { path });
+}
+
+export async function revealInFinder(path: string): Promise<void> {
+  return invoke("ide_reveal_in_finder", { path });
+}
+
 // Plugin notifications (for LSP/plugins)
 
 export async function notifyFileOpened(

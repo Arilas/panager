@@ -704,6 +704,160 @@ pub fn ide_rename_file(old_path: String, new_path: String) -> Result<(), String>
     fs::rename(from, to).map_err(|e| format!("Failed to rename: {}", e))
 }
 
+/// Creates a new directory
+#[tauri::command]
+#[specta::specta]
+pub fn ide_create_directory(dir_path: String) -> Result<(), String> {
+    let path = Path::new(&dir_path);
+
+    if path.exists() {
+        return Err(format!("Directory already exists: {}", dir_path));
+    }
+
+    info!("Creating directory: {}", dir_path);
+
+    fs::create_dir_all(&path).map_err(|e| format!("Failed to create directory: {}", e))
+}
+
+/// Deletes a directory and all its contents
+#[tauri::command]
+#[specta::specta]
+pub fn ide_delete_directory(dir_path: String) -> Result<(), String> {
+    let path = Path::new(&dir_path);
+
+    if !path.exists() {
+        return Err(format!("Directory does not exist: {}", dir_path));
+    }
+
+    if !path.is_dir() {
+        return Err(format!("Path is not a directory: {}", dir_path));
+    }
+
+    info!("Deleting directory: {}", dir_path);
+
+    fs::remove_dir_all(&path).map_err(|e| format!("Failed to delete directory: {}", e))
+}
+
+/// Copies a file to a new location
+#[tauri::command]
+#[specta::specta]
+pub fn ide_copy_path(source_path: String, dest_path: String) -> Result<(), String> {
+    let from = Path::new(&source_path);
+    let to = Path::new(&dest_path);
+
+    if !from.exists() {
+        return Err(format!("Source does not exist: {}", source_path));
+    }
+
+    if to.exists() {
+        return Err(format!("Destination already exists: {}", dest_path));
+    }
+
+    info!("Copying: {} -> {}", source_path, dest_path);
+
+    fs::copy(from, to)
+        .map(|_| ())
+        .map_err(|e| format!("Failed to copy file: {}", e))
+}
+
+/// Copies a directory recursively to a new location
+#[tauri::command]
+#[specta::specta]
+pub fn ide_copy_directory(source_path: String, dest_path: String) -> Result<(), String> {
+    let from = Path::new(&source_path);
+    let to = Path::new(&dest_path);
+
+    if !from.exists() {
+        return Err(format!("Source does not exist: {}", source_path));
+    }
+
+    if !from.is_dir() {
+        return Err(format!("Source is not a directory: {}", source_path));
+    }
+
+    if to.exists() {
+        return Err(format!("Destination already exists: {}", dest_path));
+    }
+
+    info!("Copying directory: {} -> {}", source_path, dest_path);
+
+    copy_dir_recursive(from, to).map_err(|e| format!("Failed to copy directory: {}", e))
+}
+
+/// Helper function to copy a directory recursively
+fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(dst)?;
+
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+
+        if file_type.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Checks if a path exists
+#[tauri::command]
+#[specta::specta]
+pub fn ide_path_exists(path: String) -> bool {
+    Path::new(&path).exists()
+}
+
+/// Reveals a file or directory in the system file manager (Finder on macOS, Explorer on Windows)
+#[tauri::command]
+#[specta::specta]
+pub fn ide_reveal_in_finder(path: String) -> Result<(), String> {
+    let path = Path::new(&path);
+
+    if !path.exists() {
+        return Err(format!("Path does not exist: {}", path.display()));
+    }
+
+    info!("Revealing in file manager: {}", path.display());
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .args(["-R", &path.to_string_lossy()])
+            .spawn()
+            .map_err(|e| format!("Failed to open Finder: {}", e))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .args(["/select,", &path.to_string_lossy()])
+            .spawn()
+            .map_err(|e| format!("Failed to open Explorer: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Try different file managers
+        let parent = path.parent().unwrap_or(path);
+        if std::process::Command::new("xdg-open")
+            .arg(parent)
+            .spawn()
+            .is_err()
+        {
+            std::process::Command::new("nautilus")
+                .arg(path)
+                .spawn()
+                .map_err(|e| format!("Failed to open file manager: {}", e))?;
+        }
+    }
+
+    Ok(())
+}
+
 /// Notifies plugins that a file has been opened
 ///
 /// This should be called by the frontend when the user opens a file in the editor.

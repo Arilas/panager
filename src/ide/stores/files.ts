@@ -11,7 +11,19 @@
 
 import { create } from "zustand";
 import type { FileEntry } from "../types";
-import { readDirectory, readFile, writeFile } from "../lib/tauri-ide";
+import {
+  readDirectory,
+  readFile,
+  writeFile,
+  createFile,
+  deleteFile,
+  renameFile,
+  createDirectory,
+  deleteDirectory,
+  copyPath,
+  copyDirectory,
+  pathExists,
+} from "../lib/tauri-ide";
 import { useEditorStore, isFileTab } from "./editor";
 import { useIdeStore } from "./ide";
 import { useIdeSettingsStore } from "./settings";
@@ -35,6 +47,18 @@ export function consumePendingNavigation(path: string): FilePosition | null {
   return null;
 }
 
+/** Clipboard state for copy/cut operations */
+interface ClipboardState {
+  items: string[]; // Full paths of items in clipboard
+  operation: "copy" | "cut" | null;
+}
+
+/** Inline creation state */
+interface CreatingEntry {
+  parentPath: string;
+  isDirectory: boolean;
+}
+
 interface FilesState {
   // File tree
   tree: FileEntry[];
@@ -45,6 +69,13 @@ interface FilesState {
 
   // Reveal in sidebar - path to scroll into view
   revealFilePath: string | null;
+
+  // Clipboard for copy/cut/paste
+  clipboard: ClipboardState;
+
+  // Inline creation/renaming
+  creatingEntry: CreatingEntry | null;
+  renamingPath: string | null;
 
   // Tree actions
   loadFileTree: (rootPath: string) => Promise<void>;
@@ -65,6 +96,25 @@ interface FilesState {
   addFileToTree: (path: string, isDirectory: boolean) => void;
   removeFileFromTree: (path: string) => void;
   updateFileTree: () => Promise<void>;
+
+  // Clipboard actions
+  copyToClipboard: (paths: string[]) => void;
+  cutToClipboard: (paths: string[]) => void;
+  clearClipboard: () => void;
+  pasteFromClipboard: (targetDir: string) => Promise<void>;
+
+  // Inline creation actions
+  startCreating: (parentPath: string, isDirectory: boolean) => void;
+  cancelCreating: () => void;
+  confirmCreating: (name: string) => Promise<void>;
+
+  // Rename actions
+  startRenaming: (path: string) => void;
+  cancelRenaming: () => void;
+  confirmRenaming: (newName: string) => Promise<void>;
+
+  // Delete action
+  deleteEntry: (path: string) => Promise<void>;
 }
 
 export const useFilesStore = create<FilesState>((set, get) => ({
@@ -75,6 +125,9 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   treeLoading: false,
   treeError: null,
   revealFilePath: null,
+  clipboard: { items: [], operation: null },
+  creatingEntry: null,
+  renamingPath: null,
 
   // ============================================================
   // Tree Actions
@@ -389,7 +442,252 @@ export const useFilesStore = create<FilesState>((set, get) => ({
       console.error("Failed to update file tree:", error);
     }
   },
+
+  // ============================================================
+  // Clipboard Actions
+  // ============================================================
+
+  copyToClipboard: (paths) => {
+    set({ clipboard: { items: paths, operation: "copy" } });
+  },
+
+  cutToClipboard: (paths) => {
+    set({ clipboard: { items: paths, operation: "cut" } });
+  },
+
+  clearClipboard: () => {
+    set({ clipboard: { items: [], operation: null } });
+  },
+
+  pasteFromClipboard: async (targetDir) => {
+    const { clipboard, addFileToTree, removeFileFromTree, updateFileTree } = get();
+    if (!clipboard.items.length || !clipboard.operation) return;
+
+    const projectContext = useIdeStore.getState().projectContext;
+    if (!projectContext) return;
+
+    try {
+      for (const sourcePath of clipboard.items) {
+        const fileName = sourcePath.substring(sourcePath.lastIndexOf("/") + 1);
+        const isDirectory = isPathDirectory(get().tree, sourcePath);
+
+        // Generate unique name if needed
+        const uniqueName = await getUniqueNameInDir(targetDir, fileName, isDirectory);
+        const destPath = `${targetDir}/${uniqueName}`;
+
+        if (clipboard.operation === "copy") {
+          // Copy operation
+          if (isDirectory) {
+            await copyDirectory(sourcePath, destPath);
+          } else {
+            await copyPath(sourcePath, destPath);
+          }
+          addFileToTree(destPath, isDirectory);
+        } else {
+          // Cut operation (move)
+          await renameFile(sourcePath, destPath);
+          removeFileFromTree(sourcePath);
+          addFileToTree(destPath, isDirectory);
+
+          // Close any open tabs for the old path (file watcher will handle updates)
+          const editorStore = useEditorStore.getState();
+          if (!isDirectory && editorStore.getFileState(sourcePath)) {
+            editorStore.closeTab(sourcePath);
+          }
+        }
+      }
+
+      // Clear clipboard after cut (but keep after copy for multiple pastes)
+      if (clipboard.operation === "cut") {
+        set({ clipboard: { items: [], operation: null } });
+      }
+
+      // Refresh tree to ensure everything is in sync
+      await updateFileTree();
+    } catch (error) {
+      console.error("Failed to paste:", error);
+      throw error;
+    }
+  },
+
+  // ============================================================
+  // Inline Creation Actions
+  // ============================================================
+
+  startCreating: (parentPath, isDirectory) => {
+    set({ creatingEntry: { parentPath, isDirectory }, renamingPath: null });
+  },
+
+  cancelCreating: () => {
+    set({ creatingEntry: null });
+  },
+
+  confirmCreating: async (name) => {
+    const { creatingEntry, addFileToTree, expandDirectory } = get();
+    if (!creatingEntry) return;
+
+    const projectContext = useIdeStore.getState().projectContext;
+    if (!projectContext) return;
+
+    const { parentPath, isDirectory } = creatingEntry;
+    const newPath = `${parentPath}/${name}`;
+
+    try {
+      if (isDirectory) {
+        await createDirectory(newPath);
+      } else {
+        await createFile(newPath);
+      }
+
+      // Add to tree
+      addFileToTree(newPath, isDirectory);
+
+      // Ensure parent is expanded
+      await expandDirectory(parentPath, projectContext.projectPath);
+
+      // Clear creating state
+      set({ creatingEntry: null });
+
+      // If it's a file, open it
+      if (!isDirectory) {
+        const { openFile } = get();
+        await openFile(newPath);
+      }
+    } catch (error) {
+      console.error("Failed to create:", error);
+      throw error;
+    }
+  },
+
+  // ============================================================
+  // Rename Actions
+  // ============================================================
+
+  startRenaming: (path) => {
+    set({ renamingPath: path, creatingEntry: null });
+  },
+
+  cancelRenaming: () => {
+    set({ renamingPath: null });
+  },
+
+  confirmRenaming: async (newName) => {
+    const { renamingPath, updateFileTree } = get();
+    if (!renamingPath) return;
+
+    const parentPath = renamingPath.substring(0, renamingPath.lastIndexOf("/"));
+    const newPath = `${parentPath}/${newName}`;
+
+    if (newPath === renamingPath) {
+      // No change
+      set({ renamingPath: null });
+      return;
+    }
+
+    try {
+      await renameFile(renamingPath, newPath);
+
+      // Close any open tabs for the old path (file watcher will handle updates)
+      const editorStore = useEditorStore.getState();
+      const isDirectory = isPathDirectory(get().tree, renamingPath);
+      if (!isDirectory && editorStore.getFileState(renamingPath)) {
+        editorStore.closeTab(renamingPath);
+      }
+
+      // Clear rename state
+      set({ renamingPath: null });
+
+      // Refresh tree
+      await updateFileTree();
+    } catch (error) {
+      console.error("Failed to rename:", error);
+      throw error;
+    }
+  },
+
+  // ============================================================
+  // Delete Action
+  // ============================================================
+
+  deleteEntry: async (path) => {
+    const { removeFileFromTree } = get();
+    const isDirectory = isPathDirectory(get().tree, path);
+
+    try {
+      if (isDirectory) {
+        await deleteDirectory(path);
+      } else {
+        await deleteFile(path);
+      }
+
+      removeFileFromTree(path);
+    } catch (error) {
+      console.error("Failed to delete:", error);
+      throw error;
+    }
+  },
 }));
+
+// ============================================================
+// Helper Functions
+// ============================================================
+
+/** Check if a path is a directory by looking it up in the tree */
+function isPathDirectory(tree: FileEntry[], path: string): boolean {
+  for (const entry of tree) {
+    if (entry.path === path) {
+      return entry.isDirectory;
+    }
+    if (entry.children) {
+      const found = isPathDirectory(entry.children, path);
+      if (found !== undefined) return found;
+    }
+  }
+  return false;
+}
+
+/** Generate a unique name for a file/folder in a directory (VS Code style) */
+async function getUniqueNameInDir(
+  dirPath: string,
+  baseName: string,
+  isDirectory: boolean
+): Promise<string> {
+  // First check if the name already exists
+  const destPath = `${dirPath}/${baseName}`;
+  const exists = await pathExists(destPath);
+  if (!exists) return baseName;
+
+  // Extract extension for files
+  const ext = isDirectory ? "" : getExtension(baseName);
+  const nameWithoutExt = isDirectory
+    ? baseName
+    : ext
+      ? baseName.slice(0, -ext.length)
+      : baseName;
+
+  // Try "name copy.ext"
+  let copyName = `${nameWithoutExt} copy${ext}`;
+  let copyPath = `${dirPath}/${copyName}`;
+  if (!(await pathExists(copyPath))) return copyName;
+
+  // Try "name copy 2.ext", "name copy 3.ext", etc.
+  let i = 2;
+  while (true) {
+    copyName = `${nameWithoutExt} copy ${i}${ext}`;
+    copyPath = `${dirPath}/${copyName}`;
+    if (!(await pathExists(copyPath))) return copyName;
+    i++;
+    // Safety limit
+    if (i > 1000) throw new Error("Too many copies");
+  }
+}
+
+/** Get file extension including the dot */
+function getExtension(fileName: string): string {
+  const lastDot = fileName.lastIndexOf(".");
+  if (lastDot <= 0) return ""; // No extension or hidden file
+  return fileName.substring(lastDot);
+}
 
 // Helper to update children of a directory in the tree
 function updateTreeChildren(
