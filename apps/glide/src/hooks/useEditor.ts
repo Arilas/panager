@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useRef } from "react";
-import type { editor } from "monaco-editor";
+import type { editor, IDisposable } from "monaco-editor";
 import type { Monaco, OnMount } from "@monaco-editor/react";
 import { useEditorStore } from "../stores/editor";
 import { useIdeStore } from "../stores/ide";
@@ -182,6 +182,7 @@ export function useEditor({ filePath, language }: UseEditorOptions) {
 
   const scrollTimeoutRef = useRef<number | null>(null);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const disposablesRef = useRef<IDisposable[]>([]);
 
   const handleMount: OnMount = useCallback(
     (editorInstance: editor.IStandaloneCodeEditor, _monaco: Monaco) => {
@@ -213,8 +214,12 @@ export function useEditor({ filePath, language }: UseEditorOptions) {
         editorInstance.revealLineInCenter(fileState.cursorPosition.line);
       }
 
+      // Clear any previous disposables
+      disposablesRef.current.forEach((d) => d.dispose());
+      disposablesRef.current = [];
+
       // Track cursor position changes
-      editorInstance.onDidChangeCursorPosition((e) => {
+      const cursorDisposable = editorInstance.onDidChangeCursorPosition((e) => {
         // Update editor store (for session persistence)
         saveCursorPosition(filePath, {
           line: e.position.lineNumber,
@@ -227,9 +232,10 @@ export function useEditor({ filePath, language }: UseEditorOptions) {
           column: e.position.column,
         });
       });
+      disposablesRef.current.push(cursorDisposable);
 
       // Track scroll position changes (debounced)
-      editorInstance.onDidScrollChange((e) => {
+      const scrollDisposable = editorInstance.onDidScrollChange((e) => {
         if (scrollTimeoutRef.current) {
           clearTimeout(scrollTimeoutRef.current);
         }
@@ -241,6 +247,7 @@ export function useEditor({ filePath, language }: UseEditorOptions) {
           });
         }, 100);
       });
+      disposablesRef.current.push(scrollDisposable);
 
       // Set initial cursor position in IDE store
       const pos = editorInstance.getPosition();
@@ -273,6 +280,10 @@ export function useEditor({ filePath, language }: UseEditorOptions) {
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
+
+      // Dispose editor event listeners
+      disposablesRef.current.forEach((d) => d.dispose());
+      disposablesRef.current = [];
 
       // Detach decoration managers
       blameWidgetManager.detach();
