@@ -5,7 +5,7 @@
 import { AlertCircle, Terminal, FileOutput } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useProblemsStore } from "../../stores/problems";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { BottomPanelTab } from "../../types";
 
@@ -24,7 +24,7 @@ const TABS: TabItem[] = [
 export function BottomPanelTabs() {
   const bottomPanelTab = useIdeStore((s) => s.bottomPanelTab);
   const setBottomPanelTab = useIdeStore((s) => s.setBottomPanelTab);
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
 
   const isDark = effectiveTheme === "dark";
 

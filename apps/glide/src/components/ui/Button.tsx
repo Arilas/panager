@@ -7,10 +7,9 @@
 import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { useIdeSettings } from "../../hooks/useIdeSettings";
+import { useLiquidGlass } from "../../hooks/useEffectiveTheme";
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?:
     | "default"
     | "destructive"
@@ -37,9 +36,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       children,
       ...props
     },
-    ref
+    ref,
   ) => {
-    const { useLiquidGlass } = useIdeSettings();
+    const liquidGlass = useLiquidGlass();
 
     // Standard variants (when liquid glass is disabled)
     const standardVariants: Record<string, string> = {
@@ -59,7 +58,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     // When liquid glass is disabled, map glass variants to standard equivalents
-    const variantStyles = !useLiquidGlass
+    const variantStyles = !liquidGlass
       ? variant === "glass"
         ? standardVariants.secondary
         : variant === "glass-scope"
@@ -81,7 +80,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             "h-7 w-7 p-1.5": size === "icon",
             "h-6 w-6 p-1": size === "icon-sm",
           },
-          className
+          className,
         )}
         ref={ref}
         disabled={disabled || loading}
@@ -91,7 +90,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {children}
       </button>
     );
-  }
+  },
 );
 Button.displayName = "Button";
 

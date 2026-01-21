@@ -7,7 +7,10 @@
 
 import { useCallback, useRef, useEffect, useState } from "react";
 import { useIdeStore } from "../../stores/ide";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import {
+  useEffectiveTheme,
+  useLiquidGlass,
+} from "../../hooks/useEffectiveTheme";
 import { FileTreePanel } from "../panels/FileTreePanel";
 import { GitPanel } from "../panels/GitPanel";
 import { SearchPanel } from "../panels/SearchPanel";
@@ -26,7 +29,8 @@ export function Sidebar({ position }: SidebarProps) {
   const activePanel = useIdeStore((s) => s.activePanel);
   const sidebarWidth = useIdeStore((s) => s.sidebarWidth);
   const setSidebarWidth = useIdeStore((s) => s.setSidebarWidth);
-  const { useLiquidGlass, effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
+  const liquidGlass = useLiquidGlass();
 
   const isDark = effectiveTheme === "dark";
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -77,15 +81,20 @@ export function Sidebar({ position }: SidebarProps) {
     <div
       ref={sidebarRef}
       className={cn(
-        "flex shrink-0 relative",
-        useLiquidGlass
-          ? "liquid-glass-sidebar"
+        "flex flex-col shrink-0 relative",
+        liquidGlass
+          ? [
+              "liquid-glass-sidebar m-0!",
+              isRight
+                ? "liquid-glass-sidebar-right"
+                : "liquid-glass-sidebar-left",
+            ]
           : [
               isDark ? "bg-neutral-900/95" : "bg-white/95",
               isRight
                 ? "border-l border-black/5 dark:border-white/5"
                 : "border-r border-black/5 dark:border-white/5",
-            ]
+            ],
       )}
       style={{ width: sidebarWidth }}
     >
@@ -95,9 +104,7 @@ export function Sidebar({ position }: SidebarProps) {
           onMouseDown={handleMouseDown}
           className={cn(
             "absolute left-0 top-0 bottom-0 w-1 cursor-col-resize transition-colors",
-            isResizing
-              ? "bg-primary/50"
-              : "hover:bg-primary/30"
+            isResizing ? "bg-primary/50" : "hover:bg-primary/30",
           )}
         />
       )}
@@ -116,9 +123,7 @@ export function Sidebar({ position }: SidebarProps) {
           onMouseDown={handleMouseDown}
           className={cn(
             "absolute right-0 top-0 bottom-0 w-1 cursor-col-resize transition-colors",
-            isResizing
-              ? "bg-primary/50"
-              : "hover:bg-primary/30"
+            isResizing ? "bg-primary/50" : "hover:bg-primary/30",
           )}
         />
       )}

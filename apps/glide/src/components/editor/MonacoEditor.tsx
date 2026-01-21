@@ -8,7 +8,7 @@
 import { useCallback } from "react";
 import Editor, { OnChange } from "@monaco-editor/react";
 import { useEditorStore } from "../../stores/editor";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { useEditorSettings } from "../../stores/settings";
 import { useEditor } from "../../hooks/useEditor";
 import { getMonacoTheme } from "../../monaco";
@@ -28,7 +28,7 @@ export function MonacoEditor({
   path,
   readOnly = false,
 }: MonacoEditorProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const editorSettings = useEditorSettings();
   const updateContent = useEditorStore((s) => s.updateContent);
 

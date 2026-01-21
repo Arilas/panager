@@ -28,8 +28,6 @@ export function GlideApp() {
   const loadFileTree = useFilesStore((s) => s.loadFileTree);
   const loadGitStatus = useGitStore((s) => s.loadGitStatus);
   const initializeSettings = useIdeSettingsStore((s) => s.initialize);
-  // Get accent color from settings
-  const accentColor = useIdeSettingsStore((s) => s.settings.general.accentColor);
 
   // Parse URL parameters and initialize
   useEffect(() => {
@@ -95,11 +93,6 @@ export function GlideApp() {
     // Initialize settings with project context (no scope folder in Glide)
     initializeSettings(projectContext.projectPath, null);
   }, [projectContext, initializeSettings]);
-
-  // Set accent color CSS variable on document body
-  useEffect(() => {
-    document.body.style.setProperty("--accent-color", accentColor);
-  }, [accentColor]);
 
   // Set up file watcher (only when project is open)
   useFileWatcher();

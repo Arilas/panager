@@ -6,7 +6,7 @@
 
 import { AlertTriangle, Check, X, Settings2 } from "lucide-react";
 import { useAgentStore } from "../../stores/agent";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import { ApprovalModeLabels } from "../../types/acp";
 
@@ -21,7 +21,7 @@ export function ApprovalBanner({
   onRejectAll,
   onOpenSettings,
 }: ApprovalBannerProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const pendingApprovals = useAgentStore((s) => s.pendingApprovals);

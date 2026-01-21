@@ -9,7 +9,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useLiquidGlass } from "../../hooks/useEffectiveTheme";
 
 const Dialog = DialogPrimitive.Root;
 
@@ -43,16 +43,16 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
-  const { useLiquidGlass } = useIdeSettingsContext();
+  const liquidGlass = useLiquidGlass();
 
   return (
     <DialogPortal>
-      <DialogOverlay useLiquidGlass={useLiquidGlass} />
+      <DialogOverlay useLiquidGlass={liquidGlass} />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
           "fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-hidden",
-          useLiquidGlass
+          liquidGlass
             ? "liquid-glass-dialog liquid-glass-animate gap-4 p-6"
             : [
                 "gap-4 p-6 shadow-xl",
@@ -71,7 +71,7 @@ const DialogContent = React.forwardRef<
         <DialogPrimitive.Close
           className={cn(
             "absolute z-50 transition-all",
-            useLiquidGlass
+            liquidGlass
               ? [
                   "left-5 top-5 w-3.5 h-3.5 rounded-full",
                   "bg-[#FF5F57] hover:bg-[#FF5F57]",
@@ -90,7 +90,7 @@ const DialogContent = React.forwardRef<
         >
           <X
             className={cn(
-              useLiquidGlass
+              liquidGlass
                 ? "h-2 w-2 text-[#4D0000] opacity-0 group-hover:opacity-100 transition-opacity stroke-[2.5]"
                 : "h-4 w-4"
             )}
@@ -107,13 +107,13 @@ const DialogHeader = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => {
-  const { useLiquidGlass } = useIdeSettingsContext();
+  const liquidGlass = useLiquidGlass();
 
   return (
     <div
       className={cn(
         "flex flex-col space-y-2 text-center sm:text-left",
-        useLiquidGlass && "pl-6 -mt-2",
+        liquidGlass && "pl-6 -mt-2",
         className
       )}
       {...props}

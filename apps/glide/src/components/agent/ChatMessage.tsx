@@ -6,7 +6,7 @@
  */
 
 import { User, Bot } from "lucide-react";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { MessageEntry } from "../../types/acp";
 import { MarkdownContent } from "./MarkdownContent";
@@ -18,7 +18,7 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ entry, isTab = false }: ChatMessageProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const isUser = entry.role === "user";

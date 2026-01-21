@@ -7,7 +7,10 @@
 
 import { useCallback, useRef, useEffect, useState } from "react";
 import { useIdeStore } from "../../stores/ide";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import {
+  useEffectiveTheme,
+  useLiquidGlass,
+} from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import { ChatPanel } from "../agent/ChatPanel";
 import { TasksPanel } from "../agent/TasksPanel";
@@ -19,7 +22,8 @@ export function RightSidebar() {
   const rightSidebarPanel = useIdeStore((s) => s.rightSidebarPanel);
   const rightSidebarWidth = useIdeStore((s) => s.rightSidebarWidth);
   const setRightSidebarWidth = useIdeStore((s) => s.setRightSidebarWidth);
-  const { useLiquidGlass, effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
+  const liquidGlass = useLiquidGlass();
 
   const isDark = effectiveTheme === "dark";
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -60,13 +64,13 @@ export function RightSidebar() {
     <div
       ref={sidebarRef}
       className={cn(
-        "flex shrink-0 relative",
-        useLiquidGlass
-          ? "liquid-glass-sidebar"
+        "flex shrink-0 relative overflow-hidden",
+        liquidGlass
+          ? "liquid-glass-sidebar liquid-glass-right-panel m-0!"
           : [
               isDark ? "bg-neutral-900/95" : "bg-white/95",
               "border-l border-black/5 dark:border-white/5",
-            ]
+            ],
       )}
       style={{ width: rightSidebarWidth }}
     >
@@ -75,7 +79,7 @@ export function RightSidebar() {
         onMouseDown={handleMouseDown}
         className={cn(
           "absolute left-0 top-0 bottom-0 w-1 cursor-col-resize transition-colors z-10",
-          isResizing ? "bg-primary/50" : "hover:bg-primary/30"
+          isResizing ? "bg-primary/50" : "hover:bg-primary/30",
         )}
       />
 

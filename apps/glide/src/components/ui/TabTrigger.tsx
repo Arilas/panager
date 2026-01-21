@@ -6,7 +6,7 @@
 
 import * as Tabs from "@radix-ui/react-tabs";
 import { cn } from "../../lib/utils";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useLiquidGlass } from "../../hooks/useEffectiveTheme";
 
 interface TabTriggerProps {
   value: string;
@@ -24,12 +24,12 @@ export function TabTrigger({
   icon,
   variant = "default",
 }: TabTriggerProps) {
-  const { useLiquidGlass } = useIdeSettingsContext();
+  const liquidGlass = useLiquidGlass();
 
   const activeClasses =
     variant === "danger"
       ? dangerClasses
-      : useLiquidGlass
+      : liquidGlass
         ? "data-[state=active]:bg-[color-mix(in_srgb,var(--accent-color)_10%,transparent)] data-[state=active]:text-(--accent-color)"
         : "data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium";
 
@@ -38,7 +38,7 @@ export function TabTrigger({
       value={value}
       className={cn(
         "flex items-center gap-2 rounded-md text-left transition-colors",
-        useLiquidGlass
+        liquidGlass
           ? "px-3 py-1.5 text-[13px] font-medium"
           : "px-3 py-2 text-[13px]",
         variant === "default" && "text-foreground/70",

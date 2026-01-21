@@ -50,7 +50,7 @@ interface IdeSettingsState {
   // Actions
   initialize: (
     projectPath: string,
-    scopeDefaultFolder: string | null
+    scopeDefaultFolder: string | null,
   ) => Promise<void>;
   loadSettings: () => Promise<void>;
   loadSettingsForLevel: (level: SettingsLevel) => Promise<void>;
@@ -59,14 +59,17 @@ interface IdeSettingsState {
   updateSetting: (
     key: string,
     value: unknown,
-    level: SettingsLevel
+    level: SettingsLevel,
   ) => Promise<void>;
   deleteSetting: (key: string, level: SettingsLevel) => Promise<void>;
 
   // Helpers
   getSetting: <T>(key: string) => T | undefined;
   hasLevelOverride: (key: string, level: SettingsLevel) => boolean;
-  getOverrideLevel: (key: string, currentLevel: SettingsLevel) => SettingsLevel | null;
+  getOverrideLevel: (
+    key: string,
+    currentLevel: SettingsLevel,
+  ) => SettingsLevel | null;
 }
 
 // Default settings (matches Rust defaults)
@@ -75,7 +78,11 @@ const defaultSettings: IdeSettings = {
     activityBar: { position: "left" },
     sidebar: { position: "left" },
     git: { defaultView: "tree" },
-    accentColor: "#3b82f6", // Blue-500
+    appearance: {
+      liquidGlassMode: "auto",
+      liquidGlassIntensity: "medium",
+      accentColor: "#3b82f6", // Blue-500
+    },
   },
   editor: {
     fontSize: 13,
@@ -184,6 +191,7 @@ export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
 
   // Reload settings from backend
   loadSettings: async () => {
+    console.log("loadSettings");
     const { projectPath, scopeDefaultFolder } = get();
     if (!projectPath) {
       console.warn("Cannot load settings: no project path set");
@@ -215,7 +223,7 @@ export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
       const dialogSettings = await api.loadSettingsForLevel(
         level,
         projectPath,
-        scopeDefaultFolder
+        scopeDefaultFolder,
       );
       set({ dialogSettings, dialogLoading: false });
     } catch (error) {
@@ -236,7 +244,7 @@ export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
       const levelSettingsData = await api.getSettingsForLevel(
         level,
         projectPath,
-        scopeDefaultFolder
+        scopeDefaultFolder,
       );
       set((state) => ({
         levelSettings: {
@@ -264,8 +272,8 @@ export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
     try {
       const results = await Promise.all(
         levels.map((level) =>
-          api.getSettingsForLevel(level, projectPath, scopeDefaultFolder)
-        )
+          api.getSettingsForLevel(level, projectPath, scopeDefaultFolder),
+        ),
       );
 
       set({
@@ -285,20 +293,23 @@ export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
     const { projectPath, scopeDefaultFolder } = get();
 
     try {
-      await api.updateSetting(level, key, value, projectPath, scopeDefaultFolder);
+      await api.updateSetting(
+        level,
+        key,
+        value,
+        projectPath,
+        scopeDefaultFolder,
+      );
 
       // Reload merged settings to get updated effective values
-      const settings = await api.loadSettings(
-        projectPath!,
-        scopeDefaultFolder
-      );
+      const settings = await api.loadSettings(projectPath!, scopeDefaultFolder);
       set({ settings });
 
       // Also update the level-specific cache if it's loaded
       const levelSettingsData = await api.getSettingsForLevel(
         level,
         projectPath,
-        scopeDefaultFolder
+        scopeDefaultFolder,
       );
       set((state) => ({
         levelSettings: {
@@ -321,17 +332,14 @@ export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
       await api.deleteSetting(level, key, projectPath, scopeDefaultFolder);
 
       // Reload merged settings to get updated effective values
-      const settings = await api.loadSettings(
-        projectPath!,
-        scopeDefaultFolder
-      );
+      const settings = await api.loadSettings(projectPath!, scopeDefaultFolder);
       set({ settings });
 
       // Also update the level-specific cache if it's loaded
       const levelSettingsData = await api.getSettingsForLevel(
         level,
         projectPath,
-        scopeDefaultFolder
+        scopeDefaultFolder,
       );
       set((state) => ({
         levelSettings: {
@@ -388,7 +396,10 @@ export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
 
   // Find which level (other than current) has an override for a setting
   // Returns the level name if found, null otherwise
-  getOverrideLevel: (key: string, currentLevel: SettingsLevel): SettingsLevel | null => {
+  getOverrideLevel: (
+    key: string,
+    currentLevel: SettingsLevel,
+  ): SettingsLevel | null => {
     const { levelSettings } = get();
     const levels: SettingsLevel[] = ["user", "scope", "workspace"];
 
@@ -403,7 +414,11 @@ export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
       if (!levelData) continue;
 
       const sectionData = levelData[section as keyof typeof levelData];
-      if (sectionData && typeof sectionData === "object" && property in (sectionData as Record<string, unknown>)) {
+      if (
+        sectionData &&
+        typeof sectionData === "object" &&
+        property in (sectionData as Record<string, unknown>)
+      ) {
         return level;
       }
     }
@@ -421,6 +436,9 @@ export const useGitSettings = () =>
 
 export const useGeneralSettings = () =>
   useIdeSettingsStore((state) => state.settings.general);
+
+export const useAppearanceSettings = () =>
+  useIdeSettingsStore((state) => state.settings.general.appearance);
 
 export const useBehaviorSettings = () =>
   useIdeSettingsStore((state) => state.settings.behavior);

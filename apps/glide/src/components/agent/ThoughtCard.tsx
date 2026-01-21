@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { Brain, ChevronRight, ChevronDown } from "lucide-react";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { ThoughtEntry } from "../../types/acp";
 
@@ -15,7 +15,7 @@ interface ThoughtCardProps {
 }
 
 export function ThoughtCard({ entry }: ThoughtCardProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
   const [isExpanded, setIsExpanded] = useState(false);
 

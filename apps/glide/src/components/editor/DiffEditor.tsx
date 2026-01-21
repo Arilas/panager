@@ -8,7 +8,7 @@ import { useRef, useCallback } from "react";
 import { DiffEditor as MonacoDiffEditor } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { useIdeStore } from "../../stores/ide";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { mapMonacoToShikiLanguage } from "../../lib/languageMapping";
 import { getMonacoTheme } from "../../monaco/themes";
 
@@ -28,7 +28,7 @@ export function DiffEditor({
 }: DiffEditorProps) {
   const editorRef = useRef<editor.IStandaloneDiffEditor | null>(null);
   const setCursorPosition = useIdeStore((s) => s.setCursorPosition);
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
 
   const isDark = effectiveTheme === "dark";
   const monacoTheme = getMonacoTheme(isDark);

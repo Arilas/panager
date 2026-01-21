@@ -18,7 +18,7 @@ import {
   FolderOpen,
   Terminal,
 } from "lucide-react";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme, useLiquidGlass } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { FileEntry } from "../../types";
 
@@ -60,7 +60,7 @@ export function FileTreeContextMenu({
   onOpenInTerminal,
 }: FileTreeContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const { useLiquidGlass } = useIdeSettingsContext();
+  const liquidGlass = useLiquidGlass();
   const [position, setPosition] = useState({ x, y });
 
   // Close menu when clicking outside
@@ -123,7 +123,7 @@ export function FileTreeContextMenu({
       ref={menuRef}
       className={cn(
         "fixed z-9999 min-w-[180px] overflow-hidden p-1",
-        useLiquidGlass
+        liquidGlass
           ? "liquid-glass-dropdown"
           : [
               "rounded-lg",
@@ -224,7 +224,7 @@ interface MenuItemProps {
 }
 
 function MenuItem({ icon, label, onClick, disabled, danger }: MenuItemProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   return (

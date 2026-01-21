@@ -18,32 +18,42 @@ import {
   Check,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { useIdeSettingsStore, useDialogBehaviorSettings } from "../../stores/settings";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import {
+  useIdeSettingsStore,
+  useDialogBehaviorSettings,
+} from "../../stores/settings";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import * as api from "../../lib/tauri-ide";
 import type { SettingsLevel, FormatterConfig } from "../../types/settings";
 import { SUPPORTED_LANGUAGES } from "../../types/settings";
-import { SettingSection, ToggleSetting, SelectInput } from "./GeneralSettingsTab";
+import {
+  SettingSection,
+  ToggleSetting,
+  SelectInput,
+} from "./GeneralSettingsTab";
 
 interface BehaviorSettingsTabProps {
   level: SettingsLevel;
 }
 
 export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
   const behaviorSettings = useDialogBehaviorSettings();
-  const { updateSetting, loadSettingsForLevel, loadAllLevelSettings } = useIdeSettingsStore();
+  const { updateSetting, loadSettingsForLevel, loadAllLevelSettings } =
+    useIdeSettingsStore();
 
   const [presets, setPresets] = useState<FormatterConfig[]>([]);
   const [showPresetMenu, setShowPresetMenu] = useState(false);
-  const [showCustomFormatterModal, setShowCustomFormatterModal] = useState(false);
+  const [showCustomFormatterModal, setShowCustomFormatterModal] =
+    useState(false);
 
   // Load formatter presets
   useEffect(() => {
     api.getFormatterPresets().then(setPresets).catch(console.error);
   }, []);
 
+  // Update setting - the store's updateSetting already handles reloading
   const handleUpdate = async (key: string, value: unknown) => {
     await updateSetting(`behavior.${key}`, value, level);
     await loadSettingsForLevel(level);
@@ -65,7 +75,10 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
       enabled: true,
       order: currentFormatters.length + 1,
     };
-    await handleUpdate("formatOnSave.formatters", [...currentFormatters, newFormatter]);
+    await handleUpdate("formatOnSave.formatters", [
+      ...currentFormatters,
+      newFormatter,
+    ]);
     setShowPresetMenu(false);
   };
 
@@ -75,7 +88,10 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
       ...formatter,
       order: currentFormatters.length + 1,
     };
-    await handleUpdate("formatOnSave.formatters", [...currentFormatters, newFormatter]);
+    await handleUpdate("formatOnSave.formatters", [
+      ...currentFormatters,
+      newFormatter,
+    ]);
     setShowCustomFormatterModal(false);
   };
 
@@ -87,24 +103,35 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
     await handleUpdate("formatOnSave.formatters", newFormatters);
   };
 
-  const handleToggleFormatter = async (formatterId: string, enabled: boolean) => {
+  const handleToggleFormatter = async (
+    formatterId: string,
+    enabled: boolean,
+  ) => {
     const currentFormatters = behaviorSettings.formatOnSave.formatters || [];
     const newFormatters = currentFormatters.map((f) =>
-      f.id === formatterId ? { ...f, enabled } : f
+      f.id === formatterId ? { ...f, enabled } : f,
     );
     await handleUpdate("formatOnSave.formatters", newFormatters);
   };
 
-  const handleUpdateFormatter = async (formatterId: string, updates: Partial<FormatterConfig>) => {
+  const handleUpdateFormatter = async (
+    formatterId: string,
+    updates: Partial<FormatterConfig>,
+  ) => {
     const currentFormatters = behaviorSettings.formatOnSave.formatters || [];
     const newFormatters = currentFormatters.map((f) =>
-      f.id === formatterId ? { ...f, ...updates } : f
+      f.id === formatterId ? { ...f, ...updates } : f,
     );
     await handleUpdate("formatOnSave.formatters", newFormatters);
   };
 
-  const handleMoveFormatter = async (formatterId: string, direction: "up" | "down") => {
-    const currentFormatters = [...(behaviorSettings.formatOnSave.formatters || [])];
+  const handleMoveFormatter = async (
+    formatterId: string,
+    direction: "up" | "down",
+  ) => {
+    const currentFormatters = [
+      ...(behaviorSettings.formatOnSave.formatters || []),
+    ];
     const index = currentFormatters.findIndex((f) => f.id === formatterId);
     if (index === -1) return;
 
@@ -118,13 +145,16 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
     ];
 
     // Update order
-    const newFormatters = currentFormatters.map((f, i) => ({ ...f, order: i + 1 }));
+    const newFormatters = currentFormatters.map((f, i) => ({
+      ...f,
+      order: i + 1,
+    }));
     await handleUpdate("formatOnSave.formatters", newFormatters);
   };
 
   const formatters = behaviorSettings.formatOnSave.formatters || [];
   const availablePresets = presets.filter(
-    (p) => !formatters.some((f) => f.id === p.id)
+    (p) => !formatters.some((f) => f.id === p.id),
   );
 
   return (
@@ -173,7 +203,7 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
                 <span
                   className={cn(
                     "text-sm font-medium",
-                    isDark ? "text-neutral-300" : "text-neutral-600"
+                    isDark ? "text-neutral-300" : "text-neutral-600",
                   )}
                 >
                   Formatters (run in order)
@@ -186,7 +216,7 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
                       "transition-colors",
                       isDark
                         ? "bg-neutral-700 hover:bg-neutral-600 text-neutral-200"
-                        : "bg-neutral-100 hover:bg-neutral-200 text-neutral-700"
+                        : "bg-neutral-100 hover:bg-neutral-200 text-neutral-700",
                     )}
                   >
                     <Plus className="w-3 h-3" />
@@ -205,7 +235,7 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
                           "rounded-lg shadow-lg overflow-hidden",
                           isDark
                             ? "bg-neutral-800 border border-neutral-700"
-                            : "bg-white border border-neutral-200"
+                            : "bg-white border border-neutral-200",
                         )}
                       >
                         {/* Custom formatter option */}
@@ -219,13 +249,15 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
                             "transition-colors border-b",
                             isDark
                               ? "hover:bg-neutral-700 border-neutral-700"
-                              : "hover:bg-neutral-100 border-neutral-200"
+                              : "hover:bg-neutral-100 border-neutral-200",
                           )}
                         >
-                          <div className={cn(
-                            "flex items-center gap-2",
-                            isDark ? "text-neutral-200" : "text-neutral-700"
-                          )}>
+                          <div
+                            className={cn(
+                              "flex items-center gap-2",
+                              isDark ? "text-neutral-200" : "text-neutral-700",
+                            )}
+                          >
                             <Plus className="w-3 h-3" />
                             Custom Formatter...
                           </div>
@@ -233,10 +265,12 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
 
                         {/* Presets */}
                         {availablePresets.length > 0 && (
-                          <div className={cn(
-                            "text-[10px] px-3 py-1.5 uppercase tracking-wide",
-                            isDark ? "text-neutral-500" : "text-neutral-400"
-                          )}>
+                          <div
+                            className={cn(
+                              "text-[10px] px-3 py-1.5 uppercase tracking-wide",
+                              isDark ? "text-neutral-500" : "text-neutral-400",
+                            )}
+                          >
                             Presets
                           </div>
                         )}
@@ -249,16 +283,22 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
                               "transition-colors",
                               isDark
                                 ? "hover:bg-neutral-700"
-                                : "hover:bg-neutral-100"
+                                : "hover:bg-neutral-100",
                             )}
                           >
-                            <div className={isDark ? "text-neutral-200" : "text-neutral-700"}>
+                            <div
+                              className={
+                                isDark ? "text-neutral-200" : "text-neutral-700"
+                              }
+                            >
                               {preset.name}
                             </div>
                             <div
                               className={cn(
                                 "text-[10px]",
-                                isDark ? "text-neutral-500" : "text-neutral-400"
+                                isDark
+                                  ? "text-neutral-500"
+                                  : "text-neutral-400",
                               )}
                             >
                               {preset.languages.slice(0, 3).join(", ")}
@@ -267,10 +307,12 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
                           </button>
                         ))}
                         {availablePresets.length === 0 && (
-                          <div className={cn(
-                            "px-3 py-2 text-xs",
-                            isDark ? "text-neutral-500" : "text-neutral-400"
-                          )}>
+                          <div
+                            className={cn(
+                              "px-3 py-2 text-xs",
+                              isDark ? "text-neutral-500" : "text-neutral-400",
+                            )}
+                          >
                             All presets added
                           </div>
                         )}
@@ -286,10 +328,11 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
                     "text-sm text-center py-6 rounded-lg border border-dashed",
                     isDark
                       ? "border-neutral-700 text-neutral-500"
-                      : "border-neutral-300 text-neutral-400"
+                      : "border-neutral-300 text-neutral-400",
                   )}
                 >
-                  No formatters configured. Click "Add Formatter" to get started.
+                  No formatters configured. Click "Add Formatter" to get
+                  started.
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -309,7 +352,9 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
                         }
                         onRemove={() => handleRemoveFormatter(formatter.id)}
                         onMoveUp={() => handleMoveFormatter(formatter.id, "up")}
-                        onMoveDown={() => handleMoveFormatter(formatter.id, "down")}
+                        onMoveDown={() =>
+                          handleMoveFormatter(formatter.id, "down")
+                        }
                       />
                     ))}
                 </div>
@@ -329,7 +374,7 @@ export function BehaviorSettingsTab({ level }: BehaviorSettingsTabProps) {
           <span
             className={cn(
               "text-sm",
-              isDark ? "text-neutral-300" : "text-neutral-600"
+              isDark ? "text-neutral-300" : "text-neutral-600",
             )}
           >
             Auto Save Delay
@@ -381,7 +426,7 @@ function FormatterItem({
   onMoveUp,
   onMoveDown,
 }: FormatterItemProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
   const [isExpanded, setIsExpanded] = useState(false);
   const [editingCommand, setEditingCommand] = useState(false);
@@ -417,8 +462,8 @@ function FormatterItem({
         formatter.enabled
           ? "bg-primary/10 border border-primary/20"
           : isDark
-          ? "bg-neutral-800/50 border border-neutral-700"
-          : "bg-neutral-100/50 border border-neutral-200"
+            ? "bg-neutral-800/50 border border-neutral-700"
+            : "bg-neutral-100/50 border border-neutral-200",
       )}
     >
       {/* Main row */}
@@ -427,7 +472,7 @@ function FormatterItem({
         <GripVertical
           className={cn(
             "w-4 h-4 shrink-0",
-            isDark ? "text-neutral-600" : "text-neutral-400"
+            isDark ? "text-neutral-600" : "text-neutral-400",
           )}
         />
 
@@ -440,8 +485,8 @@ function FormatterItem({
             formatter.enabled
               ? "bg-primary border-primary text-white"
               : isDark
-              ? "border-neutral-600"
-              : "border-neutral-300"
+                ? "border-neutral-600"
+                : "border-neutral-300",
           )}
         >
           {formatter.enabled && (
@@ -462,7 +507,7 @@ function FormatterItem({
           <div
             className={cn(
               "text-sm font-medium",
-              isDark ? "text-neutral-200" : "text-neutral-700"
+              isDark ? "text-neutral-200" : "text-neutral-700",
             )}
           >
             {formatter.name}
@@ -470,7 +515,7 @@ function FormatterItem({
           <div
             className={cn(
               "text-[10px] truncate",
-              isDark ? "text-neutral-500" : "text-neutral-400"
+              isDark ? "text-neutral-500" : "text-neutral-400",
             )}
           >
             {formatter.languages.length > 0
@@ -490,8 +535,8 @@ function FormatterItem({
                 ? "bg-neutral-700 text-neutral-200"
                 : "bg-neutral-200 text-neutral-700"
               : isDark
-              ? "hover:bg-neutral-700 text-neutral-400"
-              : "hover:bg-neutral-200 text-neutral-500"
+                ? "hover:bg-neutral-700 text-neutral-400"
+                : "hover:bg-neutral-200 text-neutral-500",
           )}
         >
           <Pencil className="w-3.5 h-3.5" />
@@ -508,8 +553,8 @@ function FormatterItem({
               index === 0
                 ? "opacity-30 cursor-not-allowed"
                 : isDark
-                ? "hover:bg-neutral-700"
-                : "hover:bg-neutral-200"
+                  ? "hover:bg-neutral-700"
+                  : "hover:bg-neutral-200",
             )}
           >
             <ChevronUp className="w-3 h-3" />
@@ -523,8 +568,8 @@ function FormatterItem({
               index === total - 1
                 ? "opacity-30 cursor-not-allowed"
                 : isDark
-                ? "hover:bg-neutral-700"
-                : "hover:bg-neutral-200"
+                  ? "hover:bg-neutral-700"
+                  : "hover:bg-neutral-200",
             )}
           >
             <ChevronDown className="w-3 h-3" />
@@ -539,7 +584,7 @@ function FormatterItem({
             "transition-colors",
             isDark
               ? "hover:bg-red-500/20 text-neutral-400 hover:text-red-400"
-              : "hover:bg-red-50 text-neutral-400 hover:text-red-500"
+              : "hover:bg-red-50 text-neutral-400 hover:text-red-500",
           )}
         >
           <Trash2 className="w-4 h-4" />
@@ -551,7 +596,7 @@ function FormatterItem({
         <div
           className={cn(
             "px-3 pb-3 pt-2 border-t space-y-3 overflow-hidden",
-            isDark ? "border-neutral-700" : "border-neutral-200"
+            isDark ? "border-neutral-700" : "border-neutral-200",
           )}
         >
           {/* Name */}
@@ -559,7 +604,7 @@ function FormatterItem({
             <label
               className={cn(
                 "block text-[11px] font-medium mb-1",
-                isDark ? "text-neutral-400" : "text-neutral-500"
+                isDark ? "text-neutral-400" : "text-neutral-500",
               )}
             >
               Name
@@ -582,7 +627,7 @@ function FormatterItem({
                     "border focus:outline-none focus:ring-2 focus:ring-primary/30",
                     isDark
                       ? "bg-neutral-900 border-neutral-600 text-neutral-200"
-                      : "bg-white border-neutral-300 text-neutral-700"
+                      : "bg-white border-neutral-300 text-neutral-700",
                   )}
                   autoFocus
                 />
@@ -590,7 +635,7 @@ function FormatterItem({
                   onClick={handleSaveName}
                   className={cn(
                     "p-1 rounded",
-                    isDark ? "hover:bg-neutral-700" : "hover:bg-neutral-200"
+                    isDark ? "hover:bg-neutral-700" : "hover:bg-neutral-200",
                   )}
                 >
                   <Check className="w-4 h-4 text-green-500" />
@@ -602,7 +647,7 @@ function FormatterItem({
                   }}
                   className={cn(
                     "p-1 rounded",
-                    isDark ? "hover:bg-neutral-700" : "hover:bg-neutral-200"
+                    isDark ? "hover:bg-neutral-700" : "hover:bg-neutral-200",
                   )}
                 >
                   <X className="w-4 h-4 text-red-500" />
@@ -616,7 +661,7 @@ function FormatterItem({
                   "border border-transparent hover:border-dashed",
                   isDark
                     ? "hover:border-neutral-600 text-neutral-300"
-                    : "hover:border-neutral-300 text-neutral-600"
+                    : "hover:border-neutral-300 text-neutral-600",
                 )}
               >
                 {formatter.name}
@@ -629,11 +674,16 @@ function FormatterItem({
             <label
               className={cn(
                 "block text-[11px] font-medium mb-1",
-                isDark ? "text-neutral-400" : "text-neutral-500"
+                isDark ? "text-neutral-400" : "text-neutral-500",
               )}
             >
               Command
-              <span className={cn("ml-2 font-normal", isDark ? "text-neutral-500" : "text-neutral-400")}>
+              <span
+                className={cn(
+                  "ml-2 font-normal",
+                  isDark ? "text-neutral-500" : "text-neutral-400",
+                )}
+              >
                 (use {"{file}"} for file path)
               </span>
             </label>
@@ -655,7 +705,7 @@ function FormatterItem({
                     "border focus:outline-none focus:ring-2 focus:ring-primary/30",
                     isDark
                       ? "bg-neutral-900 border-neutral-600 text-neutral-200"
-                      : "bg-white border-neutral-300 text-neutral-700"
+                      : "bg-white border-neutral-300 text-neutral-700",
                   )}
                   autoFocus
                 />
@@ -663,7 +713,7 @@ function FormatterItem({
                   onClick={handleSaveCommand}
                   className={cn(
                     "p-1 rounded",
-                    isDark ? "hover:bg-neutral-700" : "hover:bg-neutral-200"
+                    isDark ? "hover:bg-neutral-700" : "hover:bg-neutral-200",
                   )}
                 >
                   <Check className="w-4 h-4 text-green-500" />
@@ -675,7 +725,7 @@ function FormatterItem({
                   }}
                   className={cn(
                     "p-1 rounded",
-                    isDark ? "hover:bg-neutral-700" : "hover:bg-neutral-200"
+                    isDark ? "hover:bg-neutral-700" : "hover:bg-neutral-200",
                   )}
                 >
                   <X className="w-4 h-4 text-red-500" />
@@ -689,7 +739,7 @@ function FormatterItem({
                   "border border-transparent hover:border-dashed",
                   isDark
                     ? "hover:border-neutral-600 text-neutral-300"
-                    : "hover:border-neutral-300 text-neutral-600"
+                    : "hover:border-neutral-300 text-neutral-600",
                 )}
               >
                 {formatter.command}
@@ -702,7 +752,7 @@ function FormatterItem({
             <label
               className={cn(
                 "block text-[11px] font-medium mb-2",
-                isDark ? "text-neutral-400" : "text-neutral-500"
+                isDark ? "text-neutral-400" : "text-neutral-500",
               )}
             >
               Languages
@@ -719,8 +769,8 @@ function FormatterItem({
                       isSelected
                         ? "bg-primary text-primary-foreground"
                         : isDark
-                        ? "bg-neutral-700 text-neutral-400 hover:bg-neutral-600 hover:text-neutral-300"
-                        : "bg-neutral-200 text-neutral-500 hover:bg-neutral-300 hover:text-neutral-600"
+                          ? "bg-neutral-700 text-neutral-400 hover:bg-neutral-600 hover:text-neutral-300"
+                          : "bg-neutral-200 text-neutral-500 hover:bg-neutral-300 hover:text-neutral-600",
                     )}
                   >
                     {lang}
@@ -741,8 +791,12 @@ interface CustomFormatterModalProps {
   existingIds: string[];
 }
 
-function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterModalProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+function CustomFormatterModal({
+  onClose,
+  onSave,
+  existingIds,
+}: CustomFormatterModalProps) {
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const [name, setName] = useState("");
@@ -751,7 +805,10 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
   const [error, setError] = useState<string | null>(null);
 
   const generateId = (name: string) => {
-    return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
   };
 
   const handleSave = () => {
@@ -786,7 +843,7 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
 
   const handleToggleLanguage = (lang: string) => {
     setLanguages((prev) =>
-      prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
+      prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang],
     );
     setError(null);
   };
@@ -794,29 +851,26 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Modal */}
       <div
         className={cn(
           "relative w-[480px] max-h-[80vh] overflow-y-auto rounded-lg shadow-xl",
-          isDark ? "bg-neutral-900" : "bg-white"
+          isDark ? "bg-neutral-900" : "bg-white",
         )}
       >
         {/* Header */}
         <div
           className={cn(
             "flex items-center justify-between px-4 py-3 border-b",
-            isDark ? "border-neutral-700" : "border-neutral-200"
+            isDark ? "border-neutral-700" : "border-neutral-200",
           )}
         >
           <h3
             className={cn(
               "text-sm font-medium",
-              isDark ? "text-neutral-200" : "text-neutral-700"
+              isDark ? "text-neutral-200" : "text-neutral-700",
             )}
           >
             Add Custom Formatter
@@ -825,7 +879,7 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
             onClick={onClose}
             className={cn(
               "p-1 rounded",
-              isDark ? "hover:bg-neutral-800" : "hover:bg-neutral-100"
+              isDark ? "hover:bg-neutral-800" : "hover:bg-neutral-100",
             )}
           >
             <X className="w-4 h-4" />
@@ -839,7 +893,7 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
             <div
               className={cn(
                 "px-3 py-2 rounded-lg text-sm",
-                "bg-red-500/10 text-red-500 border border-red-500/20"
+                "bg-red-500/10 text-red-500 border border-red-500/20",
               )}
             >
               {error}
@@ -851,7 +905,7 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
             <label
               className={cn(
                 "block text-xs font-medium mb-1.5",
-                isDark ? "text-neutral-400" : "text-neutral-500"
+                isDark ? "text-neutral-400" : "text-neutral-500",
               )}
             >
               Name
@@ -869,7 +923,7 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
                 "border focus:outline-none focus:ring-2 focus:ring-primary/30",
                 isDark
                   ? "bg-neutral-800 border-neutral-700 text-neutral-200 placeholder:text-neutral-600"
-                  : "bg-white border-neutral-200 text-neutral-700 placeholder:text-neutral-400"
+                  : "bg-white border-neutral-200 text-neutral-700 placeholder:text-neutral-400",
               )}
             />
           </div>
@@ -879,11 +933,16 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
             <label
               className={cn(
                 "block text-xs font-medium mb-1.5",
-                isDark ? "text-neutral-400" : "text-neutral-500"
+                isDark ? "text-neutral-400" : "text-neutral-500",
               )}
             >
               Command
-              <span className={cn("ml-2 font-normal", isDark ? "text-neutral-500" : "text-neutral-400")}>
+              <span
+                className={cn(
+                  "ml-2 font-normal",
+                  isDark ? "text-neutral-500" : "text-neutral-400",
+                )}
+              >
                 (use {"{file}"} for file path)
               </span>
             </label>
@@ -900,7 +959,7 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
                 "border focus:outline-none focus:ring-2 focus:ring-primary/30",
                 isDark
                   ? "bg-neutral-800 border-neutral-700 text-neutral-200 placeholder:text-neutral-600"
-                  : "bg-white border-neutral-200 text-neutral-700 placeholder:text-neutral-400"
+                  : "bg-white border-neutral-200 text-neutral-700 placeholder:text-neutral-400",
               )}
             />
           </div>
@@ -910,7 +969,7 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
             <label
               className={cn(
                 "block text-xs font-medium mb-2",
-                isDark ? "text-neutral-400" : "text-neutral-500"
+                isDark ? "text-neutral-400" : "text-neutral-500",
               )}
             >
               Languages
@@ -927,8 +986,8 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
                       isSelected
                         ? "bg-primary text-primary-foreground"
                         : isDark
-                        ? "bg-neutral-700 text-neutral-400 hover:bg-neutral-600 hover:text-neutral-300"
-                        : "bg-neutral-200 text-neutral-500 hover:bg-neutral-300 hover:text-neutral-600"
+                          ? "bg-neutral-700 text-neutral-400 hover:bg-neutral-600 hover:text-neutral-300"
+                          : "bg-neutral-200 text-neutral-500 hover:bg-neutral-300 hover:text-neutral-600",
                     )}
                   >
                     {lang}
@@ -943,7 +1002,7 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
         <div
           className={cn(
             "flex items-center justify-end gap-2 px-4 py-3 border-t",
-            isDark ? "border-neutral-700" : "border-neutral-200"
+            isDark ? "border-neutral-700" : "border-neutral-200",
           )}
         >
           <button
@@ -953,7 +1012,7 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
               "transition-colors",
               isDark
                 ? "hover:bg-neutral-800 text-neutral-300"
-                : "hover:bg-neutral-100 text-neutral-600"
+                : "hover:bg-neutral-100 text-neutral-600",
             )}
           >
             Cancel
@@ -963,7 +1022,7 @@ function CustomFormatterModal({ onClose, onSave, existingIds }: CustomFormatterM
             className={cn(
               "px-3 py-1.5 rounded-lg text-sm font-medium",
               "bg-primary text-primary-foreground",
-              "hover:bg-primary/90 transition-colors"
+              "hover:bg-primary/90 transition-colors",
             )}
           >
             Add Formatter

@@ -8,7 +8,7 @@ import { useMemo } from "react";
 import { ChevronRight, FolderOpen, FileCode2 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useFilesStore } from "../../stores/files";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme, useLiquidGlass } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 
 interface BreadcrumbProps {
@@ -19,7 +19,8 @@ export function Breadcrumb({ path }: BreadcrumbProps) {
   const projectContext = useIdeStore((s) => s.projectContext);
   const setActivePanel = useIdeStore((s) => s.setActivePanel);
   const setRevealFilePath = useFilesStore((s) => s.setRevealFilePath);
-  const { effectiveTheme, useLiquidGlass } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
+  const liquidGlass = useLiquidGlass();
 
   const isDark = effectiveTheme === "dark";
 
@@ -61,7 +62,7 @@ export function Breadcrumb({ path }: BreadcrumbProps) {
       className={cn(
         "flex items-center gap-0.5 px-3 py-1 text-[11px] overflow-x-auto",
         "border-b border-black/5 dark:border-white/5",
-        useLiquidGlass
+        liquidGlass
           ? "bg-black/3 dark:bg-white/3"
           : isDark
             ? "bg-neutral-900/60"

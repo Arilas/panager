@@ -12,7 +12,7 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import { Send, StopCircle, Sparkles, Loader2 } from "lucide-react";
 import { useAgentStore } from "../../stores/agent";
 import { useIdeStore } from "../../stores/ide";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import { ModeSelector } from "./ModeSelector";
 import { ModelSelector } from "./ModelSelector";
@@ -101,7 +101,7 @@ interface ChatTabContentProps {
 }
 
 export function ChatTabContent({ sessionId, sessionName }: ChatTabContentProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   // Agent store state

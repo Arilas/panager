@@ -8,13 +8,13 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 import { useAgentStore } from "../../stores/agent";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { AcpSessionModel } from "../../types/acp";
 import { useAcpEvents } from "../../hooks/useAcpEvents";
 
 export function ModelSelector() {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const status = useAgentStore((s) => s.status);

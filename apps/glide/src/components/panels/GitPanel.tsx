@@ -26,7 +26,7 @@ import { useIdeStore } from "../../stores/ide";
 import { useGitStore } from "../../stores/git";
 import { useFilesStore } from "../../stores/files";
 import { useEditorStore, isDiffTab } from "../../stores/editor";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { useGeneralSettings } from "../../stores/settings";
 import { cn } from "../../lib/utils";
 import type { GitFileChange, GitFileStatus } from "../../types";
@@ -85,7 +85,7 @@ export function GitPanel() {
   const openFilePreview = useFilesStore((s) => s.openFilePreview);
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
   const getActiveTabState = useEditorStore((s) => s.getActiveTabState);
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const generalSettings = useGeneralSettings();
 
   // Initialize view mode from settings on first load
@@ -485,8 +485,7 @@ function ChangeSection({
   isStaged = false,
 }: ChangeSectionProps) {
   const [expanded, setExpanded] = useState(true);
-  const { effectiveTheme } = useIdeSettingsContext();
-
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   return (

@@ -17,7 +17,7 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { ToolCallEntry } from "../../types/acp";
 import { ToolCallCard } from "./ToolCallCard";
@@ -140,7 +140,7 @@ function getAnyInProgress(entries: ToolCallEntry[]): boolean {
 }
 
 export function ToolCallGroup({ entries }: ToolCallGroupProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
   const [isExpanded, setIsExpanded] = useState(false);
 

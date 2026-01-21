@@ -6,8 +6,11 @@
 
 import { Type, AlignLeft, Hash, Map, Eye, Sparkles } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { useIdeSettingsStore, useDialogEditorSettings } from "../../stores/settings";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import {
+  useIdeSettingsStore,
+  useDialogEditorSettings,
+} from "../../stores/settings";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import type { SettingsLevel } from "../../types/settings";
 import {
   SettingSection,
@@ -21,11 +24,13 @@ interface EditorSettingsTabProps {
 }
 
 export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
   const editorSettings = useDialogEditorSettings();
-  const { updateSetting, loadSettingsForLevel, loadAllLevelSettings } = useIdeSettingsStore();
+  const { updateSetting, loadSettingsForLevel, loadAllLevelSettings } =
+    useIdeSettingsStore();
 
+  // Update setting - the store's updateSetting already handles reloading
   const handleUpdate = async (key: string, value: unknown) => {
     await updateSetting(`editor.${key}`, value, level);
     await loadSettingsForLevel(level);
@@ -45,7 +50,7 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
             <label
               className={cn(
                 "text-sm w-24",
-                isDark ? "text-neutral-300" : "text-neutral-600"
+                isDark ? "text-neutral-300" : "text-neutral-600",
               )}
             >
               Font Size
@@ -56,7 +61,12 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
               min={8}
               max={32}
             />
-            <span className={cn("text-xs", isDark ? "text-neutral-500" : "text-neutral-400")}>
+            <span
+              className={cn(
+                "text-xs",
+                isDark ? "text-neutral-500" : "text-neutral-400",
+              )}
+            >
               px
             </span>
           </div>
@@ -65,7 +75,7 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
             <label
               className={cn(
                 "text-sm w-24",
-                isDark ? "text-neutral-300" : "text-neutral-600"
+                isDark ? "text-neutral-300" : "text-neutral-600",
               )}
             >
               Line Height
@@ -76,7 +86,12 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
               min={0}
               max={50}
             />
-            <span className={cn("text-xs", isDark ? "text-neutral-500" : "text-neutral-400")}>
+            <span
+              className={cn(
+                "text-xs",
+                isDark ? "text-neutral-500" : "text-neutral-400",
+              )}
+            >
               0 = auto
             </span>
           </div>
@@ -85,7 +100,7 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
             <label
               className={cn(
                 "text-sm w-24 pt-2",
-                isDark ? "text-neutral-300" : "text-neutral-600"
+                isDark ? "text-neutral-300" : "text-neutral-600",
               )}
             >
               Font Family
@@ -99,7 +114,7 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
                 "border focus:outline-none focus:ring-2 focus:ring-primary/30",
                 isDark
                   ? "bg-neutral-800 border-neutral-700 text-neutral-200"
-                  : "bg-white border-neutral-200 text-neutral-700"
+                  : "bg-white border-neutral-200 text-neutral-700",
               )}
             />
           </div>
@@ -117,7 +132,7 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
             <label
               className={cn(
                 "text-sm w-24",
-                isDark ? "text-neutral-300" : "text-neutral-600"
+                isDark ? "text-neutral-300" : "text-neutral-600",
               )}
             >
               Tab Size
@@ -128,7 +143,12 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
               min={1}
               max={8}
             />
-            <span className={cn("text-xs", isDark ? "text-neutral-500" : "text-neutral-400")}>
+            <span
+              className={cn(
+                "text-xs",
+                isDark ? "text-neutral-500" : "text-neutral-400",
+              )}
+            >
               spaces
             </span>
           </div>
@@ -177,12 +197,13 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
               { value: "bounded", label: "Bounded" },
             ]}
           />
-          {(editorSettings.wordWrap === "wordWrapColumn" || editorSettings.wordWrap === "bounded") && (
+          {(editorSettings.wordWrap === "wordWrapColumn" ||
+            editorSettings.wordWrap === "bounded") && (
             <div className="flex items-center gap-3">
               <label
                 className={cn(
                   "text-sm",
-                  isDark ? "text-neutral-300" : "text-neutral-600"
+                  isDark ? "text-neutral-300" : "text-neutral-600",
                 )}
               >
                 Wrap Column
@@ -216,7 +237,7 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
               <label
                 className={cn(
                   "text-sm",
-                  isDark ? "text-neutral-300" : "text-neutral-600"
+                  isDark ? "text-neutral-300" : "text-neutral-600",
                 )}
               >
                 Minimap Side
@@ -245,7 +266,7 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
             <label
               className={cn(
                 "text-sm w-36",
-                isDark ? "text-neutral-300" : "text-neutral-600"
+                isDark ? "text-neutral-300" : "text-neutral-600",
               )}
             >
               Render Whitespace
@@ -312,7 +333,7 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
                 <label
                   className={cn(
                     "text-sm w-36",
-                    isDark ? "text-neutral-300" : "text-neutral-600"
+                    isDark ? "text-neutral-300" : "text-neutral-600",
                   )}
                 >
                   Parameter Names
@@ -331,8 +352,16 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
               <ToggleSetting
                 label="Suppress When Name Matches"
                 description="Hide parameter hints when argument name matches parameter name."
-                checked={editorSettings.inlayHints.parameterNamesWhenArgumentMatchesName}
-                onChange={(v) => handleUpdate("inlayHints.parameterNamesWhenArgumentMatchesName", v)}
+                checked={
+                  editorSettings.inlayHints
+                    .parameterNamesWhenArgumentMatchesName
+                }
+                onChange={(v) =>
+                  handleUpdate(
+                    "inlayHints.parameterNamesWhenArgumentMatchesName",
+                    v,
+                  )
+                }
               />
 
               <ToggleSetting
@@ -353,14 +382,18 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
                 label="Property Declaration Types"
                 description="Show type hints for class property declarations."
                 checked={editorSettings.inlayHints.propertyDeclarationTypes}
-                onChange={(v) => handleUpdate("inlayHints.propertyDeclarationTypes", v)}
+                onChange={(v) =>
+                  handleUpdate("inlayHints.propertyDeclarationTypes", v)
+                }
               />
 
               <ToggleSetting
                 label="Function Return Types"
                 description="Show return type hints for functions."
                 checked={editorSettings.inlayHints.functionReturnTypes}
-                onChange={(v) => handleUpdate("inlayHints.functionReturnTypes", v)}
+                onChange={(v) =>
+                  handleUpdate("inlayHints.functionReturnTypes", v)
+                }
               />
 
               <ToggleSetting
@@ -385,7 +418,7 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
             <label
               className={cn(
                 "text-sm w-28",
-                isDark ? "text-neutral-300" : "text-neutral-600"
+                isDark ? "text-neutral-300" : "text-neutral-600",
               )}
             >
               Cursor Style
@@ -408,7 +441,7 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
             <label
               className={cn(
                 "text-sm w-28",
-                isDark ? "text-neutral-300" : "text-neutral-600"
+                isDark ? "text-neutral-300" : "text-neutral-600",
               )}
             >
               Cursor Blinking

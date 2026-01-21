@@ -6,8 +6,11 @@
 
 import { Bot, Shield, Eye, Zap } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { useIdeSettingsStore, useDialogAgentSettings } from "../../stores/settings";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import {
+  useIdeSettingsStore,
+  useDialogAgentSettings,
+} from "../../stores/settings";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import type { SettingsLevel } from "../../types/settings";
 import type { AgentMode, ApprovalMode } from "../../types/acp";
 import { SettingSection, ToggleSetting } from "./GeneralSettingsTab";
@@ -17,25 +20,59 @@ interface AgentSettingsTabProps {
 }
 
 /** Labels for agent modes */
-const AGENT_MODE_OPTIONS: { value: AgentMode; label: string; description: string }[] = [
-  { value: "plan", label: "Plan", description: "Claude creates a plan before making changes" },
-  { value: "agent", label: "Agent", description: "Claude autonomously makes changes" },
-  { value: "ask", label: "Ask", description: "Claude answers questions without making changes" },
+const AGENT_MODE_OPTIONS: {
+  value: AgentMode;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "plan",
+    label: "Plan",
+    description: "Claude creates a plan before making changes",
+  },
+  {
+    value: "agent",
+    label: "Agent",
+    description: "Claude autonomously makes changes",
+  },
+  {
+    value: "ask",
+    label: "Ask",
+    description: "Claude answers questions without making changes",
+  },
 ];
 
 /** Labels for approval modes */
-const APPROVAL_MODE_OPTIONS: { value: ApprovalMode; label: string; description: string }[] = [
-  { value: "per_change", label: "Per Change", description: "Review each file change individually" },
-  { value: "batch", label: "Batch", description: "Review all changes at once before applying" },
-  { value: "auto", label: "Auto", description: "Automatically approve all changes" },
+const APPROVAL_MODE_OPTIONS: {
+  value: ApprovalMode;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "per_change",
+    label: "Per Change",
+    description: "Review each file change individually",
+  },
+  {
+    value: "batch",
+    label: "Batch",
+    description: "Review all changes at once before applying",
+  },
+  {
+    value: "auto",
+    label: "Auto",
+    description: "Automatically approve all changes",
+  },
 ];
 
 export function AgentSettingsTab({ level }: AgentSettingsTabProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
   const agentSettings = useDialogAgentSettings();
-  const { updateSetting, loadSettingsForLevel, loadAllLevelSettings } = useIdeSettingsStore();
+  const { updateSetting, loadSettingsForLevel, loadAllLevelSettings } =
+    useIdeSettingsStore();
 
+  // Update setting - the store's updateSetting already handles reloading
   const handleUpdate = async (key: string, value: unknown) => {
     await updateSetting(`agent.${key}`, value, level);
     await loadSettingsForLevel(level);
@@ -130,7 +167,13 @@ interface ModeOptionProps {
   isDark: boolean;
 }
 
-function ModeOption({ label, description, selected, onSelect, isDark }: ModeOptionProps) {
+function ModeOption({
+  label,
+  description,
+  selected,
+  onSelect,
+  isDark,
+}: ModeOptionProps) {
   return (
     <button
       onClick={onSelect}
@@ -141,14 +184,18 @@ function ModeOption({ label, description, selected, onSelect, isDark }: ModeOpti
           ? "border-primary bg-primary/5"
           : isDark
             ? "border-neutral-700 hover:border-neutral-600 hover:bg-white/5"
-            : "border-neutral-200 hover:border-neutral-300 hover:bg-black/5"
+            : "border-neutral-200 hover:border-neutral-300 hover:bg-black/5",
       )}
     >
       {/* Radio indicator */}
       <div
         className={cn(
           "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
-          selected ? "border-primary" : isDark ? "border-neutral-500" : "border-neutral-400"
+          selected
+            ? "border-primary"
+            : isDark
+              ? "border-neutral-500"
+              : "border-neutral-400",
         )}
       >
         {selected && <div className="w-2 h-2 rounded-full bg-primary" />}
@@ -159,7 +206,7 @@ function ModeOption({ label, description, selected, onSelect, isDark }: ModeOpti
         <div
           className={cn(
             "text-sm font-medium",
-            isDark ? "text-neutral-200" : "text-neutral-700"
+            isDark ? "text-neutral-200" : "text-neutral-700",
           )}
         >
           {label}
@@ -167,7 +214,7 @@ function ModeOption({ label, description, selected, onSelect, isDark }: ModeOpti
         <div
           className={cn(
             "text-xs mt-0.5",
-            isDark ? "text-neutral-400" : "text-neutral-500"
+            isDark ? "text-neutral-400" : "text-neutral-500",
           )}
         >
           {description}

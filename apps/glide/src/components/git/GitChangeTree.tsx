@@ -20,7 +20,7 @@ import {
   Minus,
   Undo2,
 } from "lucide-react";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { GitFileChange, GitFileStatus } from "../../types";
 
@@ -133,7 +133,7 @@ export function GitChangeTree({
   onFileOpen,
   selectedPath,
 }: GitChangeTreeProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const [stagedExpanded, setStagedExpanded] = useState(true);

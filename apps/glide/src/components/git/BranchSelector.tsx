@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useGitStore } from "../../stores/git";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { GitLocalBranch } from "../../types";
 
@@ -32,7 +32,7 @@ export function BranchSelector({ compact: _compact = false }: BranchSelectorProp
     switchBranch,
     checkUncommittedChanges,
   } = useGitStore();
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const [isOpen, setIsOpen] = useState(false);

@@ -51,6 +51,22 @@ export interface GitGeneralSettings {
   defaultView: GitViewMode;
 }
 
+/** Liquid Glass mode: true = always on, false = always off, "auto" = only on macOS 26+ */
+export type LiquidGlassMode = boolean | "auto";
+
+/** Liquid Glass intensity options */
+export type LiquidGlassIntensity = "subtle" | "medium" | "strong";
+
+/** Appearance settings for visual effects */
+export interface AppearanceSettings {
+  /** Liquid Glass effect mode */
+  liquidGlassMode: LiquidGlassMode;
+  /** Liquid Glass blur intensity */
+  liquidGlassIntensity: LiquidGlassIntensity;
+  /** Accent color for the UI (hex format, e.g., "#3b82f6") */
+  accentColor: string;
+}
+
 export interface GeneralSettings {
   /** Activity bar configuration */
   activityBar: ActivityBarSettings;
@@ -58,8 +74,8 @@ export interface GeneralSettings {
   sidebar: SidebarSettings;
   /** Default git view mode for changes panel */
   git: GitGeneralSettings;
-  /** Accent color for the UI (hex format, e.g., "#3b82f6") */
-  accentColor: string;
+  /** Appearance and theme settings */
+  appearance: AppearanceSettings;
 }
 
 // =============================================================================
@@ -340,7 +356,11 @@ export const DEFAULT_IDE_SETTINGS: IdeSettings = {
     activityBar: { position: "left" },
     sidebar: { position: "left" },
     git: { defaultView: "tree" },
-    accentColor: "#3b82f6", // Blue-500
+    appearance: {
+      liquidGlassMode: "auto",
+      liquidGlassIntensity: "medium",
+      accentColor: "#3b82f6", // Blue-500
+    },
   },
   editor: {
     fontSize: 13,
@@ -404,7 +424,9 @@ export const DEFAULT_IDE_SETTINGS: IdeSettings = {
 
 /** Deep partial type for settings at a specific level */
 export type PartialIdeSettings = {
-  general?: Partial<GeneralSettings>;
+  general?: Partial<GeneralSettings> & {
+    appearance?: Partial<AppearanceSettings>;
+  };
   editor?: Partial<EditorSettings>;
   languageOverrides?: Record<string, Partial<LanguageEditorOverrides>>;
   git?: Partial<GitSettings>;

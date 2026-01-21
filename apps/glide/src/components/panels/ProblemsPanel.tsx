@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useProblemsStore } from "../../stores/problems";
 import { useFilesStore } from "../../stores/files";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { Diagnostic, DiagnosticSeverity } from "../../types/problems";
 
@@ -24,8 +24,7 @@ export function ProblemsPanel() {
   const diagnosticsByFile = useProblemsStore((s) => s.diagnosticsByFile);
   const getAllDiagnostics = useProblemsStore((s) => s.getAllDiagnostics);
   const getSummary = useProblemsStore((s) => s.getSummary);
-  const { effectiveTheme } = useIdeSettingsContext();
-
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   // Call getSummary() to get current values - recomputed on each render
@@ -102,8 +101,7 @@ interface DiagnosticGroupProps {
 
 function DiagnosticGroup({ filePath, diagnostics }: DiagnosticGroupProps) {
   const openFile = useFilesStore((s) => s.openFile);
-  const { effectiveTheme } = useIdeSettingsContext();
-
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   // Get just the filename from the path
@@ -183,8 +181,7 @@ interface DiagnosticItemProps {
 }
 
 function DiagnosticItem({ diagnostic, onNavigate }: DiagnosticItemProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
-
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const { icon: Icon, color } = getSeverityConfig(diagnostic.severity);

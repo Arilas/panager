@@ -18,15 +18,14 @@ import {
 } from "lucide-react";
 import { usePluginsStore } from "../../stores/plugins";
 import { useIdeStore } from "../../stores/ide";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { PluginInfo, PluginState } from "../../types/plugin";
 
 export function SettingsPanel() {
   const { plugins, loading, error, fetchPlugins } = usePluginsStore();
   const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
-  const { effectiveTheme } = useIdeSettingsContext();
-
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   // Fetch plugins on mount
@@ -132,8 +131,7 @@ interface PluginItemProps {
 
 function PluginItem({ plugin }: PluginItemProps) {
   const { enablePlugin, disablePlugin } = usePluginsStore();
-  const { effectiveTheme } = useIdeSettingsContext();
-
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
   const { manifest, state, error } = plugin;
 

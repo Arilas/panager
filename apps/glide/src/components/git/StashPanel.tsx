@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useGitStore } from "../../stores/git";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { GitStashEntry } from "../../types";
 
@@ -23,7 +23,7 @@ export function StashPanel() {
   const projectContext = useIdeStore((s) => s.projectContext);
   const { stashes, stashesLoading, loadStashes, stashPop, stashApply, stashDrop } =
     useGitStore();
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const [expanded, setExpanded] = useState(true);

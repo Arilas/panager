@@ -23,7 +23,7 @@ import {
   Bot,
   FileCheck,
 } from "lucide-react";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type {
   ToolCallEntry,
@@ -245,7 +245,7 @@ function getMarkdownContent(entry: ToolCallEntry): string | null {
 }
 
 export function ToolCallCard({ entry }: ToolCallCardProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   // Important tools start expanded

@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { File, Folder } from "lucide-react";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 
 interface InlineEditInputProps {
@@ -39,8 +39,7 @@ export function InlineEditInput({
   const [error, setError] = useState<string | null>(null);
   const isHandledRef = useRef(false); // Track if we've already handled confirm/cancel
   const scrollParentRef = useRef<Element | null>(null);
-  const { effectiveTheme } = useIdeSettingsContext();
-
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   // Auto-focus and select on mount, with preventScroll to avoid tree jumping

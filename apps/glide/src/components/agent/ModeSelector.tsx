@@ -8,7 +8,7 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 import { useAgentStore } from "../../stores/agent";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { AgentMode, AcpSessionMode } from "../../types/acp";
 import { AgentModeLabels, AgentModeDescriptions } from "../../types/acp";
@@ -18,7 +18,7 @@ import { useAcpEvents } from "../../hooks/useAcpEvents";
 const FALLBACK_MODES: AgentMode[] = ["plan", "agent", "ask"];
 
 export function ModeSelector() {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const mode = useAgentStore((s) => s.mode);

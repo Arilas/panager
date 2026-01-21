@@ -52,6 +52,82 @@ pub enum GitViewMode {
     List,
 }
 
+/// Liquid Glass mode: true = always on, false = always off, "auto" = only on macOS 26+
+#[derive(Debug, Clone, Type, Default)]
+pub enum LiquidGlassMode {
+    On,
+    Off,
+    #[default]
+    Auto,
+}
+
+impl serde::Serialize for LiquidGlassMode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            LiquidGlassMode::On => serializer.serialize_bool(true),
+            LiquidGlassMode::Off => serializer.serialize_bool(false),
+            LiquidGlassMode::Auto => serializer.serialize_str("auto"),
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for LiquidGlassMode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{self, Visitor};
+
+        struct LiquidGlassModeVisitor;
+
+        impl<'de> Visitor<'de> for LiquidGlassModeVisitor {
+            type Value = LiquidGlassMode;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a boolean or the string \"auto\"")
+            }
+
+            fn visit_bool<E>(self, value: bool) -> Result<LiquidGlassMode, E>
+            where
+                E: de::Error,
+            {
+                Ok(if value {
+                    LiquidGlassMode::On
+                } else {
+                    LiquidGlassMode::Off
+                })
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<LiquidGlassMode, E>
+            where
+                E: de::Error,
+            {
+                match value.to_lowercase().as_str() {
+                    "true" | "on" => Ok(LiquidGlassMode::On),
+                    "false" | "off" => Ok(LiquidGlassMode::Off),
+                    "auto" => Ok(LiquidGlassMode::Auto),
+                    _ => Err(de::Error::unknown_variant(value, &["true", "false", "auto"])),
+                }
+            }
+        }
+
+        deserializer.deserialize_any(LiquidGlassModeVisitor)
+    }
+}
+
+/// Liquid Glass intensity options
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum LiquidGlassIntensity {
+    Subtle,
+    #[default]
+    Medium,
+    Strong,
+}
+
 /// Word wrap options
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Default)]
 #[serde(rename_all = "camelCase")]
@@ -203,6 +279,35 @@ pub struct GitGeneralSettings {
     pub default_view: GitViewMode,
 }
 
+/// Appearance settings for visual effects
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AppearanceSettings {
+    /// Liquid Glass effect mode
+    #[serde(default)]
+    pub liquid_glass_mode: LiquidGlassMode,
+    /// Liquid Glass blur intensity
+    #[serde(default)]
+    pub liquid_glass_intensity: LiquidGlassIntensity,
+    /// Accent color for the UI (hex format, e.g., "#3b82f6")
+    #[serde(default = "default_accent_color")]
+    pub accent_color: String,
+}
+
+fn default_accent_color() -> String {
+    "#3b82f6".to_string() // Blue-500
+}
+
+impl Default for AppearanceSettings {
+    fn default() -> Self {
+        Self {
+            liquid_glass_mode: LiquidGlassMode::Auto,
+            liquid_glass_intensity: LiquidGlassIntensity::Medium,
+            accent_color: default_accent_color(),
+        }
+    }
+}
+
 /// General settings
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]
@@ -213,13 +318,9 @@ pub struct GeneralSettings {
     pub sidebar: SidebarSettings,
     #[serde(default)]
     pub git: GitGeneralSettings,
-    /// Accent color for the UI (hex format, e.g., "#3b82f6")
-    #[serde(default = "default_accent_color")]
-    pub accent_color: String,
-}
-
-fn default_accent_color() -> String {
-    "#3b82f6".to_string() // Blue-500
+    /// Appearance and theme settings
+    #[serde(default)]
+    pub appearance: AppearanceSettings,
 }
 
 impl Default for GeneralSettings {
@@ -234,7 +335,7 @@ impl Default for GeneralSettings {
             git: GitGeneralSettings {
                 default_view: GitViewMode::Tree,
             },
-            accent_color: default_accent_color(),
+            appearance: AppearanceSettings::default(),
         }
     }
 }

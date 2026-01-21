@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { ListTodo, ChevronRight, ChevronDown, CheckCircle2, Circle, Loader2 } from "lucide-react";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { PlanEntry, PlanItem } from "../../types/acp";
 
@@ -49,7 +49,7 @@ function PlanItemRow({ item, isDark }: { item: PlanItem; isDark: boolean }) {
 }
 
 export function PlanCard({ entry }: PlanCardProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
   const [isExpanded, setIsExpanded] = useState(true); // Plans default to expanded
 

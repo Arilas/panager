@@ -6,7 +6,7 @@ import { useState, useCallback } from "react";
 import { Check, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useGitStore } from "../../stores/git";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 
 interface CommitInputProps {
@@ -23,7 +23,7 @@ export function CommitInput({ stagedCount }: CommitInputProps) {
     commitLoading,
     commit,
   } = useGitStore();
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const [expanded, setExpanded] = useState(false);

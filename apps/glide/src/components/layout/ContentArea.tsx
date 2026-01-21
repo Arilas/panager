@@ -16,7 +16,7 @@ import {
 } from "../../stores/editor";
 import { useIdeStore } from "../../stores/ide";
 import { readFile, getFileDiff } from "../../lib/tauri-ide";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme, useLiquidGlass } from "../../hooks/useEffectiveTheme";
 import { EditorTabs } from "../editor/EditorTabs";
 import { Breadcrumb } from "../editor/Breadcrumb";
 import { MonacoEditor } from "../editor/MonacoEditor";
@@ -33,7 +33,8 @@ export function ContentArea() {
   const loadLazyTab = useEditorStore((s) => s.loadLazyTab);
   const loadLazyDiffTab = useEditorStore((s) => s.loadLazyDiffTab);
   const projectContext = useIdeStore((s) => s.projectContext);
-  const { effectiveTheme, useLiquidGlass } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
+  const liquidGlass = useLiquidGlass();
 
   // Get the active tab state (either from permanent tabs or preview)
   const activeTab = useMemo(() => {
@@ -85,7 +86,7 @@ export function ContentArea() {
     <div
       className={cn(
         "flex-1 flex flex-col min-w-0",
-        useLiquidGlass
+        liquidGlass
           ? "liquid-glass-content"
           : isDark
             ? "bg-neutral-900/50"
@@ -130,7 +131,7 @@ export function ContentArea() {
 }
 
 function LoadingScreen() {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   return (
@@ -147,7 +148,7 @@ function LoadingScreen() {
 }
 
 function WelcomeScreen() {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   return (

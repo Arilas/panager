@@ -9,7 +9,7 @@ import { useMemo } from "react";
 import { useIdeStore } from "../../stores/ide";
 import { useEditorStore, isFileTab } from "../../stores/editor";
 import { usePluginsStore } from "../../stores/plugins";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme, useLiquidGlass } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import { BranchSelector } from "../git/BranchSelector";
 
@@ -19,7 +19,8 @@ export function StatusBar() {
   const tabStates = useEditorStore((s) => s.tabStates);
   const previewTab = useEditorStore((s) => s.previewTab);
   const statusBarItems = usePluginsStore((s) => s.statusBarItems);
-  const { useLiquidGlass, effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
+  const liquidGlass = useLiquidGlass();
 
   // Memoize filtered items to avoid re-renders
   const leftStatusItems = useMemo(
@@ -50,8 +51,8 @@ export function StatusBar() {
     <div
       className={cn(
         "h-6 flex items-center px-3 text-xs shrink-0",
-        useLiquidGlass
-          ? "liquid-glass-sidebar"
+        liquidGlass
+          ? "liquid-glass-sidebar liquid-glass-status-bar"
           : [
               isDark ? "bg-neutral-900/95" : "bg-neutral-100/95",
               "border-t border-black/5 dark:border-white/5",

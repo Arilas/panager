@@ -8,7 +8,7 @@
 import { useRef, useCallback, useEffect } from "react";
 import { X } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme, useLiquidGlass } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import { BottomPanelTabs } from "./BottomPanelTabs";
 import { ProblemsPanel } from "../panels/ProblemsPanel";
@@ -22,7 +22,8 @@ export function BottomPanel() {
   const bottomPanelHeight = useIdeStore((s) => s.bottomPanelHeight);
   const setBottomPanelHeight = useIdeStore((s) => s.setBottomPanelHeight);
   const setBottomPanelOpen = useIdeStore((s) => s.setBottomPanelOpen);
-  const { useLiquidGlass, effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
+  const liquidGlass = useLiquidGlass();
 
   const isDark = effectiveTheme === "dark";
   const panelRef = useRef<HTMLDivElement>(null);
@@ -82,8 +83,8 @@ export function BottomPanel() {
       ref={panelRef}
       className={cn(
         "flex flex-col shrink-0",
-        useLiquidGlass
-          ? "liquid-glass-sidebar"
+        liquidGlass
+          ? "liquid-glass-sidebar liquid-glass-bottom-panel"
           : [
               isDark ? "bg-neutral-900/95" : "bg-neutral-50/95",
               "border-t border-black/5 dark:border-white/5",
@@ -149,7 +150,7 @@ export function BottomPanel() {
 
 // Placeholder components for Output and Terminal
 function OutputPanel() {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   return (
@@ -165,7 +166,7 @@ function OutputPanel() {
 }
 
 function TerminalPanel() {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   return (

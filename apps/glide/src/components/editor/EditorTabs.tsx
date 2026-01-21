@@ -6,14 +6,14 @@
  */
 
 import { useMemo, useRef, useEffect, useState } from "react";
-import { X, File, Circle, GitCompareArrows, Sparkles, Pin, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { X, File, Circle, GitCompareArrows, Sparkles, Pin, Loader2 } from "lucide-react";
 import { useEditorStore, isFileTab, isDiffTab, isChatTab, isLazyTab, isLazyDiffTab, type TabState } from "../../stores/editor";
 import { useAgentStore } from "../../stores/agent";
 import { useAcpEvents } from "../../hooks/useAcpEvents";
 import { useGitStore } from "../../stores/git";
 import { useIdeStore } from "../../stores/ide";
 import { useFilesStore } from "../../stores/files";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme, useLiquidGlass } from "../../hooks/useEffectiveTheme";
 import { TabContextMenu } from "./TabContextMenu";
 import { cn } from "../../lib/utils";
 import type { GitFileStatus } from "../../types";
@@ -107,10 +107,6 @@ export function EditorTabs() {
   const pinTab = useEditorStore((s) => s.pinTab);
   const unpinTab = useEditorStore((s) => s.unpinTab);
   const reorderTabs = useEditorStore((s) => s.reorderTabs);
-  const navigateBack = useEditorStore((s) => s.navigateBack);
-  const navigateForward = useEditorStore((s) => s.navigateForward);
-  const canGoBack = useEditorStore((s) => s.canNavigateBack());
-  const canGoForward = useEditorStore((s) => s.canNavigateForward());
   const convertPreviewToPermanent = useEditorStore(
     (s) => s.convertPreviewToPermanent
   );
@@ -119,7 +115,8 @@ export function EditorTabs() {
   const setActivePanel = useIdeStore((s) => s.setActivePanel);
   const setRevealFilePath = useFilesStore((s) => s.setRevealFilePath);
   const gitChanges = useGitStore((s) => s.changes);
-  const { effectiveTheme, useLiquidGlass } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
+  const liquidGlass = useLiquidGlass();
 
   // ACP/Agent hooks for creating chat sessions
   const sessions = useAgentStore((s) => s.sessions);
@@ -282,7 +279,7 @@ export function EditorTabs() {
     <div
       className={cn(
         "relative shrink-0 h-[32px]",
-        useLiquidGlass
+        liquidGlass
           ? "bg-black/5 dark:bg-white/5 border-b border-black/5 dark:border-white/5"
           : [
               isDark ? "bg-neutral-900/80" : "bg-neutral-100/80",
@@ -291,42 +288,6 @@ export function EditorTabs() {
       )}
     >
       <div className="absolute inset-0 flex items-center">
-        {/* Navigation buttons */}
-        <div className="flex items-center shrink-0 border-r border-black/5 dark:border-white/5">
-          <button
-            onClick={navigateBack}
-            disabled={!canGoBack}
-            className={cn(
-              "flex items-center justify-center w-6 h-full",
-              "transition-colors",
-              canGoBack
-                ? isDark
-                  ? "text-neutral-400 hover:text-neutral-200 hover:bg-white/5"
-                  : "text-neutral-500 hover:text-neutral-700 hover:bg-black/5"
-                : "opacity-30 cursor-not-allowed"
-            )}
-            title="Navigate Back"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={navigateForward}
-            disabled={!canGoForward}
-            className={cn(
-              "flex items-center justify-center w-6 h-full",
-              "transition-colors",
-              canGoForward
-                ? isDark
-                  ? "text-neutral-400 hover:text-neutral-200 hover:bg-white/5"
-                  : "text-neutral-500 hover:text-neutral-700 hover:bg-black/5"
-                : "opacity-30 cursor-not-allowed"
-            )}
-            title="Navigate Forward"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
         {/* Scrollable tabs container */}
         <div
           ref={scrollContainerRef}
@@ -413,7 +374,7 @@ export function EditorTabs() {
                   "border-r border-black/5 dark:border-white/5",
                   isActive
                     ? [
-                        useLiquidGlass
+                        liquidGlass
                           ? "bg-white/10 dark:bg-white/10"
                           : isDark
                             ? "bg-neutral-800/50"

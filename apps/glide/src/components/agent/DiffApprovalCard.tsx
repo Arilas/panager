@@ -8,7 +8,7 @@ import { Check, X, Expand, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 import { useAgentStore } from "../../stores/agent";
 import { useEditorStore } from "../../stores/editor";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { PendingApproval, DiffLine } from "../../types/acp";
 
@@ -19,7 +19,7 @@ interface DiffApprovalCardProps {
 }
 
 export function DiffApprovalCard({ approval, onApprove, onReject }: DiffApprovalCardProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const [isExpanded, setIsExpanded] = useState(true);

@@ -8,7 +8,7 @@
 import { MessageSquare, ListTodo } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useAgentStore } from "../../stores/agent";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme, useLiquidGlass } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { RightSidebarPanel } from "../../types/acp";
 
@@ -28,7 +28,8 @@ export function RightActivityBar() {
   const rightSidebarCollapsed = useIdeStore((s) => s.rightSidebarCollapsed);
   const setRightSidebarPanel = useIdeStore((s) => s.setRightSidebarPanel);
   const toggleRightSidebarPanel = useIdeStore((s) => s.toggleRightSidebarPanel);
-  const { useLiquidGlass, effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
+  const liquidGlass = useLiquidGlass();
 
   // Get agent status for indicator
   const status = useAgentStore((s) => s.status);
@@ -48,19 +49,14 @@ export function RightActivityBar() {
   };
 
   // Count pending approvals for badge
-  const pendingCount = pendingApprovals.filter((a) => a.status === "pending").length;
+  const pendingCount = pendingApprovals.filter(
+    (a) => a.status === "pending",
+  ).length;
 
   return (
-    <div
-      className={cn(
-        "flex flex-col w-12 shrink-0",
-        useLiquidGlass
-          ? "liquid-glass-sidebar"
-          : ["bg-vibrancy-sidebar", "border-l border-black/5 dark:border-white/5"]
-      )}
-    >
+    <div className={cn("flex flex-col w-10 shrink-0")}>
       {/* Icons */}
-      <div className="flex-1 flex flex-col items-center py-2 gap-0.5">
+      <div className="flex-1 flex flex-col items-center gap-0.5">
         {ITEMS.map(({ id, icon: Icon, label }) => {
           // Only show as active if sidebar is visible
           const isActive = rightSidebarPanel === id && !rightSidebarCollapsed;
@@ -77,7 +73,7 @@ export function RightActivityBar() {
                 "transition-all duration-150",
                 isActive
                   ? [
-                      useLiquidGlass
+                      liquidGlass
                         ? "liquid-glass-button bg-black/10 dark:bg-white/10"
                         : "bg-black/10 dark:bg-white/10",
                       isDark ? "text-white" : "text-neutral-900",
@@ -86,7 +82,7 @@ export function RightActivityBar() {
                       isDark
                         ? "text-neutral-400 hover:text-neutral-200 hover:bg-white/5"
                         : "text-neutral-500 hover:text-neutral-700 hover:bg-black/5",
-                    ]
+                    ],
               )}
             >
               {/* Active indicator - subtle border on outer edge (right side) */}
@@ -94,7 +90,7 @@ export function RightActivityBar() {
                 <div
                   className={cn(
                     "absolute top-1/2 -translate-y-1/2 w-0.5 h-5 right-0 rounded-l",
-                    isDark ? "bg-white" : "bg-neutral-900"
+                    isDark ? "bg-white" : "bg-neutral-900",
                   )}
                 />
               )}
@@ -107,7 +103,7 @@ export function RightActivityBar() {
                     "absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1",
                     "flex items-center justify-center",
                     "text-[10px] font-medium rounded-full",
-                    "bg-amber-500 text-white"
+                    "bg-amber-500 text-white",
                   )}
                 >
                   {pendingCount > 9 ? "9+" : pendingCount}
@@ -119,7 +115,7 @@ export function RightActivityBar() {
                 <span
                   className={cn(
                     "absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full",
-                    "bg-green-500 animate-pulse"
+                    "bg-green-500 animate-pulse",
                   )}
                 />
               )}

@@ -5,7 +5,7 @@
  */
 
 import { Shield, Check, X, AlertTriangle } from "lucide-react";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { PermissionRequest } from "../../types/acp";
 
@@ -15,7 +15,7 @@ interface PermissionDialogProps {
 }
 
 export function PermissionDialog({ request, onRespond }: PermissionDialogProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   return (

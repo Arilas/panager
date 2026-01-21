@@ -45,7 +45,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               "flex flex-col w-[160px] shrink-0",
               useLiquidGlass
                 ? "p-3 liquid-glass-sidebar gap-1 pt-10"
-                : "p-2 pt-6 border-r border-black/5 dark:border-white/5"
+                : "p-2 pt-6 border-r border-black/5 dark:border-white/5",
             )}
           >
             <TabTrigger value="general" icon={<Sun className="h-4 w-4" />}>
@@ -60,7 +60,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <TabTrigger value="editors" icon={<Code className="h-4 w-4" />}>
               Editors
             </TabTrigger>
-            <TabTrigger value="terminals" icon={<Terminal className="h-4 w-4" />}>
+            <TabTrigger
+              value="terminals"
+              icon={<Terminal className="h-4 w-4" />}
+            >
               Terminals
             </TabTrigger>
             <TabTrigger

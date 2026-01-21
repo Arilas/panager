@@ -7,7 +7,7 @@
 import { GitBranch, Eye, Clock, Code } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useIdeSettingsStore, useDialogGitSettings } from "../../stores/settings";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import type { SettingsLevel } from "../../types/settings";
 import { SettingSection, ToggleSetting, SelectInput } from "./GeneralSettingsTab";
 
@@ -16,15 +16,14 @@ interface GitSettingsTabProps {
 }
 
 export function GitSettingsTab({ level }: GitSettingsTabProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
   const gitSettings = useDialogGitSettings();
-  const { updateSetting, loadSettingsForLevel, loadAllLevelSettings } = useIdeSettingsStore();
+  const { updateSetting } = useIdeSettingsStore();
 
+  // Update setting - the store's updateSetting already handles reloading
   const handleUpdate = async (key: string, value: unknown) => {
     await updateSetting(`git.${key}`, value, level);
-    await loadSettingsForLevel(level);
-    await loadAllLevelSettings();
   };
 
   return (

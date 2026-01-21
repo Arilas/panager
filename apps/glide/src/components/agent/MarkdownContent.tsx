@@ -9,7 +9,7 @@ import { useEffect, useState, useMemo } from "react";
 import MarkdownIt from "markdown-it";
 import { fromHighlighter } from "@shikijs/markdown-it/core";
 import { createHighlighter, type HighlighterGeneric, type BundledLanguage, type BundledTheme } from "shiki";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 
 interface MarkdownContentProps {
@@ -58,7 +58,7 @@ function createMarkdownParser() {
 }
 
 export function MarkdownContent({ content }: MarkdownContentProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
   const [highlighter, setHighlighter] = useState<HighlighterGeneric<BundledLanguage, BundledTheme> | null>(null);
 

@@ -6,7 +6,7 @@
 
 import { Circle, CheckCircle2, Loader2, XCircle, MinusCircle } from "lucide-react";
 import { useAgentStore } from "../../stores/agent";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { TaskStatus } from "../../types/acp";
 
@@ -27,7 +27,7 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
 };
 
 export function TasksPanel() {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const currentPlan = useAgentStore((s) => s.currentPlan);

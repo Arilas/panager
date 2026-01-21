@@ -19,7 +19,10 @@
  */
 
 import { useIdeStore } from "../../stores/ide";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import {
+  useEffectiveTheme,
+  useLiquidGlass,
+} from "../../hooks/useEffectiveTheme";
 import { useGeneralSettings } from "../../stores/settings";
 import { IdeTitlebar } from "./IdeTitlebar";
 import { ActivityBar } from "./ActivityBar";
@@ -43,7 +46,8 @@ export function IdeLayout() {
   const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
   const rightSidebarPanel = useIdeStore((s) => s.rightSidebarPanel);
   const rightSidebarCollapsed = useIdeStore((s) => s.rightSidebarCollapsed);
-  const { useLiquidGlass, effectiveTheme, loading } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
+  const liquidGlass = useLiquidGlass();
 
   // Layout settings from IDE settings store
   const generalSettings = useGeneralSettings();
@@ -61,36 +65,26 @@ export function IdeLayout() {
 
   const isDark = effectiveTheme === "dark";
 
-  // Show loading state while settings are loading
-  if (loading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-neutral-100 dark:bg-neutral-900">
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-6 h-6 border-2 border-neutral-300 dark:border-neutral-600 border-t-neutral-500 dark:border-t-neutral-400 rounded-full animate-spin" />
-          <span className="text-sm text-neutral-500 dark:text-neutral-400">Loading...</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div
       className={cn(
         "h-screen w-screen flex flex-col overflow-hidden",
-        useLiquidGlass
-          ? "liquid-glass"
-          : isDark
-            ? "bg-neutral-900"
-            : "bg-neutral-50",
-        isDark ? "text-neutral-100" : "text-neutral-900"
+        isDark ? "bg-neutral-900/60" : "bg-white/60",
+        liquidGlass && "liquid-glass",
+        isDark ? "text-neutral-100" : "text-neutral-900",
       )}
     >
       {/* Titlebar with traffic light spacer */}
       <IdeTitlebar />
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 flex min-h-0">
+      <div
+        className={cn(
+          "flex-1 flex flex-col min-h-0",
+          liquidGlass && "px-2 pb-2 gap-2",
+        )}
+      >
+        <div className={cn("flex-1 flex min-h-0", liquidGlass && "gap-2")}>
           {/* Activity Bar - Left position */}
           {!isActivityBarHidden && !isActivityBarRight && (
             <ActivityBar position="left" />
@@ -123,10 +117,13 @@ export function IdeLayout() {
 
         {/* Bottom Panel */}
         <BottomPanel />
+
+        {/* Status Bar - inside padded container when liquid glass */}
+        {liquidGlass && <StatusBar />}
       </div>
 
-      {/* Status Bar */}
-      <StatusBar />
+      {/* Status Bar - outside when not liquid glass */}
+      {!liquidGlass && <StatusBar />}
 
       {/* Dialogs */}
       <QuickOpenDialog />

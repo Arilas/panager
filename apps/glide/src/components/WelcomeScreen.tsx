@@ -9,12 +9,21 @@ import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, Sparkles, Folder, X } from "lucide-react";
 import { cn } from "../lib/utils";
-import { useIdeSettings } from "../hooks/useIdeSettings";
+import { useAppearanceSettings } from "../stores/settings";
+import { useEffectiveTheme } from "../hooks/useEffectiveTheme";
 import md5 from "../lib/md5";
-import { getRecentProjects, removeRecentProject, type RecentProject } from "../lib/tauri-ide";
+import {
+  getRecentProjects,
+  removeRecentProject,
+  type RecentProject,
+} from "../lib/tauri-ide";
 
 interface WelcomeScreenProps {
-  onProjectSelected: (projectId: string, projectPath: string, projectName: string) => void;
+  onProjectSelected: (
+    projectId: string,
+    projectPath: string,
+    projectName: string,
+  ) => void;
 }
 
 /**
@@ -49,8 +58,16 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
   const [loading, setLoading] = useState(false);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
-  const { effectiveTheme, useLiquidGlass } = useIdeSettings();
+  const appearance = useAppearanceSettings();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
+
+  // Compute liquid glass enabled (auto mode checks macOS 26+)
+  const useLiquidGlass =
+    appearance.liquidGlassMode === "auto"
+      ? typeof CSS !== "undefined" &&
+        CSS.supports("-apple-visual-effect", "-apple-system-glass-material")
+      : appearance.liquidGlassMode;
 
   // Load recent projects on mount
   useEffect(() => {
@@ -90,7 +107,10 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
     onProjectSelected(project.id, project.path, project.name);
   };
 
-  const handleRemoveRecent = async (e: React.MouseEvent, project: RecentProject) => {
+  const handleRemoveRecent = async (
+    e: React.MouseEvent,
+    project: RecentProject,
+  ) => {
     e.stopPropagation();
     try {
       await removeRecentProject(project.path);
@@ -101,19 +121,24 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col">
+    <div
+      className={cn(
+        "h-screen w-screen flex flex-col",
+        isDark ? "bg-neutral-900/60" : "bg-white/60",
+      )}
+    >
       {/* Titlebar area for drag */}
       <div
         className={cn(
           "titlebar titlebar-compact flex items-center justify-center",
-          useLiquidGlass ? "liquid-glass-titlebar" : ""
+          useLiquidGlass ? "liquid-glass-titlebar" : "",
         )}
         data-tauri-drag-region
       >
         <span
           className={cn(
             "text-sm font-medium",
-            isDark ? "text-white/70" : "text-black/70"
+            isDark ? "text-white/70" : "text-black/70",
           )}
         >
           Glide
@@ -123,8 +148,7 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
       {/* Main content */}
       <div
         className={cn(
-          "flex-1 flex flex-col items-center overflow-auto",
-          isDark ? "bg-neutral-900/50" : "bg-white/50"
+          "flex-1 flex flex-col items-center justify-center overflow-auto",
         )}
       >
         <div className="flex flex-col items-center gap-6 max-w-2xl w-full text-center px-8 py-12">
@@ -136,13 +160,13 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
                 ? "liquid-glass-card"
                 : isDark
                   ? "bg-neutral-800"
-                  : "bg-neutral-100"
+                  : "bg-neutral-100",
             )}
           >
             <Sparkles
               className={cn(
                 "w-8 h-8",
-                isDark ? "text-blue-400" : "text-blue-500"
+                isDark ? "text-blue-400" : "text-blue-500",
               )}
             />
           </div>
@@ -152,7 +176,7 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
             <h1
               className={cn(
                 "text-xl font-semibold",
-                isDark ? "text-white" : "text-neutral-900"
+                isDark ? "text-white" : "text-neutral-900",
               )}
             >
               Welcome to Glide
@@ -160,7 +184,7 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
             <p
               className={cn(
                 "text-sm",
-                isDark ? "text-neutral-400" : "text-neutral-500"
+                isDark ? "text-neutral-400" : "text-neutral-500",
               )}
             >
               AI-powered code editor with agent mode
@@ -179,7 +203,7 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
                     "bg-blue-500 text-white",
                     "hover:bg-blue-600",
                     "disabled:opacity-50",
-                  ]
+                  ],
             )}
           >
             {loading ? (
@@ -196,7 +220,7 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
               <h2
                 className={cn(
                   "text-xs font-medium uppercase tracking-wider mb-3 text-left",
-                  isDark ? "text-neutral-500" : "text-neutral-400"
+                  isDark ? "text-neutral-500" : "text-neutral-400",
                 )}
               >
                 Recent Projects
@@ -213,20 +237,20 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
                         ? "liquid-glass-card hover:liquid-glass-card-hover"
                         : isDark
                           ? "bg-neutral-800/50 hover:bg-neutral-800"
-                          : "bg-neutral-100/50 hover:bg-neutral-100"
+                          : "bg-neutral-100/50 hover:bg-neutral-100",
                     )}
                   >
                     {/* Folder icon */}
                     <div
                       className={cn(
                         "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                        isDark ? "bg-neutral-700/50" : "bg-neutral-200/50"
+                        isDark ? "bg-neutral-700/50" : "bg-neutral-200/50",
                       )}
                     >
                       <Folder
                         className={cn(
                           "w-5 h-5",
-                          isDark ? "text-blue-400" : "text-blue-500"
+                          isDark ? "text-blue-400" : "text-blue-500",
                         )}
                       />
                     </div>
@@ -236,7 +260,7 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
                       <div
                         className={cn(
                           "font-medium text-sm truncate",
-                          isDark ? "text-white" : "text-neutral-900"
+                          isDark ? "text-white" : "text-neutral-900",
                         )}
                       >
                         {project.name}
@@ -244,7 +268,7 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
                       <div
                         className={cn(
                           "text-xs truncate mt-0.5",
-                          isDark ? "text-neutral-500" : "text-neutral-400"
+                          isDark ? "text-neutral-500" : "text-neutral-400",
                         )}
                       >
                         {formatRelativeTime(project.lastOpened)}
@@ -258,7 +282,7 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
                         "absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity",
                         isDark
                           ? "hover:bg-neutral-600/50 text-neutral-400"
-                          : "hover:bg-neutral-300/50 text-neutral-500"
+                          : "hover:bg-neutral-300/50 text-neutral-500",
                       )}
                       title="Remove from recent"
                     >
@@ -274,7 +298,7 @@ export function WelcomeScreen({ onProjectSelected }: WelcomeScreenProps) {
           <p
             className={cn(
               "text-xs mt-4",
-              isDark ? "text-neutral-500" : "text-neutral-400"
+              isDark ? "text-neutral-500" : "text-neutral-400",
             )}
           >
             Or drag and drop a folder onto this window

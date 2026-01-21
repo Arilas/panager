@@ -6,7 +6,7 @@
  */
 
 import { Clipboard, Scissors, X } from "lucide-react";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 
 interface ClipboardIndicatorProps {
@@ -23,7 +23,7 @@ export function ClipboardIndicator({
   operation,
   onClear,
 }: ClipboardIndicatorProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   if (items.length === 0) return null;

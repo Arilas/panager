@@ -21,7 +21,7 @@ import { useIdeStore } from "../../stores/ide";
 import { useFilesStore } from "../../stores/files";
 import { useEditorStore } from "../../stores/editor";
 import { useGitStore } from "../../stores/git";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import { useRevealActiveFile } from "../../hooks/useRevealActiveFile";
 import { revealInFinder } from "../../lib/tauri-ide";
@@ -74,8 +74,7 @@ export function FileTreePanel() {
   const deleteEntry = useFilesStore((s) => s.deleteEntry);
   const expandDirectory = useFilesStore((s) => s.expandDirectory);
   const gitChanges = useGitStore((s) => s.changes);
-  const { effectiveTheme } = useIdeSettingsContext();
-
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   // Ref for the scrollable tree container
@@ -561,8 +560,7 @@ function FileTreeNode({
   const openFile = useFilesStore((s) => s.openFile);
   const openFilePreview = useFilesStore((s) => s.openFilePreview);
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
-  const { effectiveTheme } = useIdeSettingsContext();
-
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
   const isExpanded = expandedPaths.has(entry.path);
   const isLoading = loadingPaths.has(entry.path);

@@ -5,7 +5,7 @@
  */
 
 import { ArrowRight, Sparkles } from "lucide-react";
-import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
+import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { ModeChangeEntry } from "../../types/acp";
 
@@ -25,7 +25,7 @@ function getModeDisplayName(modeId: string): string {
 }
 
 export function ModeChangeCard({ entry }: ModeChangeCardProps) {
-  const { effectiveTheme } = useIdeSettingsContext();
+  const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
   const fromMode = getModeDisplayName(entry.previousModeId);
