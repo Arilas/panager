@@ -57,8 +57,8 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
 
             app.manage(plugin_host);
 
-            // Initialize ACP state
-            let acp_state = acp::AcpState::new();
+            // Initialize ACP state (wrapped in Arc for command handlers)
+            let acp_state = Arc::new(acp::AcpState::new());
             app.manage(acp_state);
 
             // ChatDb is initialized lazily when project path is known

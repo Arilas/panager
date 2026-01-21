@@ -434,7 +434,7 @@ export function EditorTabs() {
                 {showDropIndicator && (
                   <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-violet-500 rounded-full" />
                 )}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   {/* Show loading spinner for active lazy tab */}
                   {tab.isLazy && isActive ? (
                     <Loader2
@@ -468,7 +468,7 @@ export function EditorTabs() {
                   )}
                   <span
                     className={cn(
-                      "truncate",
+                      "truncate min-w-0",
                       tab.isPreview && "italic",
                       !tab.isDiff && gitStatusColor
                     )}

@@ -870,9 +870,11 @@ impl AcpProcess {
         mode: Option<AgentMode>,
         app_handle: &AppHandle,
     ) -> Result<String, String> {
-        // If this is already the current session, nothing to do
+        // If this is already the current session, just emit status and return
         if self.current_session_id.as_deref() == Some(session_id) {
             tracing::info!("ACP: Session {} is already current", session_id);
+            // Still emit status so frontend knows the connection is ready
+            self.emit_status(app_handle);
             return Ok(session_id.to_string());
         }
 
