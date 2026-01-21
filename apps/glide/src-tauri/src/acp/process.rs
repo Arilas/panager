@@ -727,8 +727,6 @@ pub struct AcpProcess {
     command_tx: Option<mpsc::Sender<AcpCommand>>,
     /// Worker thread handle
     worker_handle: Option<thread::JoinHandle<()>>,
-    /// Current session ID (ACP session ID, same as DB primary key)
-    current_session_id: Option<String>,
     /// Connection status
     status: SessionStatus,
     /// Project path
@@ -747,7 +745,6 @@ impl AcpProcess {
         Ok(Self {
             command_tx: None,
             worker_handle: None,
-            current_session_id: None,
             status: SessionStatus::Disconnected,
             project_path,
             chat_db: Arc::new(chat_db),
@@ -855,8 +852,6 @@ impl AcpProcess {
             .await
             .map_err(|_| "Failed to receive new_session response")??;
 
-        // Session ID from ACP is used directly as DB primary key
-        self.current_session_id = Some(session_id.clone());
         self.emit_status(app_handle);
 
         Ok(session_id)
@@ -870,14 +865,6 @@ impl AcpProcess {
         mode: Option<AgentMode>,
         app_handle: &AppHandle,
     ) -> Result<String, String> {
-        // If this is already the current session, just emit status and return
-        if self.current_session_id.as_deref() == Some(session_id) {
-            tracing::info!("ACP: Session {} is already current", session_id);
-            // Still emit status so frontend knows the connection is ready
-            self.emit_status(app_handle);
-            return Ok(session_id.to_string());
-        }
-
         let command_tx = self
             .command_tx
             .as_ref()
@@ -898,7 +885,6 @@ impl AcpProcess {
             .map_err(|_| "Failed to receive resume_session response")??;
 
         tracing::info!("ACP: Resumed session {}", loaded_session_id);
-        self.current_session_id = Some(session_id.to_string());
         self.emit_status(app_handle);
 
         Ok(session_id.to_string())
@@ -1028,11 +1014,6 @@ impl AcpProcess {
         self.status
     }
 
-    /// Get current session ID
-    pub fn current_session_id(&self) -> Option<&str> {
-        self.current_session_id.as_deref()
-    }
-
     /// Disconnect and cleanup
     pub async fn disconnect(&mut self) {
         if let Some(tx) = self.command_tx.take() {
@@ -1043,7 +1024,6 @@ impl AcpProcess {
             let _ = handle.join();
         }
 
-        self.current_session_id = None;
         self.status = SessionStatus::Disconnected;
     }
 

@@ -177,7 +177,6 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
             acp::commands::acp_cancel,
             acp::commands::acp_set_mode,
             acp::commands::acp_respond_permission,
-            acp::commands::acp_get_current_session,
             // ACP - Chat Database
             acp::commands::acp_list_sessions,
             acp::commands::acp_load_session,

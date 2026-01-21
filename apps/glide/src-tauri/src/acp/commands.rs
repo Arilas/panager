@@ -164,17 +164,6 @@ pub async fn acp_respond_permission(
     state.respond_permission(&project_path, &request_id, selected_option).await
 }
 
-/// Get current session ID
-#[tauri::command]
-pub async fn acp_get_current_session(
-    project_path: String,
-    state: State<'_, Arc<AcpState>>,
-) -> Result<Option<String>, String> {
-    let process = state.get_or_create(&project_path).await?;
-    let p = process.lock().await;
-    Ok(p.current_session_id().map(|s| s.to_string()))
-}
-
 // ============================================================
 // Database Commands
 // ============================================================

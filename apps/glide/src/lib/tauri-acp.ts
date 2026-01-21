@@ -97,15 +97,6 @@ export async function acpRespondPermission(
   return invoke("acp_respond_permission", { projectPath, requestId, selectedOption });
 }
 
-/**
- * Get current session ID
- */
-export async function acpGetCurrentSession(
-  projectPath: string
-): Promise<string | null> {
-  return invoke("acp_get_current_session", { projectPath });
-}
-
 // ============================================================
 // Database Types (matching Rust DbSession, DbEntry, etc.)
 // ============================================================
