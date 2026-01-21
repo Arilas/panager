@@ -24,7 +24,7 @@ import {
 import type { LiquidGlassMode, LiquidGlassIntensity } from "../types/settings";
 
 /** Check if running on macOS 26+ (Tahoe) with native glass support */
-function isMacOS26OrHigher(): boolean {
+export function isMacOS26OrHigher(): boolean {
   if (typeof navigator === "undefined" || typeof CSS === "undefined")
     return false;
   const platform = navigator.platform?.toLowerCase() ?? "";

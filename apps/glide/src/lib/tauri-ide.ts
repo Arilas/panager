@@ -20,6 +20,16 @@ import type {
 
 // Window management
 
+/**
+ * Opens a new window with the Welcome screen (no project)
+ */
+export async function openNewWindow(): Promise<void> {
+  return invoke("ide_open_new_window");
+}
+
+/**
+ * Opens a new window for a specific project
+ */
 export async function openIdeWindow(
   projectId: string,
   projectPath: string,
@@ -30,6 +40,15 @@ export async function openIdeWindow(
 
 export async function closeIdeWindow(projectId: string): Promise<void> {
   return invoke("ide_close_window", { projectId });
+}
+
+/**
+ * Notify backend before window closes to determine close behavior.
+ * - If hasProject is true: spawn a new welcome window after close
+ * - If hasProject is false: allow app to exit after close
+ */
+export async function windowWillClose(hasProject: boolean): Promise<void> {
+  return invoke("ide_window_will_close", { hasProject });
 }
 
 // File operations

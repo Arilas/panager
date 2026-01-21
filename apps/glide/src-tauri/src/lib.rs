@@ -11,9 +11,12 @@ pub mod platform;
 pub mod plugins;
 pub mod utils;
 
+use ide::commands::window::{create_window, SHOULD_SPAWN_WELCOME};
 use plugins::host::PluginHost;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tauri::{Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::{Manager, RunEvent, TitleBarStyle, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 /// Run the application with optional project context from CLI
 /// If project is None, shows the welcome screen
@@ -63,6 +66,11 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
 
             // ChatDb is initialized lazily when project path is known
             // The ACP commands will manage this per-project
+
+            // Create the application menu
+            let app_handle = app.handle();
+            let menu = create_app_menu(app_handle)?;
+            app.set_menu(menu)?;
 
             // Create the main window
             let webview_url = WebviewUrl::App(url.clone().into());
@@ -167,6 +175,11 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
             ide::commands::ide_add_recent_project,
             ide::commands::ide_remove_recent_project,
             ide::commands::ide_clear_recent_projects,
+            // IDE - Window management
+            ide::commands::ide_open_new_window,
+            ide::commands::ide_open_window,
+            ide::commands::ide_close_window,
+            ide::commands::ide_window_will_close,
             // ACP - Agent Client Protocol
             acp::commands::acp_connect,
             acp::commands::acp_disconnect,
@@ -185,5 +198,105 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|_app_handle, _event| {});
+        .run(|app_handle, event| {
+            // Handle menu events
+            if let RunEvent::MenuEvent(menu_event) = &event {
+                match menu_event.id().0.as_str() {
+                    "new_window" => {
+                        tracing::info!("Menu: New Window");
+                        let _ = create_window(&app_handle, None);
+                    }
+                    "close_window" => {
+                        tracing::info!("Menu: Close Window");
+                        // Get all windows and close the first one (focused behavior varies by platform)
+                        let windows = app_handle.webview_windows();
+                        if let Some((_, window)) = windows.into_iter().next() {
+                            let _ = window.close();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            // Handle window lifecycle - spawn welcome window if last project window was closed
+            if let RunEvent::WindowEvent {
+                event: WindowEvent::Destroyed,
+                ..
+            } = &event
+            {
+                // Check if all windows are closed
+                if app_handle.webview_windows().is_empty() {
+                    // Check if we should spawn a new welcome window
+                    if SHOULD_SPAWN_WELCOME.load(Ordering::SeqCst) {
+                        tracing::info!(
+                            "Last project window closed, spawning new welcome window"
+                        );
+                        SHOULD_SPAWN_WELCOME.store(false, Ordering::SeqCst);
+                        let _ = create_window(&app_handle, None);
+                    } else {
+                        tracing::info!("Welcome window closed, allowing app to exit");
+                        // App will exit naturally when no windows remain
+                    }
+                }
+            }
+        });
+}
+
+/// Creates the application menu
+fn create_app_menu(
+    app: &tauri::AppHandle,
+) -> Result<tauri::menu::Menu<tauri::Wry>, Box<dyn std::error::Error>> {
+    // App menu (macOS: shows as "Glide" in menu bar)
+    let app_menu = SubmenuBuilder::new(app, "Glide")
+        .item(&PredefinedMenuItem::about(app, Some("About Glide"), None)?)
+        .separator()
+        .item(&PredefinedMenuItem::services(app, None)?)
+        .separator()
+        .item(&PredefinedMenuItem::hide(app, None)?)
+        .item(&PredefinedMenuItem::hide_others(app, None)?)
+        .item(&PredefinedMenuItem::show_all(app, None)?)
+        .separator()
+        .item(&PredefinedMenuItem::quit(app, None)?)
+        .build()?;
+
+    // File menu
+    let new_window = MenuItemBuilder::with_id("new_window", "New Window")
+        .accelerator("CmdOrCtrl+Shift+N")
+        .build(app)?;
+    let close_window = MenuItemBuilder::with_id("close_window", "Close Window")
+        .accelerator("CmdOrCtrl+W")
+        .build(app)?;
+
+    let file_menu = SubmenuBuilder::new(app, "File")
+        .item(&new_window)
+        .separator()
+        .item(&close_window)
+        .build()?;
+
+    // Edit menu with standard items
+    let edit_menu = SubmenuBuilder::new(app, "Edit")
+        .item(&PredefinedMenuItem::undo(app, None)?)
+        .item(&PredefinedMenuItem::redo(app, None)?)
+        .separator()
+        .item(&PredefinedMenuItem::cut(app, None)?)
+        .item(&PredefinedMenuItem::copy(app, None)?)
+        .item(&PredefinedMenuItem::paste(app, None)?)
+        .item(&PredefinedMenuItem::select_all(app, None)?)
+        .build()?;
+
+    // Window menu
+    let window_menu = SubmenuBuilder::new(app, "Window")
+        .item(&PredefinedMenuItem::minimize(app, None)?)
+        .item(&PredefinedMenuItem::maximize(app, None)?)
+        .build()?;
+
+    // Build the full menu
+    let menu = MenuBuilder::new(app)
+        .item(&app_menu)
+        .item(&file_menu)
+        .item(&edit_menu)
+        .item(&window_menu)
+        .build()?;
+
+    Ok(menu)
 }

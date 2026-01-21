@@ -10,7 +10,10 @@ import { useIdeStore } from "./stores/ide";
 import { useFilesStore } from "./stores/files";
 import { useGitStore } from "./stores/git";
 import { useIdeSettingsStore } from "./stores/settings";
-import { IdeSettingsProvider } from "./contexts/IdeSettingsContext";
+import {
+  IdeSettingsProvider,
+  isMacOS26OrHigher,
+} from "./contexts/IdeSettingsContext";
 import { IdeLayout } from "./components/layout/IdeLayout";
 import { MonacoContextMenuProvider } from "./monaco/contextMenu";
 import { WelcomeScreen } from "./components/WelcomeScreen";
@@ -18,7 +21,13 @@ import { useFileWatcher } from "./hooks/useFileWatcher";
 import { usePersistedIdeState } from "./hooks/usePersistedIdeState";
 import type { IdeProjectContext } from "./types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { stopWatcher, notifyProjectOpened, notifyProjectClosed, addRecentProject } from "./lib/tauri-ide";
+import {
+  stopWatcher,
+  notifyProjectOpened,
+  notifyProjectClosed,
+  addRecentProject,
+  windowWillClose,
+} from "./lib/tauri-ide";
 
 export function GlideApp() {
   const [loading, setLoading] = useState(true);
@@ -55,7 +64,11 @@ export function GlideApp() {
   }, [setProjectContext]);
 
   // Handle project selection from welcome screen
-  const handleProjectSelected = (projectId: string, projectPath: string, projectName: string) => {
+  const handleProjectSelected = (
+    projectId: string,
+    projectPath: string,
+    projectName: string,
+  ) => {
     const context: IdeProjectContext = {
       projectId,
       projectPath,
@@ -83,7 +96,7 @@ export function GlideApp() {
     addRecentProject(
       projectContext.projectId,
       projectContext.projectName,
-      projectContext.projectPath
+      projectContext.projectPath,
     ).catch(console.error);
   }, [projectContext, loadFileTree, loadGitStatus]);
 
@@ -103,27 +116,38 @@ export function GlideApp() {
 
   // Handle window close - cleanup watcher and notify plugins
   useEffect(() => {
-    if (!projectContext) return;
-
     const currentWindow = getCurrentWindow();
 
-    const handleClose = async () => {
-      // Notify plugins about project being closed (stops LSP servers, etc.)
-      await notifyProjectClosed().catch(console.error);
-      await stopWatcher(`ide-${projectContext.projectId}`);
-    };
+    const unlisten = currentWindow.onCloseRequested(async () => {
+      const hasProject = !!projectContext;
 
-    currentWindow.onCloseRequested(handleClose);
+      // Notify backend about close behavior before cleanup
+      // - If hasProject: spawn new welcome window after close
+      // - If !hasProject (welcome screen): allow app to exit
+      await windowWillClose(hasProject).catch(console.error);
+
+      if (projectContext) {
+        // Notify plugins about project being closed (stops LSP servers, etc.)
+        await notifyProjectClosed().catch(console.error);
+        await stopWatcher(`ide-${projectContext.projectId}`);
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   }, [projectContext]);
 
   // Listen for liquid-glass-ready event from Tauri backend
   useEffect(() => {
     const currentWindow = getCurrentWindow();
 
-    const unlistenPromise = currentWindow.listen("liquid-glass-ready", () => {
-      console.log("[Glide] Received liquid-glass-ready event, reloading stylesheets...");
+    const reloadStylesheets = () => {
+      console.log(
+        "[Glide] Received liquid-glass-ready event, reloading stylesheets...",
+      );
       const styleSheets = document.querySelectorAll(
-        'link[rel="stylesheet"], style'
+        'link[rel="stylesheet"], style',
       );
       console.log(`[Glide] Found ${styleSheets.length} stylesheets to reload`);
       styleSheets.forEach((sheet) => {
@@ -132,12 +156,24 @@ export function GlideApp() {
         sheet.remove();
       });
       console.log("[Glide] Stylesheet reload complete");
-    });
+    };
+
+    const handle = setTimeout(() => {
+      if (isMacOS26OrHigher()) {
+        reloadStylesheets();
+      }
+    }, 200);
+
+    const unlistenPromise = currentWindow.listen(
+      "liquid-glass-ready",
+      reloadStylesheets,
+    );
 
     console.log("[Glide] Registered liquid-glass-ready listener");
 
     return () => {
       unlistenPromise.then((fn) => fn());
+      clearTimeout(handle);
     };
   }, []);
 
