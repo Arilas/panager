@@ -17,6 +17,7 @@ import { registerAllProviders } from "./providers";
 import { injectEditorStyles } from "./decorations";
 import { registerEditorOpener } from "./editorOpener";
 import { setupStoreSubscriptions } from "./subscriptions";
+import { setupDiagnosticsMarkers } from "./diagnosticsMarkers";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
@@ -68,6 +69,9 @@ async function doInitialize(): Promise<Monaco> {
 
       // Register LSP providers
       registerAllProviders(monaco);
+
+      // Setup diagnostics markers (sync LSP diagnostics to Monaco)
+      setupDiagnosticsMarkers(monaco);
 
       // Register editor opener for file navigation
       registerEditorOpener(monaco);

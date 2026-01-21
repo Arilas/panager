@@ -347,6 +347,14 @@ import type {
   LspCodeAction,
   LspDocumentSymbol,
   LspInlayHint,
+  LspDocumentHighlight,
+  LspSignatureHelp,
+  LspFormattingOptions,
+  LspTextEdit,
+  LspFoldingRange,
+  LspSelectionRange,
+  LspLinkedEditingRanges,
+  LspPosition,
 } from "../types/lsp";
 
 export async function lspGotoDefinition(
@@ -440,6 +448,104 @@ export async function lspInlayHints(
     endLine,
     endCharacter,
   });
+}
+
+export async function lspDocumentHighlight(
+  filePath: string,
+  line: number,
+  character: number
+): Promise<LspDocumentHighlight[]> {
+  return invoke("ide_lsp_document_highlight", { filePath, line, character });
+}
+
+export async function lspSignatureHelp(
+  filePath: string,
+  line: number,
+  character: number,
+  triggerCharacter?: string
+): Promise<LspSignatureHelp | null> {
+  return invoke("ide_lsp_signature_help", {
+    filePath,
+    line,
+    character,
+    triggerCharacter,
+  });
+}
+
+export async function lspFormatDocument(
+  filePath: string,
+  options: LspFormattingOptions
+): Promise<LspTextEdit[]> {
+  return invoke("ide_lsp_format_document", { filePath, options });
+}
+
+export async function lspFormatRange(
+  filePath: string,
+  startLine: number,
+  startCharacter: number,
+  endLine: number,
+  endCharacter: number,
+  options: LspFormattingOptions
+): Promise<LspTextEdit[]> {
+  return invoke("ide_lsp_format_range", {
+    filePath,
+    startLine,
+    startCharacter,
+    endLine,
+    endCharacter,
+    options,
+  });
+}
+
+export async function lspFormatOnType(
+  filePath: string,
+  line: number,
+  character: number,
+  triggerCharacter: string,
+  options: LspFormattingOptions
+): Promise<LspTextEdit[]> {
+  return invoke("ide_lsp_format_on_type", {
+    filePath,
+    line,
+    character,
+    triggerCharacter,
+    options,
+  });
+}
+
+export async function lspTypeDefinition(
+  filePath: string,
+  line: number,
+  character: number
+): Promise<LspLocation[]> {
+  return invoke("ide_lsp_type_definition", { filePath, line, character });
+}
+
+export async function lspImplementation(
+  filePath: string,
+  line: number,
+  character: number
+): Promise<LspLocation[]> {
+  return invoke("ide_lsp_implementation", { filePath, line, character });
+}
+
+export async function lspFoldingRange(filePath: string): Promise<LspFoldingRange[]> {
+  return invoke("ide_lsp_folding_range", { filePath });
+}
+
+export async function lspSelectionRange(
+  filePath: string,
+  positions: LspPosition[]
+): Promise<LspSelectionRange[]> {
+  return invoke("ide_lsp_selection_range", { filePath, positions });
+}
+
+export async function lspLinkedEditingRange(
+  filePath: string,
+  line: number,
+  character: number
+): Promise<LspLinkedEditingRanges | null> {
+  return invoke("ide_lsp_linked_editing_range", { filePath, line, character });
 }
 
 // Settings operations

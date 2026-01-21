@@ -17,8 +17,10 @@ use serde::de::DeserializeOwned;
 use crate::plugins::context::PluginContext;
 use crate::plugins::types::{
     Diagnostic, DiagnosticSeverity, LspCodeAction, LspCompletionItem, LspCompletionList,
-    LspDocumentSymbol, LspHover, LspInlayHint, LspInlayHintKind, LspLocation, LspMarkupContent,
-    LspPosition, LspRange, LspTextEdit, LspWorkspaceEdit,
+    LspDocumentHighlight, LspDocumentSymbol, LspFoldingRange, LspFormattingOptions, LspHover,
+    LspInlayHint, LspInlayHintKind, LspLinkedEditingRanges, LspLocation, LspMarkupContent,
+    LspParameterInformation, LspParameterLabel, LspPosition, LspRange, LspSelectionRange,
+    LspSignatureHelp, LspSignatureInformation, LspTextEdit, LspWorkspaceEdit,
 };
 
 /// LSP message ID counter
@@ -850,6 +852,254 @@ impl LspClient {
         Self::parse_inlay_hints(result)
     }
 
+    /// Get document highlights (highlight all occurrences of symbol)
+    pub async fn document_highlight(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Vec<LspDocumentHighlight>, String> {
+        let uri = format!("file://{}", path.display());
+
+        let result: serde_json::Value = self
+            .request(
+                "textDocument/documentHighlight",
+                serde_json::json!({
+                    "textDocument": { "uri": uri },
+                    "position": { "line": line, "character": character }
+                }),
+            )
+            .await?;
+
+        Self::parse_document_highlights(result)
+    }
+
+    /// Get signature help (parameter hints)
+    pub async fn signature_help(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+        trigger_character: Option<&str>,
+    ) -> Result<Option<LspSignatureHelp>, String> {
+        let uri = format!("file://{}", path.display());
+
+        let mut params = serde_json::json!({
+            "textDocument": { "uri": uri },
+            "position": { "line": line, "character": character }
+        });
+
+        if let Some(trigger) = trigger_character {
+            params["context"] = serde_json::json!({
+                "triggerKind": 2, // TriggerCharacter
+                "triggerCharacter": trigger,
+                "isRetrigger": false
+            });
+        }
+
+        let result: serde_json::Value = self.request("textDocument/signatureHelp", params).await?;
+
+        Self::parse_signature_help(result)
+    }
+
+    /// Format entire document
+    pub async fn format_document(
+        &self,
+        path: &PathBuf,
+        options: LspFormattingOptions,
+    ) -> Result<Vec<LspTextEdit>, String> {
+        let uri = format!("file://{}", path.display());
+
+        let result: serde_json::Value = self
+            .request(
+                "textDocument/formatting",
+                serde_json::json!({
+                    "textDocument": { "uri": uri },
+                    "options": {
+                        "tabSize": options.tab_size,
+                        "insertSpaces": options.insert_spaces
+                    }
+                }),
+            )
+            .await?;
+
+        Self::parse_text_edits(result)
+    }
+
+    /// Format a range in document
+    pub async fn format_range(
+        &self,
+        path: &PathBuf,
+        start_line: u32,
+        start_character: u32,
+        end_line: u32,
+        end_character: u32,
+        options: LspFormattingOptions,
+    ) -> Result<Vec<LspTextEdit>, String> {
+        let uri = format!("file://{}", path.display());
+
+        let result: serde_json::Value = self
+            .request(
+                "textDocument/rangeFormatting",
+                serde_json::json!({
+                    "textDocument": { "uri": uri },
+                    "range": {
+                        "start": { "line": start_line, "character": start_character },
+                        "end": { "line": end_line, "character": end_character }
+                    },
+                    "options": {
+                        "tabSize": options.tab_size,
+                        "insertSpaces": options.insert_spaces
+                    }
+                }),
+            )
+            .await?;
+
+        Self::parse_text_edits(result)
+    }
+
+    /// Format on type
+    pub async fn format_on_type(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+        trigger_character: &str,
+        options: LspFormattingOptions,
+    ) -> Result<Vec<LspTextEdit>, String> {
+        let uri = format!("file://{}", path.display());
+
+        let result: serde_json::Value = self
+            .request(
+                "textDocument/onTypeFormatting",
+                serde_json::json!({
+                    "textDocument": { "uri": uri },
+                    "position": { "line": line, "character": character },
+                    "ch": trigger_character,
+                    "options": {
+                        "tabSize": options.tab_size,
+                        "insertSpaces": options.insert_spaces
+                    }
+                }),
+            )
+            .await?;
+
+        Self::parse_text_edits(result)
+    }
+
+    /// Go to type definition
+    pub async fn type_definition(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Vec<LspLocation>, String> {
+        let uri = format!("file://{}", path.display());
+
+        let result: serde_json::Value = self
+            .request(
+                "textDocument/typeDefinition",
+                serde_json::json!({
+                    "textDocument": { "uri": uri },
+                    "position": { "line": line, "character": character }
+                }),
+            )
+            .await?;
+
+        Self::parse_locations(result)
+    }
+
+    /// Go to implementation
+    pub async fn implementation(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Vec<LspLocation>, String> {
+        let uri = format!("file://{}", path.display());
+
+        let result: serde_json::Value = self
+            .request(
+                "textDocument/implementation",
+                serde_json::json!({
+                    "textDocument": { "uri": uri },
+                    "position": { "line": line, "character": character }
+                }),
+            )
+            .await?;
+
+        Self::parse_locations(result)
+    }
+
+    /// Get folding ranges
+    pub async fn folding_range(&self, path: &PathBuf) -> Result<Vec<LspFoldingRange>, String> {
+        let uri = format!("file://{}", path.display());
+
+        let result: serde_json::Value = self
+            .request(
+                "textDocument/foldingRange",
+                serde_json::json!({
+                    "textDocument": { "uri": uri }
+                }),
+            )
+            .await?;
+
+        Self::parse_folding_ranges(result)
+    }
+
+    /// Get selection ranges (smart select)
+    pub async fn selection_range(
+        &self,
+        path: &PathBuf,
+        positions: Vec<LspPosition>,
+    ) -> Result<Vec<LspSelectionRange>, String> {
+        let uri = format!("file://{}", path.display());
+
+        let lsp_positions: Vec<_> = positions
+            .iter()
+            .map(|p| {
+                serde_json::json!({
+                    "line": p.line,
+                    "character": p.character
+                })
+            })
+            .collect();
+
+        let result: serde_json::Value = self
+            .request(
+                "textDocument/selectionRange",
+                serde_json::json!({
+                    "textDocument": { "uri": uri },
+                    "positions": lsp_positions
+                }),
+            )
+            .await?;
+
+        Self::parse_selection_ranges(result)
+    }
+
+    /// Get linked editing ranges (tag renaming)
+    pub async fn linked_editing_range(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Option<LspLinkedEditingRanges>, String> {
+        let uri = format!("file://{}", path.display());
+
+        let result: serde_json::Value = self
+            .request(
+                "textDocument/linkedEditingRange",
+                serde_json::json!({
+                    "textDocument": { "uri": uri },
+                    "position": { "line": line, "character": character }
+                }),
+            )
+            .await?;
+
+        Self::parse_linked_editing_ranges(result)
+    }
+
     // =========================================================================
     // Response Parsing Helpers
     // =========================================================================
@@ -1061,6 +1311,22 @@ impl LspClient {
             .get("filterText")
             .and_then(|t| t.as_str())
             .map(|s| s.to_string());
+        // Parse textEdit - can be TextEdit or InsertReplaceEdit
+        let text_edit = value.get("textEdit").and_then(|te| {
+            // Try standard TextEdit format first
+            if te.get("range").is_some() {
+                Self::parse_text_edit(te)
+            } else if let Some(insert) = te.get("insert") {
+                // InsertReplaceEdit - use insert range
+                let new_text = te.get("newText")?.as_str()?.to_string();
+                Some(LspTextEdit {
+                    range: Self::parse_range(insert)?,
+                    new_text,
+                })
+            } else {
+                None
+            }
+        });
 
         Some(LspCompletionItem {
             label,
@@ -1071,6 +1337,7 @@ impl LspClient {
             insert_text_format,
             sort_text,
             filter_text,
+            text_edit,
         })
     }
 
@@ -1228,6 +1495,203 @@ impl LspClient {
             padding_left,
             padding_right,
         })
+    }
+
+    fn parse_document_highlights(
+        value: serde_json::Value,
+    ) -> Result<Vec<LspDocumentHighlight>, String> {
+        if value.is_null() {
+            return Ok(vec![]);
+        }
+
+        let arr = value.as_array().ok_or("Expected array of highlights")?;
+        let highlights: Vec<LspDocumentHighlight> = arr
+            .iter()
+            .filter_map(|item| {
+                let range = Self::parse_range(item.get("range")?)?;
+                let kind = item.get("kind").and_then(|k| k.as_u64()).map(|k| k as u32);
+                Some(LspDocumentHighlight { range, kind })
+            })
+            .collect();
+
+        Ok(highlights)
+    }
+
+    fn parse_signature_help(
+        value: serde_json::Value,
+    ) -> Result<Option<LspSignatureHelp>, String> {
+        if value.is_null() {
+            return Ok(None);
+        }
+
+        let signatures_arr = value
+            .get("signatures")
+            .and_then(|s| s.as_array())
+            .ok_or("Expected signatures array")?;
+
+        let signatures: Vec<LspSignatureInformation> = signatures_arr
+            .iter()
+            .filter_map(|sig| {
+                let label = sig.get("label")?.as_str()?.to_string();
+                let documentation = sig
+                    .get("documentation")
+                    .and_then(|d| Self::parse_markup_content(d).ok());
+                let parameters = sig.get("parameters").and_then(|p| p.as_array()).map(|arr| {
+                    arr.iter()
+                        .filter_map(|param| {
+                            let label = Self::parse_parameter_label(param.get("label")?)?;
+                            let documentation = param
+                                .get("documentation")
+                                .and_then(|d| Self::parse_markup_content(d).ok());
+                            Some(LspParameterInformation {
+                                label,
+                                documentation,
+                            })
+                        })
+                        .collect()
+                });
+                let active_parameter = sig
+                    .get("activeParameter")
+                    .and_then(|a| a.as_u64())
+                    .map(|a| a as u32);
+
+                Some(LspSignatureInformation {
+                    label,
+                    documentation,
+                    parameters,
+                    active_parameter,
+                })
+            })
+            .collect();
+
+        let active_signature = value
+            .get("activeSignature")
+            .and_then(|a| a.as_u64())
+            .map(|a| a as u32);
+        let active_parameter = value
+            .get("activeParameter")
+            .and_then(|a| a.as_u64())
+            .map(|a| a as u32);
+
+        Ok(Some(LspSignatureHelp {
+            signatures,
+            active_signature,
+            active_parameter,
+        }))
+    }
+
+    fn parse_parameter_label(value: &serde_json::Value) -> Option<LspParameterLabel> {
+        if let Some(s) = value.as_str() {
+            return Some(LspParameterLabel::String(s.to_string()));
+        }
+        if let Some(arr) = value.as_array() {
+            if arr.len() == 2 {
+                let start = arr[0].as_u64()? as u32;
+                let end = arr[1].as_u64()? as u32;
+                return Some(LspParameterLabel::Offsets([start, end]));
+            }
+        }
+        None
+    }
+
+    fn parse_text_edits(value: serde_json::Value) -> Result<Vec<LspTextEdit>, String> {
+        if value.is_null() {
+            return Ok(vec![]);
+        }
+
+        let arr = value.as_array().ok_or("Expected array of text edits")?;
+        let edits: Vec<LspTextEdit> = arr
+            .iter()
+            .filter_map(|e| Self::parse_text_edit(e))
+            .collect();
+
+        Ok(edits)
+    }
+
+    fn parse_folding_ranges(value: serde_json::Value) -> Result<Vec<LspFoldingRange>, String> {
+        if value.is_null() {
+            return Ok(vec![]);
+        }
+
+        let arr = value.as_array().ok_or("Expected array of folding ranges")?;
+        let ranges: Vec<LspFoldingRange> = arr
+            .iter()
+            .filter_map(|item| {
+                let start_line = item.get("startLine")?.as_u64()? as u32;
+                let end_line = item.get("endLine")?.as_u64()? as u32;
+                let start_character = item
+                    .get("startCharacter")
+                    .and_then(|c| c.as_u64())
+                    .map(|c| c as u32);
+                let end_character = item
+                    .get("endCharacter")
+                    .and_then(|c| c.as_u64())
+                    .map(|c| c as u32);
+                let kind = item.get("kind").and_then(|k| k.as_str()).map(|s| s.to_string());
+
+                Some(LspFoldingRange {
+                    start_line,
+                    start_character,
+                    end_line,
+                    end_character,
+                    kind,
+                })
+            })
+            .collect();
+
+        Ok(ranges)
+    }
+
+    fn parse_selection_ranges(value: serde_json::Value) -> Result<Vec<LspSelectionRange>, String> {
+        if value.is_null() {
+            return Ok(vec![]);
+        }
+
+        let arr = value.as_array().ok_or("Expected array of selection ranges")?;
+        let ranges: Vec<LspSelectionRange> = arr
+            .iter()
+            .filter_map(|item| Self::parse_selection_range(item))
+            .collect();
+
+        Ok(ranges)
+    }
+
+    fn parse_selection_range(value: &serde_json::Value) -> Option<LspSelectionRange> {
+        let range = Self::parse_range(value.get("range")?)?;
+        let parent = value
+            .get("parent")
+            .and_then(|p| Self::parse_selection_range(p))
+            .map(Box::new);
+
+        Some(LspSelectionRange { range, parent })
+    }
+
+    fn parse_linked_editing_ranges(
+        value: serde_json::Value,
+    ) -> Result<Option<LspLinkedEditingRanges>, String> {
+        if value.is_null() {
+            return Ok(None);
+        }
+
+        let ranges_arr = value
+            .get("ranges")
+            .and_then(|r| r.as_array())
+            .ok_or("Expected ranges array")?;
+
+        let ranges: Vec<LspRange> = ranges_arr
+            .iter()
+            .filter_map(|r| Self::parse_range(r))
+            .collect();
+
+        let word_pattern = value
+            .get("wordPattern")
+            .and_then(|w| w.as_str())
+            .map(|s| s.to_string());
+
+        Ok(Some(LspLinkedEditingRanges {
+            ranges,
+            word_pattern,
+        }))
     }
 
     // =========================================================================

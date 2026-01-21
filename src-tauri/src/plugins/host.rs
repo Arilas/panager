@@ -16,8 +16,10 @@ use std::path::PathBuf;
 
 use super::context::PluginContext;
 use super::types::{
-    HostEvent, LspCodeAction, LspCompletionList, LspDocumentSymbol, LspHover, LspInlayHint,
-    LspLocation, LspWorkspaceEdit, Plugin, PluginEvent, PluginManifest, PluginState,
+    HostEvent, LspCodeAction, LspCompletionList, LspDocumentHighlight, LspDocumentSymbol,
+    LspFoldingRange, LspFormattingOptions, LspHover, LspInlayHint, LspLinkedEditingRanges,
+    LspLocation, LspPosition, LspSelectionRange, LspSignatureHelp, LspTextEdit, LspWorkspaceEdit,
+    Plugin, PluginEvent, PluginManifest, PluginState,
 };
 
 /// A registered plugin instance with its state
@@ -424,6 +426,161 @@ impl PluginHost {
         provider
             .inlay_hints(path, start_line, start_character, end_line, end_character)
             .await
+    }
+
+    /// Get document highlights
+    pub async fn lsp_document_highlight(
+        &self,
+        language: &str,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Vec<LspDocumentHighlight>, String> {
+        let plugins = self.plugins.read().await;
+        let provider = Self::find_lsp_provider_for_language(&plugins, language)
+            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
+        provider.document_highlight(path, line, character).await
+    }
+
+    /// Get signature help
+    pub async fn lsp_signature_help(
+        &self,
+        language: &str,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+        trigger_character: Option<&str>,
+    ) -> Result<Option<LspSignatureHelp>, String> {
+        let plugins = self.plugins.read().await;
+        let provider = Self::find_lsp_provider_for_language(&plugins, language)
+            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
+        provider
+            .signature_help(path, line, character, trigger_character)
+            .await
+    }
+
+    /// Format document
+    pub async fn lsp_format_document(
+        &self,
+        language: &str,
+        path: &PathBuf,
+        options: LspFormattingOptions,
+    ) -> Result<Vec<LspTextEdit>, String> {
+        let plugins = self.plugins.read().await;
+        let provider = Self::find_lsp_provider_for_language(&plugins, language)
+            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
+        provider.format_document(path, options).await
+    }
+
+    /// Format range
+    pub async fn lsp_format_range(
+        &self,
+        language: &str,
+        path: &PathBuf,
+        start_line: u32,
+        start_character: u32,
+        end_line: u32,
+        end_character: u32,
+        options: LspFormattingOptions,
+    ) -> Result<Vec<LspTextEdit>, String> {
+        let plugins = self.plugins.read().await;
+        let provider = Self::find_lsp_provider_for_language(&plugins, language)
+            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
+        provider
+            .format_range(
+                path,
+                start_line,
+                start_character,
+                end_line,
+                end_character,
+                options,
+            )
+            .await
+    }
+
+    /// Format on type
+    pub async fn lsp_format_on_type(
+        &self,
+        language: &str,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+        trigger_character: &str,
+        options: LspFormattingOptions,
+    ) -> Result<Vec<LspTextEdit>, String> {
+        let plugins = self.plugins.read().await;
+        let provider = Self::find_lsp_provider_for_language(&plugins, language)
+            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
+        provider
+            .format_on_type(path, line, character, trigger_character, options)
+            .await
+    }
+
+    /// Go to type definition
+    pub async fn lsp_type_definition(
+        &self,
+        language: &str,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Vec<LspLocation>, String> {
+        let plugins = self.plugins.read().await;
+        let provider = Self::find_lsp_provider_for_language(&plugins, language)
+            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
+        provider.type_definition(path, line, character).await
+    }
+
+    /// Go to implementation
+    pub async fn lsp_implementation(
+        &self,
+        language: &str,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Vec<LspLocation>, String> {
+        let plugins = self.plugins.read().await;
+        let provider = Self::find_lsp_provider_for_language(&plugins, language)
+            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
+        provider.implementation(path, line, character).await
+    }
+
+    /// Get folding ranges
+    pub async fn lsp_folding_range(
+        &self,
+        language: &str,
+        path: &PathBuf,
+    ) -> Result<Vec<LspFoldingRange>, String> {
+        let plugins = self.plugins.read().await;
+        let provider = Self::find_lsp_provider_for_language(&plugins, language)
+            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
+        provider.folding_range(path).await
+    }
+
+    /// Get selection ranges
+    pub async fn lsp_selection_range(
+        &self,
+        language: &str,
+        path: &PathBuf,
+        positions: Vec<LspPosition>,
+    ) -> Result<Vec<LspSelectionRange>, String> {
+        let plugins = self.plugins.read().await;
+        let provider = Self::find_lsp_provider_for_language(&plugins, language)
+            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
+        provider.selection_range(path, positions).await
+    }
+
+    /// Get linked editing ranges
+    pub async fn lsp_linked_editing_range(
+        &self,
+        language: &str,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Option<LspLinkedEditingRanges>, String> {
+        let plugins = self.plugins.read().await;
+        let provider = Self::find_lsp_provider_for_language(&plugins, language)
+            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
+        provider.linked_editing_range(path, line, character).await
     }
 }
 

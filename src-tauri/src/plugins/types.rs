@@ -319,6 +319,9 @@ pub struct LspCompletionItem {
     pub sort_text: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filter_text: Option<String>,
+    /// Text edit to apply when selecting this completion
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_edit: Option<LspTextEdit>,
 }
 
 /// LSP Code action
@@ -432,6 +435,96 @@ pub struct LspInlayHint {
     pub padding_right: Option<bool>,
 }
 
+/// LSP Document Highlight - highlight occurrences of a symbol
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LspDocumentHighlight {
+    pub range: LspRange,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<u32>, // 1=Text, 2=Read, 3=Write
+}
+
+/// LSP Parameter label - can be a string or [start, end] offsets
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(untagged)]
+pub enum LspParameterLabel {
+    String(String),
+    Offsets([u32; 2]),
+}
+
+/// LSP Parameter information for signature help
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LspParameterInformation {
+    pub label: LspParameterLabel,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub documentation: Option<LspMarkupContent>,
+}
+
+/// LSP Signature information
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LspSignatureInformation {
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub documentation: Option<LspMarkupContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<Vec<LspParameterInformation>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_parameter: Option<u32>,
+}
+
+/// LSP Signature help response
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LspSignatureHelp {
+    pub signatures: Vec<LspSignatureInformation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_signature: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_parameter: Option<u32>,
+}
+
+/// LSP Formatting options
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LspFormattingOptions {
+    pub tab_size: u32,
+    pub insert_spaces: bool,
+}
+
+/// LSP Folding range
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LspFoldingRange {
+    pub start_line: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_character: Option<u32>,
+    pub end_line: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_character: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>, // "comment", "imports", "region"
+}
+
+/// LSP Selection range (for smart select)
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LspSelectionRange {
+    pub range: LspRange,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent: Option<Box<LspSelectionRange>>,
+}
+
+/// LSP Linked editing ranges (for tag renaming)
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LspLinkedEditingRanges {
+    pub ranges: Vec<LspRange>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub word_pattern: Option<String>,
+}
+
 // ============================================================================
 // LSP Provider Trait
 // ============================================================================
@@ -505,4 +598,83 @@ pub trait LspProvider: Send + Sync {
         end_line: u32,
         end_character: u32,
     ) -> Result<Vec<LspInlayHint>, String>;
+
+    /// Get document highlights (highlight all occurrences of symbol)
+    async fn document_highlight(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Vec<LspDocumentHighlight>, String>;
+
+    /// Get signature help (parameter hints)
+    async fn signature_help(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+        trigger_character: Option<&str>,
+    ) -> Result<Option<LspSignatureHelp>, String>;
+
+    /// Format entire document
+    async fn format_document(
+        &self,
+        path: &PathBuf,
+        options: LspFormattingOptions,
+    ) -> Result<Vec<LspTextEdit>, String>;
+
+    /// Format a range in document
+    async fn format_range(
+        &self,
+        path: &PathBuf,
+        start_line: u32,
+        start_character: u32,
+        end_line: u32,
+        end_character: u32,
+        options: LspFormattingOptions,
+    ) -> Result<Vec<LspTextEdit>, String>;
+
+    /// Format on type (triggered by specific characters)
+    async fn format_on_type(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+        trigger_character: &str,
+        options: LspFormattingOptions,
+    ) -> Result<Vec<LspTextEdit>, String>;
+
+    /// Go to type definition
+    async fn type_definition(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Vec<LspLocation>, String>;
+
+    /// Go to implementation
+    async fn implementation(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Vec<LspLocation>, String>;
+
+    /// Get folding ranges
+    async fn folding_range(&self, path: &PathBuf) -> Result<Vec<LspFoldingRange>, String>;
+
+    /// Get selection ranges (smart select)
+    async fn selection_range(
+        &self,
+        path: &PathBuf,
+        positions: Vec<LspPosition>,
+    ) -> Result<Vec<LspSelectionRange>, String>;
+
+    /// Get linked editing ranges (tag renaming)
+    async fn linked_editing_range(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Option<LspLinkedEditingRanges>, String>;
 }

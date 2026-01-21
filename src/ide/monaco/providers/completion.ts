@@ -11,48 +11,126 @@ import type {
   CancellationToken,
   IDisposable,
   languages,
+  IRange,
 } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
+import { notifyFileChanged } from "../../lib/tauri-ide";
+import type { LspCompletionItem } from "../../types/lsp";
 
 /**
- * Map LSP completion kind to Monaco completion kind.
+ * Map LSP CompletionItemKind to Monaco CompletionItemKind.
+ *
+ * LSP and Monaco use different numeric values for completion kinds:
+ * - LSP: Text=1, Method=2, Function=3, etc.
+ * - Monaco: Method=0, Function=1, Constructor=2, etc.
+ *
+ * This function converts from LSP values to Monaco values.
  */
 function mapCompletionKind(
   monaco: Monaco,
-  kind?: number
+  lspKind?: number
 ): languages.CompletionItemKind {
-  if (!kind) return monaco.languages.CompletionItemKind.Text;
+  if (lspKind === undefined || lspKind === null) {
+    return monaco.languages.CompletionItemKind.Text;
+  }
 
-  // LSP CompletionItemKind values
-  const kindMap: Record<number, languages.CompletionItemKind> = {
-    1: monaco.languages.CompletionItemKind.Text,
-    2: monaco.languages.CompletionItemKind.Method,
-    3: monaco.languages.CompletionItemKind.Function,
-    4: monaco.languages.CompletionItemKind.Constructor,
-    5: monaco.languages.CompletionItemKind.Field,
-    6: monaco.languages.CompletionItemKind.Variable,
-    7: monaco.languages.CompletionItemKind.Class,
-    8: monaco.languages.CompletionItemKind.Interface,
-    9: monaco.languages.CompletionItemKind.Module,
-    10: monaco.languages.CompletionItemKind.Property,
-    11: monaco.languages.CompletionItemKind.Unit,
-    12: monaco.languages.CompletionItemKind.Value,
-    13: monaco.languages.CompletionItemKind.Enum,
-    14: monaco.languages.CompletionItemKind.Keyword,
-    15: monaco.languages.CompletionItemKind.Snippet,
-    16: monaco.languages.CompletionItemKind.Color,
-    17: monaco.languages.CompletionItemKind.File,
-    18: monaco.languages.CompletionItemKind.Reference,
-    19: monaco.languages.CompletionItemKind.Folder,
-    20: monaco.languages.CompletionItemKind.EnumMember,
-    21: monaco.languages.CompletionItemKind.Constant,
-    22: monaco.languages.CompletionItemKind.Struct,
-    23: monaco.languages.CompletionItemKind.Event,
-    24: monaco.languages.CompletionItemKind.Operator,
-    25: monaco.languages.CompletionItemKind.TypeParameter,
+  // Map from LSP CompletionItemKind to Monaco CompletionItemKind
+  // LSP spec: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionItemKind
+  switch (lspKind) {
+    case 1:
+      return monaco.languages.CompletionItemKind.Text;
+    case 2:
+      return monaco.languages.CompletionItemKind.Method;
+    case 3:
+      return monaco.languages.CompletionItemKind.Function;
+    case 4:
+      return monaco.languages.CompletionItemKind.Constructor;
+    case 5:
+      return monaco.languages.CompletionItemKind.Field;
+    case 6:
+      return monaco.languages.CompletionItemKind.Variable;
+    case 7:
+      return monaco.languages.CompletionItemKind.Class;
+    case 8:
+      return monaco.languages.CompletionItemKind.Interface;
+    case 9:
+      return monaco.languages.CompletionItemKind.Module;
+    case 10:
+      return monaco.languages.CompletionItemKind.Property;
+    case 11:
+      return monaco.languages.CompletionItemKind.Unit;
+    case 12:
+      return monaco.languages.CompletionItemKind.Value;
+    case 13:
+      return monaco.languages.CompletionItemKind.Enum;
+    case 14:
+      return monaco.languages.CompletionItemKind.Keyword;
+    case 15:
+      return monaco.languages.CompletionItemKind.Snippet;
+    case 16:
+      return monaco.languages.CompletionItemKind.Color;
+    case 17:
+      return monaco.languages.CompletionItemKind.File;
+    case 18:
+      return monaco.languages.CompletionItemKind.Reference;
+    case 19:
+      return monaco.languages.CompletionItemKind.Folder;
+    case 20:
+      return monaco.languages.CompletionItemKind.EnumMember;
+    case 21:
+      return monaco.languages.CompletionItemKind.Constant;
+    case 22:
+      return monaco.languages.CompletionItemKind.Struct;
+    case 23:
+      return monaco.languages.CompletionItemKind.Event;
+    case 24:
+      return monaco.languages.CompletionItemKind.Operator;
+    case 25:
+      return monaco.languages.CompletionItemKind.TypeParameter;
+    default:
+      return monaco.languages.CompletionItemKind.Text;
+  }
+}
+
+/**
+ * Convert LSP completion item to Monaco completion item.
+ */
+function convertCompletionItem(
+  monaco: Monaco,
+  item: LspCompletionItem,
+  defaultRange: IRange
+): languages.CompletionItem {
+  // Use textEdit range if available, otherwise use default range
+  let range: IRange | languages.CompletionItemRanges = defaultRange;
+
+  if (item.textEdit) {
+    range = {
+      startLineNumber: item.textEdit.range.start.line + 1,
+      startColumn: item.textEdit.range.start.character + 1,
+      endLineNumber: item.textEdit.range.end.line + 1,
+      endColumn: item.textEdit.range.end.character + 1,
+    };
+  }
+
+  // Determine insert text: prefer textEdit.newText, then insertText, then label
+  const insertText = item.textEdit?.newText ?? item.insertText ?? item.label;
+
+  return {
+    label: item.label,
+    kind: mapCompletionKind(monaco, item.kind),
+    detail: item.detail,
+    documentation: item.documentation
+      ? { value: item.documentation.value, isTrusted: true }
+      : undefined,
+    insertText,
+    insertTextRules:
+      item.insertTextFormat === 2
+        ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+        : undefined,
+    sortText: item.sortText,
+    filterText: item.filterText,
+    range,
   };
-
-  return kindMap[kind] || monaco.languages.CompletionItemKind.Text;
 }
 
 /**
@@ -77,30 +155,31 @@ export function registerCompletionProvider(
             ? context.triggerCharacter
             : undefined;
 
+        // Sync document content before requesting completions.
+        // This ensures the LSP has the latest content, bypassing the debounce
+        // in the editor store that could cause stale completions.
+        const filePath = model.uri.path;
+        const content = model.getValue();
+        await notifyFileChanged(filePath, content);
+
         const result = await lspApi.lspCompletion(
-          model.uri.path,
+          filePath,
           position.lineNumber - 1,
           position.column - 1,
           triggerChar
         );
 
-        const suggestions: languages.CompletionItem[] = result.items.map(
-          (item) => ({
-            label: item.label,
-            kind: mapCompletionKind(monaco, item.kind),
-            detail: item.detail,
-            documentation: item.documentation
-              ? { value: item.documentation.value, isTrusted: true }
-              : undefined,
-            insertText: item.insertText || item.label,
-            insertTextRules:
-              item.insertTextFormat === 2
-                ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
-                : undefined,
-            sortText: item.sortText,
-            filterText: item.filterText,
-            range: undefined as unknown as languages.CompletionItem["range"], // Use default range
-          })
+        // Calculate default range (word at cursor position)
+        const word = model.getWordUntilPosition(position);
+        const defaultRange: IRange = {
+          startLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endLineNumber: position.lineNumber,
+          endColumn: word.endColumn,
+        };
+
+        const suggestions = result.items.map((item) =>
+          convertCompletionItem(monaco, item, defaultRange)
         );
 
         return {

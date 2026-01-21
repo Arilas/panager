@@ -14,6 +14,18 @@ import { registerRenameProvider } from "./rename";
 import { registerCodeActionProvider } from "./codeAction";
 import { registerCodeLensProvider } from "./codeLens";
 import { registerInlayHintsProvider } from "./inlayHints";
+import { registerDocumentHighlightProvider } from "./documentHighlight";
+import { registerSignatureHelpProvider } from "./signatureHelp";
+import {
+  registerDocumentFormattingProvider,
+  registerDocumentRangeFormattingProvider,
+  registerOnTypeFormattingProvider,
+} from "./formatting";
+import { registerTypeDefinitionProvider } from "./typeDefinition";
+import { registerImplementationProvider } from "./implementation";
+import { registerFoldingRangeProvider } from "./foldingRange";
+import { registerSelectionRangeProvider } from "./selectionRange";
+import { registerLinkedEditingRangeProvider } from "./linkedEditingRanges";
 
 // Languages that use the backend LSP
 // Include both Monaco IDs (typescriptreact/javascriptreact) and Shiki IDs (tsx/jsx)
@@ -63,6 +75,32 @@ export function registerAllProviders(monaco: Monaco): void {
 
     // Inlay hints provider (inline type/parameter hints)
     disposables.push(registerInlayHintsProvider(monaco, languageId));
+
+    // Document highlight provider (highlight occurrences of symbol under cursor)
+    disposables.push(registerDocumentHighlightProvider(monaco, languageId));
+
+    // Signature help provider (function parameter hints)
+    disposables.push(registerSignatureHelpProvider(monaco, languageId));
+
+    // Formatting providers
+    disposables.push(registerDocumentFormattingProvider(monaco, languageId));
+    disposables.push(registerDocumentRangeFormattingProvider(monaco, languageId));
+    disposables.push(registerOnTypeFormattingProvider(monaco, languageId));
+
+    // Type definition provider (Ctrl+Shift+F12)
+    disposables.push(registerTypeDefinitionProvider(monaco, languageId));
+
+    // Implementation provider (go to implementations)
+    disposables.push(registerImplementationProvider(monaco, languageId));
+
+    // Folding range provider (custom code folding)
+    disposables.push(registerFoldingRangeProvider(monaco, languageId));
+
+    // Selection range provider (smart selection expand/shrink)
+    disposables.push(registerSelectionRangeProvider(monaco, languageId));
+
+    // Linked editing range provider (edit paired tags simultaneously)
+    disposables.push(registerLinkedEditingRangeProvider(monaco, languageId));
   }
 
   // CodeLens provider (blame above functions) - registered once for all languages

@@ -15,9 +15,10 @@ use tracing::{debug, info, warn};
 
 use crate::plugins::context::PluginContext;
 use crate::plugins::types::{
-    HostEvent, LspCodeAction, LspCompletionList, LspDocumentSymbol, LspHover, LspInlayHint,
-    LspLocation, LspProvider, LspWorkspaceEdit, Plugin, PluginManifest, StatusBarAlignment,
-    StatusBarItem,
+    HostEvent, LspCodeAction, LspCompletionList, LspDocumentHighlight, LspDocumentSymbol,
+    LspFoldingRange, LspFormattingOptions, LspHover, LspInlayHint, LspLinkedEditingRanges,
+    LspLocation, LspPosition, LspProvider, LspSelectionRange, LspSignatureHelp, LspTextEdit,
+    LspWorkspaceEdit, Plugin, PluginManifest, StatusBarAlignment, StatusBarItem,
 };
 
 use lsp::LspClient;
@@ -392,5 +393,124 @@ impl LspProvider for TypeScriptPlugin {
         let lsp = lsp.as_ref().ok_or("LSP not running")?;
         lsp.inlay_hints(path, start_line, start_character, end_line, end_character)
             .await
+    }
+
+    async fn document_highlight(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Vec<LspDocumentHighlight>, String> {
+        let lsp = self.lsp.read().await;
+        let lsp = lsp.as_ref().ok_or("LSP not running")?;
+        lsp.document_highlight(path, line, character).await
+    }
+
+    async fn signature_help(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+        trigger_character: Option<&str>,
+    ) -> Result<Option<LspSignatureHelp>, String> {
+        let lsp = self.lsp.read().await;
+        let lsp = lsp.as_ref().ok_or("LSP not running")?;
+        lsp.signature_help(path, line, character, trigger_character)
+            .await
+    }
+
+    async fn format_document(
+        &self,
+        path: &PathBuf,
+        options: LspFormattingOptions,
+    ) -> Result<Vec<LspTextEdit>, String> {
+        let lsp = self.lsp.read().await;
+        let lsp = lsp.as_ref().ok_or("LSP not running")?;
+        lsp.format_document(path, options).await
+    }
+
+    async fn format_range(
+        &self,
+        path: &PathBuf,
+        start_line: u32,
+        start_character: u32,
+        end_line: u32,
+        end_character: u32,
+        options: LspFormattingOptions,
+    ) -> Result<Vec<LspTextEdit>, String> {
+        let lsp = self.lsp.read().await;
+        let lsp = lsp.as_ref().ok_or("LSP not running")?;
+        lsp.format_range(
+            path,
+            start_line,
+            start_character,
+            end_line,
+            end_character,
+            options,
+        )
+        .await
+    }
+
+    async fn format_on_type(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+        trigger_character: &str,
+        options: LspFormattingOptions,
+    ) -> Result<Vec<LspTextEdit>, String> {
+        let lsp = self.lsp.read().await;
+        let lsp = lsp.as_ref().ok_or("LSP not running")?;
+        lsp.format_on_type(path, line, character, trigger_character, options)
+            .await
+    }
+
+    async fn type_definition(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Vec<LspLocation>, String> {
+        let lsp = self.lsp.read().await;
+        let lsp = lsp.as_ref().ok_or("LSP not running")?;
+        lsp.type_definition(path, line, character).await
+    }
+
+    async fn implementation(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Vec<LspLocation>, String> {
+        let lsp = self.lsp.read().await;
+        let lsp = lsp.as_ref().ok_or("LSP not running")?;
+        lsp.implementation(path, line, character).await
+    }
+
+    async fn folding_range(&self, path: &PathBuf) -> Result<Vec<LspFoldingRange>, String> {
+        let lsp = self.lsp.read().await;
+        let lsp = lsp.as_ref().ok_or("LSP not running")?;
+        lsp.folding_range(path).await
+    }
+
+    async fn selection_range(
+        &self,
+        path: &PathBuf,
+        positions: Vec<LspPosition>,
+    ) -> Result<Vec<LspSelectionRange>, String> {
+        let lsp = self.lsp.read().await;
+        let lsp = lsp.as_ref().ok_or("LSP not running")?;
+        lsp.selection_range(path, positions).await
+    }
+
+    async fn linked_editing_range(
+        &self,
+        path: &PathBuf,
+        line: u32,
+        character: u32,
+    ) -> Result<Option<LspLinkedEditingRanges>, String> {
+        let lsp = self.lsp.read().await;
+        let lsp = lsp.as_ref().ok_or("LSP not running")?;
+        lsp.linked_editing_range(path, line, character).await
     }
 }

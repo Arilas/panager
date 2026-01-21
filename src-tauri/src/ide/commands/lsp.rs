@@ -9,8 +9,9 @@ use tauri::State;
 
 use crate::plugins::host::PluginHost;
 use crate::plugins::types::{
-    LspCodeAction, LspCompletionList, LspDocumentSymbol, LspHover, LspInlayHint, LspLocation,
-    LspWorkspaceEdit,
+    LspCodeAction, LspCompletionList, LspDocumentHighlight, LspDocumentSymbol, LspFoldingRange,
+    LspFormattingOptions, LspHover, LspInlayHint, LspLinkedEditingRanges, LspLocation, LspPosition,
+    LspSelectionRange, LspSignatureHelp, LspTextEdit, LspWorkspaceEdit,
 };
 
 /// Get language ID from file path
@@ -150,5 +151,167 @@ pub async fn ide_lsp_inlay_hints(
     let language = get_language_from_path(&file_path);
     let path = PathBuf::from(&file_path);
     host.lsp_inlay_hints(&language, &path, start_line, start_character, end_line, end_character)
+        .await
+}
+
+/// Get document highlights (highlight all occurrences of symbol)
+#[tauri::command]
+pub async fn ide_lsp_document_highlight(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    line: u32,
+    character: u32,
+) -> Result<Vec<LspDocumentHighlight>, String> {
+    let language = get_language_from_path(&file_path);
+    let path = PathBuf::from(&file_path);
+    host.lsp_document_highlight(&language, &path, line, character)
+        .await
+}
+
+/// Get signature help (parameter hints)
+#[tauri::command]
+pub async fn ide_lsp_signature_help(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    line: u32,
+    character: u32,
+    trigger_character: Option<String>,
+) -> Result<Option<LspSignatureHelp>, String> {
+    let language = get_language_from_path(&file_path);
+    let path = PathBuf::from(&file_path);
+    host.lsp_signature_help(&language, &path, line, character, trigger_character.as_deref())
+        .await
+}
+
+/// Format entire document
+#[tauri::command]
+pub async fn ide_lsp_format_document(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    tab_size: u32,
+    insert_spaces: bool,
+) -> Result<Vec<LspTextEdit>, String> {
+    let language = get_language_from_path(&file_path);
+    let path = PathBuf::from(&file_path);
+    let options = LspFormattingOptions {
+        tab_size,
+        insert_spaces,
+    };
+    host.lsp_format_document(&language, &path, options).await
+}
+
+/// Format a range in document
+#[tauri::command]
+pub async fn ide_lsp_format_range(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    start_line: u32,
+    start_character: u32,
+    end_line: u32,
+    end_character: u32,
+    tab_size: u32,
+    insert_spaces: bool,
+) -> Result<Vec<LspTextEdit>, String> {
+    let language = get_language_from_path(&file_path);
+    let path = PathBuf::from(&file_path);
+    let options = LspFormattingOptions {
+        tab_size,
+        insert_spaces,
+    };
+    host.lsp_format_range(
+        &language,
+        &path,
+        start_line,
+        start_character,
+        end_line,
+        end_character,
+        options,
+    )
+    .await
+}
+
+/// Format on type
+#[tauri::command]
+pub async fn ide_lsp_format_on_type(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    line: u32,
+    character: u32,
+    trigger_character: String,
+    tab_size: u32,
+    insert_spaces: bool,
+) -> Result<Vec<LspTextEdit>, String> {
+    let language = get_language_from_path(&file_path);
+    let path = PathBuf::from(&file_path);
+    let options = LspFormattingOptions {
+        tab_size,
+        insert_spaces,
+    };
+    host.lsp_format_on_type(&language, &path, line, character, &trigger_character, options)
+        .await
+}
+
+/// Go to type definition
+#[tauri::command]
+pub async fn ide_lsp_type_definition(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    line: u32,
+    character: u32,
+) -> Result<Vec<LspLocation>, String> {
+    let language = get_language_from_path(&file_path);
+    let path = PathBuf::from(&file_path);
+    host.lsp_type_definition(&language, &path, line, character)
+        .await
+}
+
+/// Go to implementation
+#[tauri::command]
+pub async fn ide_lsp_implementation(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    line: u32,
+    character: u32,
+) -> Result<Vec<LspLocation>, String> {
+    let language = get_language_from_path(&file_path);
+    let path = PathBuf::from(&file_path);
+    host.lsp_implementation(&language, &path, line, character)
+        .await
+}
+
+/// Get folding ranges
+#[tauri::command]
+pub async fn ide_lsp_folding_range(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+) -> Result<Vec<LspFoldingRange>, String> {
+    let language = get_language_from_path(&file_path);
+    let path = PathBuf::from(&file_path);
+    host.lsp_folding_range(&language, &path).await
+}
+
+/// Get selection ranges (smart select)
+#[tauri::command]
+pub async fn ide_lsp_selection_range(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    positions: Vec<LspPosition>,
+) -> Result<Vec<LspSelectionRange>, String> {
+    let language = get_language_from_path(&file_path);
+    let path = PathBuf::from(&file_path);
+    host.lsp_selection_range(&language, &path, positions).await
+}
+
+/// Get linked editing ranges (tag renaming)
+#[tauri::command]
+pub async fn ide_lsp_linked_editing_range(
+    host: State<'_, Arc<PluginHost>>,
+    file_path: String,
+    line: u32,
+    character: u32,
+) -> Result<Option<LspLinkedEditingRanges>, String> {
+    let language = get_language_from_path(&file_path);
+    let path = PathBuf::from(&file_path);
+    host.lsp_linked_editing_range(&language, &path, line, character)
         .await
 }

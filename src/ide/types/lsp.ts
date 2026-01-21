@@ -45,6 +45,8 @@ export interface LspCompletionItem {
   insertTextFormat?: number;
   sortText?: string;
   filterText?: string;
+  /** Text edit to apply when selecting this completion */
+  textEdit?: LspTextEdit;
 }
 
 /** LSP Completion list */
@@ -159,4 +161,124 @@ export interface LspInlayHint {
   paddingLeft?: boolean;
   /** Add padding after the hint */
   paddingRight?: boolean;
+}
+
+// =============================================================================
+// Document Highlight
+// =============================================================================
+
+/** Document highlight kind constants (from LSP specification) */
+export const DocumentHighlightKind = {
+  /** A textual occurrence */
+  Text: 1,
+  /** Read-access of a symbol */
+  Read: 2,
+  /** Write-access of a symbol */
+  Write: 3,
+} as const;
+
+/** LSP Document Highlight - highlights occurrences of symbol under cursor */
+export interface LspDocumentHighlight {
+  /** Range to highlight */
+  range: LspRange;
+  /** Kind of highlight (Text, Read, or Write) */
+  kind?: (typeof DocumentHighlightKind)[keyof typeof DocumentHighlightKind];
+}
+
+// =============================================================================
+// Signature Help
+// =============================================================================
+
+/** LSP Parameter information - describes a parameter of a callable signature */
+export interface LspParameterInformation {
+  /** The label (parameter name) - either a string or [start, end] offsets into the signature label */
+  label: string | [number, number];
+  /** Documentation for this parameter */
+  documentation?: LspMarkupContent | string;
+}
+
+/** LSP Signature information - describes a callable signature */
+export interface LspSignatureInformation {
+  /** The label of this signature (e.g., "fn(x: number, y: string): boolean") */
+  label: string;
+  /** Documentation for this signature */
+  documentation?: LspMarkupContent | string;
+  /** The parameters of this signature */
+  parameters?: LspParameterInformation[];
+  /** The index of the active parameter (overrides SignatureHelp.activeParameter) */
+  activeParameter?: number;
+}
+
+/** LSP Signature Help - function parameter hints when typing */
+export interface LspSignatureHelp {
+  /** One or more signatures */
+  signatures: LspSignatureInformation[];
+  /** The active signature (0-indexed) */
+  activeSignature?: number;
+  /** The active parameter of the active signature (0-indexed) */
+  activeParameter?: number;
+}
+
+// =============================================================================
+// Formatting
+// =============================================================================
+
+/** LSP Formatting options - editor formatting preferences */
+export interface LspFormattingOptions {
+  /** Size of a tab in spaces */
+  tabSize: number;
+  /** Prefer spaces over tabs */
+  insertSpaces: boolean;
+}
+
+// =============================================================================
+// Folding Range
+// =============================================================================
+
+/** Folding range kind constants (from LSP specification) */
+export const FoldingRangeKind = {
+  /** Folding range for comments */
+  Comment: "comment",
+  /** Folding range for imports */
+  Imports: "imports",
+  /** Folding range for region markers (e.g., #region) */
+  Region: "region",
+} as const;
+
+/** LSP Folding Range - represents a foldable region of code */
+export interface LspFoldingRange {
+  /** Start line (0-indexed) */
+  startLine: number;
+  /** Start character (optional) */
+  startCharacter?: number;
+  /** End line (0-indexed) */
+  endLine: number;
+  /** End character (optional) */
+  endCharacter?: number;
+  /** Kind of folding range (comment, imports, region) */
+  kind?: string;
+}
+
+// =============================================================================
+// Selection Range
+// =============================================================================
+
+/** LSP Selection Range - nested ranges for smart selection (expand/shrink) */
+export interface LspSelectionRange {
+  /** The range of this selection */
+  range: LspRange;
+  /** The parent selection range (allows for nested selections) */
+  parent?: LspSelectionRange;
+}
+
+// =============================================================================
+// Linked Editing Ranges
+// =============================================================================
+
+/** LSP Linked Editing Ranges - ranges that should be edited simultaneously (e.g., HTML tag pairs) */
+export interface LspLinkedEditingRanges {
+  /** List of ranges that are linked */
+  ranges: LspRange[];
+  /** An optional word pattern to describe valid contents */
+  wordPattern?: string;
 }
