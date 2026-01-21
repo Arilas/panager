@@ -10,6 +10,7 @@ import { useIdeStore } from "../stores/ide";
 import { useFilesStore } from "../stores/files";
 import { useEditorStore } from "../stores/editor";
 import { startWatcher, stopWatcher, readFile } from "../lib/tauri-ide";
+import { FILE_WATCHER_DEBOUNCE_MS } from "../lib/constants";
 import type { IdeFileEvent } from "../types";
 
 const WINDOW_LABEL_PREFIX = "ide-";
@@ -76,7 +77,7 @@ export function useFileWatcher() {
           const timeout = setTimeout(() => {
             pending.delete(event.path);
             handleFileModified(event.path);
-          }, 100);
+          }, FILE_WATCHER_DEBOUNCE_MS);
           pending.set(event.path, timeout);
           break;
         }

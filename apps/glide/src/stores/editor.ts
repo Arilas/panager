@@ -21,6 +21,7 @@ import {
   notifyFileClosed,
   notifyFileChanged,
 } from "../lib/tauri-ide";
+import { getLanguageFromExtension } from "../lib/languageMapping";
 
 // ============================================================
 // Types
@@ -660,25 +661,7 @@ export const useEditorStore = create<EditorState>()(
         }
 
         // Detect language from file extension
-        const ext = path.split(".").pop()?.toLowerCase() ?? "";
-        const languageMap: Record<string, string> = {
-          ts: "typescript",
-          tsx: "typescriptreact",
-          js: "javascript",
-          jsx: "javascriptreact",
-          json: "json",
-          md: "markdown",
-          css: "css",
-          scss: "scss",
-          html: "html",
-          py: "python",
-          rs: "rust",
-          go: "go",
-          yaml: "yaml",
-          yml: "yaml",
-          toml: "toml",
-        };
-        const language = languageMap[ext] ?? "plaintext";
+        const language = getLanguageFromExtension(path);
 
         const lazyTab: LazyFileTabState = {
           type: "lazy",
@@ -708,25 +691,7 @@ export const useEditorStore = create<EditorState>()(
         }
 
         // Detect language from file extension
-        const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
-        const languageMap: Record<string, string> = {
-          ts: "typescript",
-          tsx: "typescriptreact",
-          js: "javascript",
-          jsx: "javascriptreact",
-          json: "json",
-          md: "markdown",
-          css: "css",
-          scss: "scss",
-          html: "html",
-          py: "python",
-          rs: "rust",
-          go: "go",
-          yaml: "yaml",
-          yml: "yaml",
-          toml: "toml",
-        };
-        const language = languageMap[ext] ?? "plaintext";
+        const language = getLanguageFromExtension(filePath);
 
         const lazyTab: LazyDiffTabState = {
           type: "lazy",

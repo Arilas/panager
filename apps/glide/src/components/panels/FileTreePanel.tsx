@@ -25,6 +25,7 @@ import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import { useRevealActiveFile } from "../../hooks/useRevealActiveFile";
 import { revealInFinder } from "../../lib/tauri-ide";
+import { MAX_DIRECTORY_DEPTH } from "../../lib/constants";
 import { FileTreeContextMenu } from "./FileTreeContextMenu";
 import { InlineEditInput } from "./InlineEditInput";
 import { ClipboardIndicator } from "./ClipboardIndicator";
@@ -100,7 +101,6 @@ export function FileTreePanel() {
     const map = new Map<string, GitFileStatus>();
     const projectRoot = projectContext?.projectPath ?? "";
 
-    const MAX_DEPTH = 100; // Safety limit for directory depth
     for (const change of gitChanges) {
       // Use the full path for matching
       const fullPath = projectRoot ? `${projectRoot}/${change.path}` : change.path;
@@ -109,7 +109,7 @@ export function FileTreePanel() {
       // Propagate status to all parent directories
       // Parent folders show "modified" if they contain any changed files
       let parentPath = fullPath;
-      for (let depth = 0; depth < MAX_DEPTH; depth++) {
+      for (let depth = 0; depth < MAX_DIRECTORY_DEPTH; depth++) {
         const lastSlash = parentPath.lastIndexOf("/");
         if (lastSlash <= 0 || (projectRoot && parentPath === projectRoot)) break;
 

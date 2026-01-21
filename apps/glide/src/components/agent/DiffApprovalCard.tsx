@@ -10,6 +10,7 @@ import { useAgentStore } from "../../stores/agent";
 import { useEditorStore } from "../../stores/editor";
 import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
+import { getLanguageFromExtension } from "../../lib/languageMapping";
 import type { PendingApproval, DiffLine } from "../../types/acp";
 
 interface DiffApprovalCardProps {
@@ -37,24 +38,9 @@ export function DiffApprovalCard({ approval, onApprove, onReject }: DiffApproval
   };
 
   const handleOpenInEditor = () => {
-    // Get file extension for language detection
+    // Get file name and language
     const fileName = approval.filePath.split("/").pop() || approval.filePath;
-    const ext = fileName.split(".").pop() || "";
-    const languageMap: Record<string, string> = {
-      ts: "typescript",
-      tsx: "typescriptreact",
-      js: "javascript",
-      jsx: "javascriptreact",
-      json: "json",
-      css: "css",
-      scss: "scss",
-      html: "html",
-      md: "markdown",
-      py: "python",
-      rs: "rust",
-      go: "go",
-    };
-    const language = languageMap[ext] || "plaintext";
+    const language = getLanguageFromExtension(approval.filePath);
 
     // Open the diff in a full editor tab
     openDiffTab({

@@ -17,6 +17,7 @@ import { useIdeStore } from "../../stores/ide";
 import { useFilesStore } from "../../stores/files";
 import { searchFiles } from "../../lib/tauri-ide";
 import { cn } from "../../lib/utils";
+import { SEARCH_DEBOUNCE_MS } from "../../lib/constants";
 import type { SearchResult } from "../../types";
 
 interface GroupedResults {
@@ -76,7 +77,7 @@ export function SearchPanel() {
     }
 
     if (query.trim()) {
-      searchTimeoutRef.current = setTimeout(performSearch, 300);
+      searchTimeoutRef.current = setTimeout(performSearch, SEARCH_DEBOUNCE_MS);
     } else {
       setResults([]);
     }

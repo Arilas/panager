@@ -1,9 +1,101 @@
 /**
  * Language ID mapping utility
- * 
- * Maps Monaco Editor language IDs to Shiki language IDs.
- * Monaco uses different IDs for some languages (e.g., "typescriptreact" vs "tsx").
+ *
+ * Provides utilities for:
+ * - Mapping file extensions to Monaco language IDs
+ * - Mapping Monaco Editor language IDs to Shiki language IDs
  */
+
+/**
+ * Maps file extensions to Monaco language IDs.
+ * This is the single source of truth for extension-to-language mapping.
+ */
+const EXTENSION_TO_LANGUAGE: Record<string, string> = {
+  // JavaScript/TypeScript
+  ts: "typescript",
+  tsx: "typescriptreact",
+  js: "javascript",
+  jsx: "javascriptreact",
+  mjs: "javascript",
+  cjs: "javascript",
+  mts: "typescript",
+  cts: "typescript",
+
+  // Web
+  json: "json",
+  jsonc: "json",
+  css: "css",
+  scss: "scss",
+  sass: "scss",
+  less: "less",
+  html: "html",
+  htm: "html",
+  vue: "vue",
+  svelte: "svelte",
+
+  // Documentation
+  md: "markdown",
+  mdx: "markdown",
+  txt: "plaintext",
+
+  // Config
+  yaml: "yaml",
+  yml: "yaml",
+  toml: "toml",
+  xml: "xml",
+  ini: "ini",
+  env: "dotenv",
+
+  // Languages
+  py: "python",
+  pyw: "python",
+  rs: "rust",
+  go: "go",
+  rb: "ruby",
+  php: "php",
+  java: "java",
+  kt: "kotlin",
+  kts: "kotlin",
+  swift: "swift",
+  c: "c",
+  h: "c",
+  cpp: "cpp",
+  cc: "cpp",
+  cxx: "cpp",
+  hpp: "cpp",
+  cs: "csharp",
+
+  // Shell
+  sh: "shellscript",
+  bash: "shellscript",
+  zsh: "shellscript",
+  fish: "shellscript",
+  ps1: "powershell",
+  bat: "bat",
+  cmd: "bat",
+
+  // Build/Config
+  dockerfile: "dockerfile",
+  makefile: "makefile",
+  cmake: "cmake",
+
+  // Data
+  sql: "sql",
+  graphql: "graphql",
+  gql: "graphql",
+  prisma: "prisma",
+};
+
+/**
+ * Gets the Monaco language ID for a file based on its extension.
+ *
+ * @param filePath - The file path or filename
+ * @returns The Monaco language ID, defaulting to "plaintext" if unknown
+ */
+export function getLanguageFromExtension(filePath: string): string {
+  const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+  return EXTENSION_TO_LANGUAGE[ext] ?? "plaintext";
+}
 
 /**
  * Maps a Monaco language ID to the corresponding Shiki language ID.

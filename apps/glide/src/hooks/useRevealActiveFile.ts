@@ -11,6 +11,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useEditorStore } from "../stores/editor";
 import { useFilesStore } from "../stores/files";
 import { useIdeStore } from "../stores/ide";
+import { MAX_DIRECTORY_DEPTH } from "../lib/constants";
 import type { FileEntry } from "../types";
 
 const REVEAL_DEBOUNCE_MS = 150;
@@ -75,9 +76,7 @@ function isPathOrAncestorGitignored(
 function getParentPaths(filePath: string, projectPath: string): string[] {
   const parents: string[] = [];
   let current = filePath;
-  const MAX_DEPTH = 100; // Safety limit for directory depth
-
-  for (let i = 0; i < MAX_DEPTH; i++) {
+  for (let i = 0; i < MAX_DIRECTORY_DEPTH; i++) {
     const lastSlash = current.lastIndexOf("/");
     if (lastSlash <= 0 || current === projectPath) break;
     current = current.substring(0, lastSlash);

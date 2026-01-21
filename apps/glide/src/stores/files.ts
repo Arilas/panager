@@ -27,6 +27,7 @@ import {
 import { useEditorStore, isFileTab } from "./editor";
 import { useIdeStore } from "./ide";
 import { useIdeSettingsStore } from "./settings";
+import { MAX_FILE_COPIES } from "../lib/constants";
 
 /** Position to navigate to when opening a file */
 export interface FilePosition {
@@ -687,8 +688,7 @@ async function getUniqueNameInDir(
   if (!(await pathExists(copyPath))) return copyName;
 
   // Try "name copy 2.ext", "name copy 3.ext", etc.
-  const MAX_COPIES = 1000;
-  for (let i = 2; i <= MAX_COPIES; i++) {
+  for (let i = 2; i <= MAX_FILE_COPIES; i++) {
     copyName = `${nameWithoutExt} copy ${i}${ext}`;
     copyPath = `${dirPath}/${copyName}`;
     if (!(await pathExists(copyPath))) return copyName;
