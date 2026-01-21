@@ -2501,6 +2501,47 @@ __metadata:
   languageName: node
   linkType: hard
 
+"glide@workspace:apps/glide":
+  version: 0.0.0-use.local
+  resolution: "glide@workspace:apps/glide"
+  dependencies:
+    "@monaco-editor/react": "patch:@monaco-editor/react@npm%3A4.7.0#~/.yarn/patches/@monaco-editor-react-npm-4.7.0-b3c86dba8d.patch"
+    "@radix-ui/react-dialog": "npm:^1.1.4"
+    "@radix-ui/react-dropdown-menu": "npm:^2.1.4"
+    "@radix-ui/react-select": "npm:^2.1.4"
+    "@radix-ui/react-tabs": "npm:^1.1.2"
+    "@radix-ui/react-tooltip": "npm:^1.1.5"
+    "@shikijs/markdown-it": "npm:^3.21.0"
+    "@shikijs/monaco": "npm:^1.0.0"
+    "@tailwindcss/postcss": "npm:^4.1.18"
+    "@tauri-apps/api": "npm:^2"
+    "@tauri-apps/cli": "npm:^2"
+    "@tauri-apps/plugin-dialog": "npm:^2"
+    "@tauri-apps/plugin-fs": "npm:^2"
+    "@tauri-apps/plugin-opener": "npm:^2.5.2"
+    "@tauri-apps/plugin-shell": "npm:^2"
+    "@types/diff": "npm:^7.0.2"
+    "@types/markdown-it": "npm:^14.1.2"
+    "@types/react": "npm:^19.1.8"
+    "@types/react-dom": "npm:^19.1.6"
+    "@vitejs/plugin-react": "npm:^4.6.0"
+    clsx: "npm:^2.1.1"
+    diff: "npm:^8.0.3"
+    lucide-react: "npm:^0.468.0"
+    markdown-it: "npm:^14.1.0"
+    monaco-editor: "npm:^0.55.1"
+    postcss: "npm:^8.4.49"
+    react: "npm:^19.1.0"
+    react-dom: "npm:^19.1.0"
+    shiki: "npm:^3.21.0"
+    tailwind-merge: "npm:^2.6.0"
+    tailwindcss: "npm:^4.1.18"
+    typescript: "npm:~5.8.3"
+    vite: "npm:^7.0.4"
+    zustand: "npm:^5"
+  languageName: unknown
+  linkType: soft
+
 "glob@npm:^13.0.0":
   version: 13.0.0
   resolution: "glob@npm:13.0.0"
@@ -2644,6 +2685,12 @@ __metadata:
   checksum: 10c0/5a04eed94810fa55c5ea138b2f7a5c12b97c3750bc63d11e511dcecbfef758003861522a070c2272764ee0f4e3e323862f386945aeb5b85b87ee43f084ba586c
   languageName: node
   linkType: hard
+
+"krona-monorepo@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "krona-monorepo@workspace:."
+  languageName: unknown
+  linkType: soft
 
 "lightningcss-android-arm64@npm:1.30.2":
   version: 1.30.2
@@ -3110,9 +3157,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"panager@workspace:.":
+"panager@workspace:apps/panager":
   version: 0.0.0-use.local
-  resolution: "panager@workspace:."
+  resolution: "panager@workspace:apps/panager"
   dependencies:
     "@monaco-editor/react": "patch:@monaco-editor/react@npm%3A4.7.0#~/.yarn/patches/@monaco-editor-react-npm-4.7.0-b3c86dba8d.patch"
     "@radix-ui/react-dialog": "npm:^1.1.4"
@@ -3120,8 +3167,6 @@ __metadata:
     "@radix-ui/react-select": "npm:^2.1.4"
     "@radix-ui/react-tabs": "npm:^1.1.2"
     "@radix-ui/react-tooltip": "npm:^1.1.5"
-    "@shikijs/markdown-it": "npm:^3.21.0"
-    "@shikijs/monaco": "npm:^1.0.0"
     "@tailwindcss/postcss": "npm:^4.1.18"
     "@tauri-apps/api": "npm:^2"
     "@tauri-apps/cli": "npm:^2"
@@ -3130,21 +3175,15 @@ __metadata:
     "@tauri-apps/plugin-global-shortcut": "npm:^2"
     "@tauri-apps/plugin-opener": "npm:^2.5.2"
     "@tauri-apps/plugin-shell": "npm:^2"
-    "@types/diff": "npm:^7.0.2"
-    "@types/markdown-it": "npm:^14.1.2"
     "@types/react": "npm:^19.1.8"
     "@types/react-dom": "npm:^19.1.6"
     "@vitejs/plugin-react": "npm:^4.6.0"
     clsx: "npm:^2.1.1"
     cmdk: "npm:^1.0.4"
-    diff: "npm:^8.0.3"
     lucide-react: "npm:^0.468.0"
-    markdown-it: "npm:^14.1.0"
-    monaco-editor: "npm:^0.55.1"
     postcss: "npm:^8.4.49"
     react: "npm:^19.1.0"
     react-dom: "npm:^19.1.0"
-    shiki: "npm:^3.21.0"
     tailwind-merge: "npm:^2.6.0"
     tailwindcss: "npm:^4.1.18"
     typescript: "npm:~5.8.3"

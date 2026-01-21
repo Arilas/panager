@@ -1,0 +1,51 @@
+{
+  "name": "glide",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "patch:@monaco-editor/react@npm%3A4.7.0#~/.yarn/patches/@monaco-editor-react-npm-4.7.0-b3c86dba8d.patch",
+    "@radix-ui/react-dialog": "^1.1.4",
+    "@radix-ui/react-dropdown-menu": "^2.1.4",
+    "@radix-ui/react-select": "^2.1.4",
+    "@radix-ui/react-tabs": "^1.1.2",
+    "@radix-ui/react-tooltip": "^1.1.5",
+    "@shikijs/markdown-it": "^3.21.0",
+    "@shikijs/monaco": "^1.0.0",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
+    "@tauri-apps/plugin-fs": "^2",
+    "@tauri-apps/plugin-opener": "^2.5.2",
+    "@tauri-apps/plugin-shell": "^2",
+    "@types/markdown-it": "^14.1.2",
+    "clsx": "^2.1.1",
+    "diff": "^8.0.3",
+    "lucide-react": "^0.468.0",
+    "markdown-it": "^14.1.0",
+    "monaco-editor": "^0.55.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "shiki": "^3.21.0",
+    "tailwind-merge": "^2.6.0",
+    "zustand": "^5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
+    "@tauri-apps/cli": "^2",
+    "@types/diff": "^7.0.2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.1.18",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  }
+}
