@@ -30,8 +30,8 @@ export function TabTrigger({
     variant === "danger"
       ? dangerClasses
       : useLiquidGlass
-      ? "data-[state=active]:bg-[color-mix(in_srgb,var(--scope-color)_10%,transparent)] data-[state=active]:text-(--scope-color)"
-      : "data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium";
+        ? "data-[state=active]:bg-[color-mix(in_srgb,var(--accent-color)_10%,transparent)] data-[state=active]:text-(--accent-color)"
+        : "data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium";
 
   return (
     <Tabs.Trigger
@@ -43,7 +43,7 @@ export function TabTrigger({
           : "px-3 py-2 text-[13px]",
         variant === "default" && "text-foreground/70",
         variant === "default" && "hover:bg-black/5 dark:hover:bg-white/5",
-        activeClasses
+        activeClasses,
       )}
     >
       {icon && <span className="shrink-0">{icon}</span>}
