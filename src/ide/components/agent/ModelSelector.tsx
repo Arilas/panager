@@ -11,6 +11,7 @@ import { useAgentStore } from "../../stores/agent";
 import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
 import type { AcpSessionModel } from "../../types/acp";
+import { useAcpEvents } from "../../hooks/useAcpEvents";
 
 export function ModelSelector() {
   const { effectiveTheme } = useIdeSettingsContext();
@@ -18,6 +19,11 @@ export function ModelSelector() {
 
   const status = useAgentStore((s) => s.status);
   const sessionCapabilities = useAgentStore((s) => s.sessionCapabilities);
+  const setSessionCapabilities = useAgentStore((s) => s.setSessionCapabilities);
+  const currentSessionId = useAgentStore((s) => s.currentSessionId);
+
+  // Get the sendCommand function to send /model command
+  const { sendCommand } = useAcpEvents();
 
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -52,11 +58,20 @@ export function ModelSelector() {
     return null;
   }
 
-  const handleModelChange = (modelId: string) => {
-    if (isDisabled) return;
+  const handleModelChange = async (modelId: string) => {
+    if (isDisabled || !currentSessionId) return;
     setIsOpen(false);
-    // TODO: Call ACP setModel command when available
-    console.log("Model selection not yet implemented:", modelId);
+
+    // Update sessionCapabilities.currentModelId for immediate UI feedback
+    if (sessionCapabilities) {
+      setSessionCapabilities({
+        ...sessionCapabilities,
+        currentModelId: modelId,
+      });
+    }
+
+    // Send /model command to change the model
+    await sendCommand(currentSessionId, `/model ${modelId}`);
   };
 
   return (
@@ -79,7 +94,7 @@ export function ModelSelector() {
       {isOpen && (
         <div
           className={cn(
-            "absolute bottom-full right-0 mb-1 min-w-24 rounded shadow-lg border z-50 py-1",
+            "absolute top-full right-0 mt-1 min-w-24 rounded shadow-lg border z-50 py-1",
             isDark
               ? "bg-neutral-800 border-white/10"
               : "bg-white border-black/10"

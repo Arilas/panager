@@ -773,10 +773,61 @@ impl ChatDb {
     }
 
     // =========================================================================
-    // Tool Call Updates (RULE 4)
+    // Tool Call Updates (RULE 3, RULE 4)
     // =========================================================================
 
-    /// Update a tool call entry by tool_call_id
+    /// Check if a tool call entry exists by tool_call_id (RULE 3 deduplication)
+    pub fn tool_call_exists(&self, tool_call_id: &str) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM entries WHERE tool_call_id = ?1 AND type = 'tool_call'",
+            params![tool_call_id],
+            |row| row.get(0),
+        )?;
+        Ok(count > 0)
+    }
+
+    /// Get the tool name for a tool call entry by tool_call_id
+    /// Used by permission requests to show the actual tool name
+    pub fn get_tool_name_by_call_id(&self, tool_call_id: &str) -> Result<Option<String>> {
+        let conn = self.conn.lock().unwrap();
+        let result: std::result::Result<String, _> = conn.query_row(
+            "SELECT tool_name FROM entries WHERE tool_call_id = ?1 AND type = 'tool_call'",
+            params![tool_call_id],
+            |row| row.get(0),
+        );
+        match result {
+            Ok(name) => Ok(Some(name)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Update a tool call entry with new fields (RULE 3 deduplication update)
+    pub fn update_tool_call_fields(
+        &self,
+        tool_call_id: &str,
+        status: &str,
+        title: Option<&str>,
+        raw_input: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = chrono::Utc::now().timestamp_millis();
+        conn.execute(
+            r#"
+            UPDATE entries
+            SET tool_status = ?1,
+                tool_title = COALESCE(?2, tool_title),
+                tool_input = COALESCE(?3, tool_input),
+                updated_at = ?4
+            WHERE tool_call_id = ?5 AND type = 'tool_call'
+            "#,
+            params![status, title, raw_input, now, tool_call_id],
+        )?;
+        Ok(())
+    }
+
+    /// Update a tool call entry by tool_call_id (RULE 4)
     pub fn update_tool_call(&self, tool_call_id: &str, status: &str, output: Option<&str>) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         let now = chrono::Utc::now().timestamp_millis();
@@ -787,6 +838,30 @@ impl ChatDb {
             WHERE tool_call_id = ?4 AND type = 'tool_call'
             "#,
             params![status, output, now, tool_call_id],
+        )?;
+        Ok(())
+    }
+
+    /// Update a tool call entry with title and output (RULE 4 extended)
+    pub fn update_tool_call_with_title(
+        &self,
+        tool_call_id: &str,
+        status: &str,
+        title: Option<&str>,
+        output: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = chrono::Utc::now().timestamp_millis();
+        conn.execute(
+            r#"
+            UPDATE entries
+            SET tool_status = ?1,
+                tool_title = COALESCE(?2, tool_title),
+                tool_output = ?3,
+                updated_at = ?4
+            WHERE tool_call_id = ?5 AND type = 'tool_call'
+            "#,
+            params![status, title, output, now, tool_call_id],
         )?;
         Ok(())
     }

@@ -12,6 +12,7 @@ import { useIdeSettingsContext } from "../../contexts/IdeSettingsContext";
 import { cn } from "../../../lib/utils";
 import type { AgentMode, AcpSessionMode } from "../../types/acp";
 import { AgentModeLabels, AgentModeDescriptions } from "../../types/acp";
+import { useAcpEvents } from "../../hooks/useAcpEvents";
 
 // Fallback modes when ACP capabilities aren't available
 const FALLBACK_MODES: AgentMode[] = ["plan", "agent", "ask"];
@@ -21,9 +22,14 @@ export function ModeSelector() {
   const isDark = effectiveTheme === "dark";
 
   const mode = useAgentStore((s) => s.mode);
-  const setMode = useAgentStore((s) => s.setMode);
+  const setStoreMode = useAgentStore((s) => s.setMode);
   const status = useAgentStore((s) => s.status);
   const sessionCapabilities = useAgentStore((s) => s.sessionCapabilities);
+  const setSessionCapabilities = useAgentStore((s) => s.setSessionCapabilities);
+  const currentSessionId = useAgentStore((s) => s.currentSessionId);
+
+  // Get the ACP setMode function that actually calls the backend
+  const { setMode: acpSetMode } = useAcpEvents();
 
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -61,17 +67,24 @@ export function ModeSelector() {
   const currentModeId = sessionCapabilities?.currentModeId || mode;
   const currentMode = modes.find((m) => m.id === currentModeId) || modes[0];
 
-  const handleModeChange = (modeId: string) => {
+  const handleModeChange = async (modeId: string) => {
     if (isDisabled) return;
     setIsOpen(false);
-    // If it's a known AgentMode, use setMode directly
-    // Otherwise, we'll need to call the ACP setMode command
-    if (modeId === "plan" || modeId === "agent" || modeId === "ask") {
-      setMode(modeId as AgentMode);
-    } else {
-      // For dynamic ACP modes, we'll need to call ACP setMode
-      // For now, just set it locally (will be handled by ChatPanel/useAcpEvents)
-      setMode(modeId as AgentMode);
+
+    // Update local store immediately for responsive UI
+    setStoreMode(modeId as AgentMode);
+
+    // Also update sessionCapabilities.currentModeId for UI display
+    if (sessionCapabilities) {
+      setSessionCapabilities({
+        ...sessionCapabilities,
+        currentModeId: modeId,
+      });
+    }
+
+    // Call ACP backend to actually change the mode
+    if (currentSessionId) {
+      await acpSetMode(currentSessionId, modeId as AgentMode);
     }
   };
 
@@ -95,7 +108,7 @@ export function ModeSelector() {
       {isOpen && (
         <div
           className={cn(
-            "absolute bottom-full left-0 mb-1 min-w-24 rounded shadow-lg border z-50 py-1",
+            "absolute top-full left-0 mt-1 min-w-24 rounded shadow-lg border z-50 py-1",
             isDark
               ? "bg-neutral-800 border-white/10"
               : "bg-white border-black/10"

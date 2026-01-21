@@ -35,7 +35,25 @@ type GroupedEntry =
   | { type: "toolGroup"; entries: ToolCallEntry[] };
 
 /**
+ * Tools that should NEVER be grouped - they are important to see individually.
+ * - Task: Sub-agent tasks with markdown output
+ * - Bash: Command execution with terminal output
+ * - Write: File writes/creates need to show content
+ * - Edit: File edits need to show diffs
+ * - ExitPlanMode: Contains plan content to review
+ */
+const UNGROUPED_TOOLS = new Set(["Task", "Bash", "Write", "Edit", "ExitPlanMode"]);
+
+/**
+ * Check if a tool call should be displayed individually (not grouped)
+ */
+function shouldDisplayUngrouped(entry: ToolCallEntry): boolean {
+  return UNGROUPED_TOOLS.has(entry.toolName);
+}
+
+/**
  * Group consecutive tool calls together for collapsed display.
+ * Important tools (Task, Bash, Write, Edit, ExitPlanMode) are NOT grouped.
  */
 function groupConsecutiveToolCalls(entries: ChatEntry[]): GroupedEntry[] {
   const result: GroupedEntry[] = [];
@@ -54,7 +72,13 @@ function groupConsecutiveToolCalls(entries: ChatEntry[]): GroupedEntry[] {
 
   for (const entry of entries) {
     if (isToolCallEntry(entry)) {
-      currentToolGroup.push(entry);
+      // Important tools should not be grouped
+      if (shouldDisplayUngrouped(entry)) {
+        flushToolGroup();
+        result.push({ type: "single", entry });
+      } else {
+        currentToolGroup.push(entry);
+      }
     } else {
       flushToolGroup();
       result.push({ type: "single", entry });

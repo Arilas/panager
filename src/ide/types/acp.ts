@@ -149,6 +149,26 @@ export interface ThoughtEntry extends BaseEntry {
   content: string;  // Agent's thinking/reasoning (chunks already merged)
 }
 
+/** Tool call content item (diff, text output, etc.) */
+export interface ToolCallContentItem {
+  type: "diff" | "text" | "content";
+  // For diff type
+  path?: string;
+  oldText?: string;
+  newText?: string;
+  // For text type
+  text?: string;
+  // For content type (wrapped content)
+  content?: { type: string; text?: string };
+}
+
+/** Tool call location (file affected by tool) */
+export interface ToolCallLocation {
+  path: string;
+  line?: number;
+  range?: LineRange;
+}
+
 /** Tool call entry (RULE 3, RULE 4) */
 export interface ToolCallEntry extends BaseEntry {
   type: "tool_call";
@@ -158,7 +178,9 @@ export interface ToolCallEntry extends BaseEntry {
   title?: string;
   kind?: ToolCallKind;       // read, edit, execute, fetch, search, think
   rawInput?: unknown;
-  output?: unknown;          // Only if small enough
+  output?: unknown;          // Tool execution result (from toolResponse)
+  content?: ToolCallContentItem[];  // Diff/output content
+  locations?: ToolCallLocation[];   // Files affected by the tool
 }
 
 /** Permission request entry (RULE 5, RULE 6) */

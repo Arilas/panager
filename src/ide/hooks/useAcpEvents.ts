@@ -28,7 +28,7 @@ import type {
   ModeChangeEntry,
   ChatEntry,
 } from "../types/acp";
-import { cleanToolName, isMessageEntry, isThoughtEntry } from "../types/acp";
+import { cleanToolName, isMessageEntry, isThoughtEntry, isToolCallEntry } from "../types/acp";
 import {
   acpConnect,
   acpNewSession,
@@ -73,7 +73,7 @@ type SessionUpdateType =
 
 interface SessionUpdate {
   sessionUpdate: SessionUpdateType;
-  content?: { type: string; text?: string };
+  content?: unknown;  // Can be array of content items for tool calls
   toolUse?: unknown;
   toolResult?: unknown;
   plan?: unknown;
@@ -83,11 +83,12 @@ interface SessionUpdate {
   title?: string;
   kind?: string;
   status?: string;
-  locations?: Array<{ uri: string; range?: unknown }>;
+  locations?: Array<{ path?: string; uri?: string; line?: number; range?: unknown }>;
   rawInput?: unknown;
   _meta?: {
     claudeCode?: {
       toolName?: string;
+      toolResponse?: unknown;  // Tool execution result
     };
   };
 }
@@ -279,7 +280,8 @@ export function useAcpEvents() {
       switch (eventType) {
         // RULE 1: Message Chunk Handling
         case "agent_message_chunk": {
-          const text = update.content?.text || "";
+          const chunkContent = update.content as { type?: string; text?: string } | undefined;
+          const text = chunkContent?.text || "";
           if (text) {
             handleStreamingChunk(sessionId, text, "message");
           }
@@ -295,14 +297,15 @@ export function useAcpEvents() {
 
         // RULE 9: Thought Chunk Handling
         case "agent_thought_chunk": {
-          const text = update.content?.text || "";
+          const thoughtContent = update.content as { type?: string; text?: string } | undefined;
+          const text = thoughtContent?.text || "";
           if (text) {
             handleStreamingChunk(sessionId, text, "thought");
           }
           break;
         }
 
-        // RULE 3: Tool Call Creation
+        // RULE 3: Tool Call Creation (with deduplication)
         case "tool_call": {
           console.log("ACP tool_call:", JSON.stringify(update));
 
@@ -311,20 +314,45 @@ export function useAcpEvents() {
           const toolName = cleanToolName(rawToolName);
 
           if (update.toolCallId) {
-            const entry: ToolCallEntry = {
-              id: Date.now(), // Temporary ID
-              sessionId,
-              type: "tool_call",
-              toolCallId: update.toolCallId,
-              toolName,
-              status: mapToolStatus(update.status),
-              title: update.title || toolName,
-              kind: mapToolKind(update.kind),
-              rawInput: update.rawInput,
-              createdAt: Date.now(),
-            };
-            addEntry(sessionId, entry);
-            console.log("ACP: Added tool call entry:", toolName);
+            // Check if this tool call already exists (deduplication)
+            const state = useAgentStore.getState();
+            const session = state.sessions[sessionId];
+            const existingEntry = session?.entries.find(
+              (e): e is ToolCallEntry => isToolCallEntry(e) && e.toolCallId === update.toolCallId
+            );
+
+            if (existingEntry) {
+              // Update existing entry instead of creating duplicate
+              // Preserve existing content/locations if update doesn't have new ones
+              console.log("ACP: Updating existing tool call entry:", update.toolCallId);
+              const newContent = update.content as ToolCallEntry["content"];
+              const newLocations = update.locations as ToolCallEntry["locations"];
+              updateEntryByToolCallId(sessionId, update.toolCallId, {
+                status: mapToolStatus(update.status),
+                title: update.title || existingEntry.title,
+                rawInput: update.rawInput || existingEntry.rawInput,
+                content: (newContent && newContent.length > 0) ? newContent : existingEntry.content,
+                locations: (newLocations && newLocations.length > 0) ? newLocations : existingEntry.locations,
+              });
+            } else {
+              // Create new entry
+              const entry: ToolCallEntry = {
+                id: Date.now(), // Temporary ID
+                sessionId,
+                type: "tool_call",
+                toolCallId: update.toolCallId,
+                toolName,
+                status: mapToolStatus(update.status),
+                title: update.title || toolName,
+                kind: mapToolKind(update.kind),
+                rawInput: update.rawInput,
+                content: update.content as ToolCallEntry["content"],
+                locations: update.locations as ToolCallEntry["locations"],
+                createdAt: Date.now(),
+              };
+              addEntry(sessionId, entry);
+              console.log("ACP: Added tool call entry:", toolName);
+            }
           }
           break;
         }
@@ -334,11 +362,41 @@ export function useAcpEvents() {
           console.log("ACP tool_call_update:", JSON.stringify(update));
 
           if (update.toolCallId) {
+            // Extract output from toolResponse in _meta
+            const toolResponse = update._meta?.claudeCode?.toolResponse;
+            const toolName = cleanToolName(update._meta?.claudeCode?.toolName || "");
+
+            // Don't store content for Read operations (file contents bloat storage)
+            // Similar logic as backend should_store_content()
+            const shouldStoreContent = !["Read", "WebFetch"].includes(toolName);
+
+            // Get existing entry to preserve content if update doesn't have new content
+            const state = useAgentStore.getState();
+            const session = state.sessions[sessionId];
+            const existingEntry = session?.entries.find(
+              (e): e is ToolCallEntry => isToolCallEntry(e) && e.toolCallId === update.toolCallId
+            );
+
+            // Determine content to use: new content (if should store), or preserve existing
+            const newContent = update.content as ToolCallEntry["content"];
+            const contentToUse = shouldStoreContent && newContent && newContent.length > 0
+              ? newContent
+              : existingEntry?.content;
+
+            // Determine locations: use new if provided, else preserve existing
+            const newLocations = update.locations as ToolCallEntry["locations"];
+            const locationsToUse = (newLocations && newLocations.length > 0)
+              ? newLocations
+              : existingEntry?.locations;
+
             updateEntryByToolCallId(sessionId, update.toolCallId, {
               status: mapToolStatus(update.status),
-              // Content would come from the update if small enough
+              title: update.title || existingEntry?.title,
+              content: contentToUse,
+              locations: locationsToUse,
+              output: toolResponse,
             });
-            console.log("ACP: Updated tool call:", update.toolCallId, "status:", update.status);
+            console.log("ACP: Updated tool call:", update.toolCallId, "status:", update.status, "toolName:", toolName, "storeContent:", shouldStoreContent);
           }
           break;
         }
@@ -678,6 +736,28 @@ export function useAcpEvents() {
     [projectPath, setError]
   );
 
+  // Send a slash command (e.g., /model, /help) without showing as user message
+  const sendCommand = useCallback(
+    async (sessionId: string, command: string) => {
+      if (!projectPath) return;
+      try {
+        console.log("ACP: Sending command to session:", sessionId, command);
+
+        // Create content blocks for backend - just the command text
+        const content = [{ type: "text" as const, text: command }];
+
+        // Send to backend without adding to frontend store
+        await acpSendPrompt(projectPath, sessionId, content);
+        console.log("ACP: Command sent successfully");
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error("ACP: Failed to send command:", errorMsg);
+        setError(errorMsg);
+      }
+    },
+    [projectPath, setError]
+  );
+
   // RULE 6: Respond to permission request
   const respondToPermission = useCallback(
     async (requestId: string, selectedOption: string) => {
@@ -727,6 +807,7 @@ export function useAcpEvents() {
     newSession,
     resumeSession,
     sendPrompt,
+    sendCommand,
     cancel,
     setMode,
     respondToPermission,

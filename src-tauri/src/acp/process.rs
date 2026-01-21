@@ -320,16 +320,51 @@ impl acp::Client for PanagerAcpClient {
         // Generate a unique request ID
         let request_id = uuid::Uuid::new_v4().to_string();
 
+        // Extract a better description from raw_input if available
+        let description = args.tool_call.fields.raw_input.as_ref()
+            .and_then(|input: &serde_json::Value| {
+                // Try to extract meaningful info from common tool inputs
+                if let Some(file_path) = input.get("file_path").and_then(|v: &serde_json::Value| v.as_str()) {
+                    return Some(format!("File: {}", file_path));
+                }
+                if let Some(path) = input.get("path").and_then(|v: &serde_json::Value| v.as_str()) {
+                    return Some(format!("Path: {}", path));
+                }
+                if let Some(command) = input.get("command").and_then(|v: &serde_json::Value| v.as_str()) {
+                    let cmd: String = if command.len() > 100 {
+                        format!("{}...", &command[..100])
+                    } else {
+                        command.to_string()
+                    };
+                    return Some(format!("Command: {}", cmd));
+                }
+                if let Some(url) = input.get("url").and_then(|v: &serde_json::Value| v.as_str()) {
+                    return Some(format!("URL: {}", url));
+                }
+                None
+            })
+            .unwrap_or_else(|| format!("Tool ID: {}", args.tool_call.tool_call_id));
+
+        // Get the actual tool name from the database (from earlier tool_call event)
+        // Falls back to title if not found
+        let tool_call_id_str: &str = &args.tool_call.tool_call_id.0;
+        let tool_name = self.chat_db
+            .get_tool_name_by_call_id(tool_call_id_str)
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| {
+                args.tool_call
+                    .fields
+                    .title
+                    .clone()
+                    .unwrap_or_else(|| "Tool".to_string())
+            });
+
         // Create permission request for frontend
         let permission_request = PermissionRequest {
             request_id: request_id.clone(),
-            tool_name: args
-                .tool_call
-                .fields
-                .title
-                .clone()
-                .unwrap_or_else(|| "Tool".to_string()),
-            description: format!("Tool: {}", args.tool_call.tool_call_id),
+            tool_name,
+            description,
             options: args
                 .options
                 .iter()
@@ -433,7 +468,7 @@ impl acp::Client for PanagerAcpClient {
                 }
             }
 
-            // RULE 3: Tool Call Creation
+            // RULE 3: Tool Call Creation (with deduplication)
             SessionUpdate::ToolCall(tool_call) => {
                 // Extract tool name from metadata and clean it
                 let raw_tool_name = tool_call.meta.as_ref()
@@ -443,21 +478,40 @@ impl acp::Client for PanagerAcpClient {
                     .unwrap_or("Tool");
 
                 let clean_name = Self::clean_tool_name(raw_tool_name);
+                let tool_call_id = tool_call.tool_call_id.to_string();
+                let status = format!("{:?}", tool_call.status).to_lowercase();
+                let raw_input_json = tool_call.raw_input.as_ref()
+                    .and_then(|v| serde_json::to_string(v).ok());
 
-                let entry = DbEntry::new_tool_call(
-                    &session_id,
-                    &tool_call.tool_call_id.to_string(),
-                    &clean_name,
-                    &format!("{:?}", tool_call.status).to_lowercase(),
-                    Some(&format!("{:?}", tool_call.kind).to_lowercase()),
-                    Some(&tool_call.title),
-                    tool_call.raw_input.as_ref()
-                        .and_then(|v| serde_json::to_string(v).ok())
-                        .as_deref(),
-                );
+                // Check if tool call already exists (deduplication per RULE 3)
+                let exists = self.chat_db.tool_call_exists(&tool_call_id).unwrap_or(false);
 
-                if let Err(e) = self.chat_db.add_entry(&entry) {
-                    tracing::error!("Failed to store tool call: {}", e);
+                if exists {
+                    // Update existing entry instead of creating duplicate
+                    tracing::debug!("ACP: Updating existing tool call entry: {}", tool_call_id);
+                    if let Err(e) = self.chat_db.update_tool_call_fields(
+                        &tool_call_id,
+                        &status,
+                        Some(&tool_call.title),
+                        raw_input_json.as_deref(),
+                    ) {
+                        tracing::error!("Failed to update tool call: {}", e);
+                    }
+                } else {
+                    // Create new entry
+                    let entry = DbEntry::new_tool_call(
+                        &session_id,
+                        &tool_call_id,
+                        &clean_name,
+                        &status,
+                        Some(&format!("{:?}", tool_call.kind).to_lowercase()),
+                        Some(&tool_call.title),
+                        raw_input_json.as_deref(),
+                    );
+
+                    if let Err(e) = self.chat_db.add_entry(&entry) {
+                        tracing::error!("Failed to store tool call: {}", e);
+                    }
                 }
             }
 
@@ -476,6 +530,9 @@ impl acp::Client for PanagerAcpClient {
                 let status = update.fields.status.as_ref()
                     .map(|s| format!("{:?}", s).to_lowercase())
                     .unwrap_or_else(|| "completed".to_string());
+
+                // Get title if provided (may change from "Edit" to "Edit `/path/file.ts`")
+                let title = update.fields.title.as_deref();
 
                 // Extract and conditionally store content
                 let content_to_store = update.fields.content.as_ref().and_then(|content_blocks| {
@@ -503,7 +560,13 @@ impl acp::Client for PanagerAcpClient {
                     }
                 });
 
-                if let Err(e) = self.chat_db.update_tool_call(&tool_call_id, &status, content_to_store.as_deref()) {
+                // Use extended update to also update title (RULE 4)
+                if let Err(e) = self.chat_db.update_tool_call_with_title(
+                    &tool_call_id,
+                    &status,
+                    title,
+                    content_to_store.as_deref(),
+                ) {
                     tracing::error!("Failed to update tool call: {}", e);
                 }
             }

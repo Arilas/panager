@@ -19,7 +19,7 @@ display and persisted state.
 | `meta` | Session capabilities | `availableModes`, `availableModels`, `availableCommands`, `currentModeId`, `currentModelId` |
 | `message` | User or assistant text | `role`, `content` |
 | `thought` | Agent's internal reasoning | `content` |
-| `tool_call` | Tool usage | `toolName`, `toolCallId`, `status`, `rawInput`, `output` |
+| `tool_call` | Tool usage | `toolName`, `toolCallId`, `status`, `rawInput`, `output`, `content`, `locations`, `title`, `kind` |
 | `permission_request` | Permission prompt | `requestId`, `toolName`, `description`, `options`, `responseOption` |
 | `plan` | Agent's execution plan | `entries` (array of plan entries with content, priority, status) |
 | `mode_change` | Mode switch notification | `previousModeId`, `newModeId` |
@@ -69,16 +69,27 @@ IF is_streaming:
 
 ```
 FINALIZE any streaming message (RULE 2)
-CREATE tool_call entry:
-    toolCallId = event.tool_call_id
-    toolName = cleanToolName(event.toolName)  # "mcp__acp__Read" → "Read"
-    status = event.status (default: "pending")
-    kind = event.kind
-    rawInput = event.rawInput (JSON)
-    title = event.title
+
+# Check if tool call already exists (deduplication)
+FIND existing entry WHERE toolCallId = event.tool_call_id
+IF existing entry found:
+    # Update existing entry instead of creating duplicate
+    UPDATE entry with any new fields (status, title, rawInput, content, locations)
+ELSE:
+    CREATE tool_call entry:
+        toolCallId = event.tool_call_id
+        toolName = cleanToolName(event.toolName)  # "mcp__acp__Read" → "Read"
+        status = event.status (default: "pending")
+        kind = event.kind
+        rawInput = event.rawInput (JSON)
+        title = event.title
+        content = event.content (diff/output content, may be empty initially)
+        locations = event.locations (file paths/ranges)
 ```
 
 **Tool Name Cleaning**: Strip MCP prefixes like `mcp__acp__` to get clean name.
+
+**Deduplication**: ACP may send multiple `tool_call` events for the same `toolCallId` (e.g., first with empty rawInput, then with filled rawInput). Always check for existing entry and update rather than create duplicate.
 
 ---
 
@@ -90,8 +101,19 @@ CREATE tool_call entry:
 FIND entry WHERE toolCallId = event.tool_call_id
 UPDATE entry:
     status = event.status
-    output = event.content (if small enough to store)
+    title = event.title (if provided, may change e.g. "Edit" → "Edit `/path/file.ts`")
+    content = event.content (array of content items: diffs, text output, etc.)
+    locations = event.locations (file paths with optional line ranges)
+    output = event._meta.claudeCode.toolResponse (tool execution result)
 ```
+
+**Content Types**:
+- `{type: "diff", path: string, oldText: string, newText: string}` - File edit diff
+- `{type: "text", text: string}` - Text output
+- `{type: "content", content: {type: string, text: string}}` - Wrapped content
+
+**Locations**:
+- Array of `{path: string, line?: number}` for files affected by the tool
 
 ---
 
