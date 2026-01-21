@@ -40,8 +40,10 @@ pub struct PluginManifest {
 /// Plugin lifecycle state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum PluginState {
     /// Plugin is registered but not running
+    #[default]
     Inactive,
     /// Plugin is starting up
     Activating,
@@ -53,11 +55,6 @@ pub enum PluginState {
     Error,
 }
 
-impl Default for PluginState {
-    fn default() -> Self {
-        Self::Inactive
-    }
-}
 
 // ============================================================================
 // Diagnostics (Problems/Errors/Warnings)

@@ -64,17 +64,14 @@ pub struct JsonRpcError {
 /// Agent operating modes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum AgentMode {
     Plan,
+    #[default]
     Agent,
     Ask,
 }
 
-impl Default for AgentMode {
-    fn default() -> Self {
-        Self::Agent
-    }
-}
 
 // ============================================================
 // Session Types
@@ -83,7 +80,9 @@ impl Default for AgentMode {
 /// Session connection status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum SessionStatus {
+    #[default]
     Disconnected,
     Connecting,
     Initializing,
@@ -92,11 +91,6 @@ pub enum SessionStatus {
     Error,
 }
 
-impl Default for SessionStatus {
-    fn default() -> Self {
-        Self::Disconnected
-    }
-}
 
 /// Session info for listing (sent to frontend)
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -374,17 +368,14 @@ pub struct AgentPlan {
 /// Approval workflow mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum ApprovalMode {
+    #[default]
     PerChange,
     Batch,
     Auto,
 }
 
-impl Default for ApprovalMode {
-    fn default() -> Self {
-        Self::PerChange
-    }
-}
 
 /// Pending approval status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]

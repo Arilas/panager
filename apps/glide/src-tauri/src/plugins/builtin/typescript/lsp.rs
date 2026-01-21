@@ -36,7 +36,8 @@ pub struct LspClient {
     process: Arc<RwLock<Option<Child>>>,
     /// Stdin writer channel
     stdin_tx: mpsc::UnboundedSender<String>,
-    /// Plugin context for reporting diagnostics
+    /// Plugin context for reporting diagnostics (stored for future use)
+    #[allow(dead_code)]
     ctx: PluginContext,
     /// Project root
     root: PathBuf,
@@ -569,14 +570,13 @@ impl LspClient {
 
             let code = diag
                 .get("code")
-                .map(|c| {
+                .and_then(|c| {
                     if c.is_number() {
                         c.as_u64().map(|n| n.to_string())
                     } else {
                         c.as_str().map(|s| s.to_string())
                     }
-                })
-                .flatten();
+                });
 
             diagnostics.push(Diagnostic {
                 id: format!("ts-{}-{}", file_path, idx),
@@ -1269,7 +1269,7 @@ impl LspClient {
 
         let items: Vec<LspCompletionItem> = items
             .iter()
-            .filter_map(|item| Self::parse_completion_item(item))
+            .filter_map(Self::parse_completion_item)
             .collect();
 
         Ok(LspCompletionList {
@@ -1349,7 +1349,7 @@ impl LspClient {
                     if let Some(arr) = edits.as_array() {
                         let text_edits: Vec<LspTextEdit> = arr
                             .iter()
-                            .filter_map(|e| Self::parse_text_edit(e))
+                            .filter_map(Self::parse_text_edit)
                             .collect();
                         map.insert(uri.clone(), text_edits);
                     }
@@ -1417,7 +1417,7 @@ impl LspClient {
 
         let symbols: Vec<LspDocumentSymbol> = arr
             .iter()
-            .filter_map(|item| Self::parse_document_symbol(item))
+            .filter_map(Self::parse_document_symbol)
             .collect();
 
         Ok(symbols)
@@ -1432,7 +1432,7 @@ impl LspClient {
         let children = value.get("children").and_then(|c| {
             c.as_array().map(|arr| {
                 arr.iter()
-                    .filter_map(|child| Self::parse_document_symbol(child))
+                    .filter_map(Self::parse_document_symbol)
                     .collect()
             })
         });
@@ -1456,7 +1456,7 @@ impl LspClient {
 
         let hints: Vec<LspInlayHint> = arr
             .iter()
-            .filter_map(|item| Self::parse_inlay_hint(item))
+            .filter_map(Self::parse_inlay_hint)
             .collect();
 
         Ok(hints)
@@ -1602,7 +1602,7 @@ impl LspClient {
         let arr = value.as_array().ok_or("Expected array of text edits")?;
         let edits: Vec<LspTextEdit> = arr
             .iter()
-            .filter_map(|e| Self::parse_text_edit(e))
+            .filter_map(Self::parse_text_edit)
             .collect();
 
         Ok(edits)
@@ -1650,7 +1650,7 @@ impl LspClient {
         let arr = value.as_array().ok_or("Expected array of selection ranges")?;
         let ranges: Vec<LspSelectionRange> = arr
             .iter()
-            .filter_map(|item| Self::parse_selection_range(item))
+            .filter_map(Self::parse_selection_range)
             .collect();
 
         Ok(ranges)
@@ -1660,7 +1660,7 @@ impl LspClient {
         let range = Self::parse_range(value.get("range")?)?;
         let parent = value
             .get("parent")
-            .and_then(|p| Self::parse_selection_range(p))
+            .and_then(Self::parse_selection_range)
             .map(Box::new);
 
         Some(LspSelectionRange { range, parent })
@@ -1680,7 +1680,7 @@ impl LspClient {
 
         let ranges: Vec<LspRange> = ranges_arr
             .iter()
-            .filter_map(|r| Self::parse_range(r))
+            .filter_map(Self::parse_range)
             .collect();
 
         let word_pattern = value

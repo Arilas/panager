@@ -75,8 +75,9 @@ function isPathOrAncestorGitignored(
 function getParentPaths(filePath: string, projectPath: string): string[] {
   const parents: string[] = [];
   let current = filePath;
+  const MAX_DEPTH = 100; // Safety limit for directory depth
 
-  while (true) {
+  for (let i = 0; i < MAX_DEPTH; i++) {
     const lastSlash = current.lastIndexOf("/");
     if (lastSlash <= 0 || current === projectPath) break;
     current = current.substring(0, lastSlash);

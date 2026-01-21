@@ -109,7 +109,8 @@ struct PanagerAcpClient {
     /// Current mode per session (for mode change detection)
     /// See "Entry Processing Rules" - RULE 11
     current_modes: Arc<std::sync::Mutex<HashMap<String, String>>>,
-    /// Project path for session creation
+    /// Project path for session creation (stored for future use)
+    #[allow(dead_code)]
     project_path: String,
 }
 
@@ -145,7 +146,7 @@ impl PanagerAcpClient {
     /// Resolve a pending permission request with the user's selected option
     fn resolve_permission(&self, request_id: &str, selected_option: String) {
         tracing::info!("ACP: Resolving permission request {} with option: {}", request_id, selected_option);
-        let mut pending = self.pending_permissions.lock().unwrap();
+        let mut pending = self.pending_permissions.lock().unwrap_or_else(|e| e.into_inner());
         tracing::info!("ACP: Pending permissions: {:?}", pending.keys().collect::<Vec<_>>());
         if let Some(sender) = pending.remove(request_id) {
             tracing::info!("ACP: Found pending request, sending response");
@@ -190,7 +191,7 @@ impl PanagerAcpClient {
     ///     CREATE new message entry (role=assistant, content=chunk.content)
     ///     MARK as streaming
     fn handle_message_chunk(&self, session_id: &str, text: &str) {
-        let mut streaming = self.streaming_states.lock().unwrap();
+        let mut streaming = self.streaming_states.lock().unwrap_or_else(|e| e.into_inner());
 
         if let Some(state) = streaming.get_mut(session_id) {
             // Handle cumulative chunks - only append new content
@@ -235,7 +236,7 @@ impl PanagerAcpClient {
     /// Finalize streaming message (call when message ends)
     /// See "Entry Processing Rules" - RULE 2: Message End Detection
     fn finalize_streaming_message(&self, session_id: &str) {
-        let mut streaming = self.streaming_states.lock().unwrap();
+        let mut streaming = self.streaming_states.lock().unwrap_or_else(|e| e.into_inner());
 
         if let Some(state) = streaming.remove(session_id) {
             // Final content update (should already be updated, but ensure consistency)
@@ -252,7 +253,7 @@ impl PanagerAcpClient {
     /// See "Entry Processing Rules" - RULE 9: Thought Chunk Handling
     /// Similar to message chunks but creates thought entries
     fn handle_thought_chunk(&self, session_id: &str, text: &str) {
-        let mut streaming = self.thought_streaming_states.lock().unwrap();
+        let mut streaming = self.thought_streaming_states.lock().unwrap_or_else(|e| e.into_inner());
 
         if let Some(state) = streaming.get_mut(session_id) {
             // Handle cumulative chunks - only append new content
@@ -297,7 +298,7 @@ impl PanagerAcpClient {
     /// Finalize streaming thought (call when thought ends)
     /// See "Entry Processing Rules" - RULE 9
     fn finalize_streaming_thought(&self, session_id: &str) {
-        let mut streaming = self.thought_streaming_states.lock().unwrap();
+        let mut streaming = self.thought_streaming_states.lock().unwrap_or_else(|e| e.into_inner());
 
         if let Some(state) = streaming.remove(session_id) {
             // Final content update (should already be updated, but ensure consistency)
@@ -380,7 +381,7 @@ impl acp::Client for PanagerAcpClient {
         // Create channel to wait for user response
         let (tx, rx) = oneshot::channel();
         {
-            let mut pending_map = pending.lock().unwrap();
+            let mut pending_map = pending.lock().unwrap_or_else(|e| e.into_inner());
             tracing::info!("ACP: Creating permission request with id: {}", request_id);
             pending_map.insert(request_id.clone(), tx);
         }
@@ -434,7 +435,7 @@ impl acp::Client for PanagerAcpClient {
         // RULE 9: Thought End Detection
         // If previous event was streaming and current event is different, finalize
         {
-            let mut last_types = self.last_event_types.lock().unwrap();
+            let mut last_types = self.last_event_types.lock().unwrap_or_else(|e| e.into_inner());
             let prev_type = last_types.get(&session_id).cloned();
             last_types.insert(session_id.clone(), event_type.to_string());
 
@@ -586,7 +587,7 @@ impl acp::Client for PanagerAcpClient {
             SessionUpdate::CurrentModeUpdate(mode_update) => {
                 // Get the previous mode from state or default to "agent"
                 let previous_mode = {
-                    let modes = self.current_modes.lock().unwrap();
+                    let modes = self.current_modes.lock().unwrap_or_else(|e| e.into_inner());
                     modes.get(&session_id).cloned().unwrap_or_else(|| "agent".to_string())
                 };
 
@@ -600,7 +601,7 @@ impl acp::Client for PanagerAcpClient {
                     }
 
                     // Update the stored current mode
-                    let mut modes = self.current_modes.lock().unwrap();
+                    let mut modes = self.current_modes.lock().unwrap_or_else(|e| e.into_inner());
                     modes.insert(session_id.clone(), new_mode);
                 }
             }
@@ -1021,7 +1022,25 @@ impl AcpProcess {
         }
 
         if let Some(handle) = self.worker_handle.take() {
-            let _ = handle.join();
+            // Use a timeout to avoid blocking indefinitely if the worker thread hangs
+            let timeout = std::time::Duration::from_secs(5);
+            let join_result = std::thread::spawn(move || handle.join());
+
+            // Wait for the join with a timeout
+            let start = std::time::Instant::now();
+            loop {
+                if join_result.is_finished() {
+                    if let Err(e) = join_result.join() {
+                        tracing::warn!("ACP worker thread join failed: {:?}", e);
+                    }
+                    break;
+                }
+                if start.elapsed() > timeout {
+                    tracing::warn!("ACP worker thread join timed out after {:?}", timeout);
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
         }
 
         self.status = SessionStatus::Disconnected;
@@ -1278,8 +1297,23 @@ async fn run_acp_worker(
         }
     }
 
-    // Cleanup
-    let _ = child.kill().await;
+    // Cleanup: Kill child process and wait for it to terminate
+    if let Err(e) = child.kill().await {
+        tracing::warn!("Failed to kill ACP child process: {}", e);
+    }
+
+    // Wait for the child to fully exit to prevent zombie processes
+    match tokio::time::timeout(std::time::Duration::from_secs(5), child.wait()).await {
+        Ok(Ok(status)) => {
+            tracing::info!("ACP child process exited with status: {:?}", status);
+        }
+        Ok(Err(e)) => {
+            tracing::warn!("Error waiting for ACP child process: {}", e);
+        }
+        Err(_) => {
+            tracing::warn!("Timeout waiting for ACP child process to exit");
+        }
+    }
 }
 
 async fn initialize_connection(

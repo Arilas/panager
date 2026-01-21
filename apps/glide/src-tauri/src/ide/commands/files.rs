@@ -252,7 +252,7 @@ pub async fn ide_read_file(
         return Err(format!("Path is not a file: {}", file_path));
     }
 
-    let metadata = fs::metadata(&path).map_err(|e| format!("Failed to read file metadata: {}", e))?;
+    let metadata = fs::metadata(path).map_err(|e| format!("Failed to read file metadata: {}", e))?;
     let size = metadata.len();
 
     // Check if file is too large (> 10MB)
@@ -261,7 +261,7 @@ pub async fn ide_read_file(
     }
 
     // Try to read as text
-    match fs::read_to_string(&path) {
+    match fs::read_to_string(path) {
         Ok(content) => {
             let language = detect_language(&file_path);
 
@@ -550,7 +550,7 @@ pub async fn ide_write_file(
     info!("Writing file: {}", file_path);
 
     // Write the file first
-    fs::write(&path, &content).map_err(|e| format!("Failed to write file: {}", e))?;
+    fs::write(path, &content).map_err(|e| format!("Failed to write file: {}", e))?;
 
     // Detect language for formatters and plugin notification
     let language = detect_language(&file_path);
@@ -582,7 +582,7 @@ pub async fn ide_write_file(
                         }
 
                         // Re-read the file after formatters have modified it
-                        match fs::read_to_string(&path) {
+                        match fs::read_to_string(path) {
                             Ok(new_content) => {
                                 final_content = Some(new_content);
                             }
@@ -594,20 +594,20 @@ pub async fn ide_write_file(
 
                     // Apply trim trailing whitespace if enabled (and no formatters ran, or formatters didn't fail)
                     if settings.behavior.trim_trailing_whitespace && formatter_results.iter().all(|r| r.success) {
-                        let content_to_trim = final_content.as_ref().map(|s| s.as_str()).unwrap_or(&content);
+                        let content_to_trim = final_content.as_deref().unwrap_or(&content);
                         let trimmed = trim_trailing_whitespace(content_to_trim);
                         if trimmed != content_to_trim {
-                            fs::write(&path, &trimmed).map_err(|e| format!("Failed to write trimmed file: {}", e))?;
+                            fs::write(path, &trimmed).map_err(|e| format!("Failed to write trimmed file: {}", e))?;
                             final_content = Some(trimmed);
                         }
                     }
 
                     // Apply insert final newline if enabled
                     if settings.behavior.insert_final_newline {
-                        let content_to_check = final_content.as_ref().map(|s| s.as_str()).unwrap_or(&content);
+                        let content_to_check = final_content.as_deref().unwrap_or(&content);
                         if !content_to_check.ends_with('\n') {
                             let with_newline = format!("{}\n", content_to_check);
-                            fs::write(&path, &with_newline).map_err(|e| format!("Failed to write file with final newline: {}", e))?;
+                            fs::write(path, &with_newline).map_err(|e| format!("Failed to write file with final newline: {}", e))?;
                             final_content = Some(with_newline);
                         }
                     }
@@ -661,7 +661,7 @@ pub fn ide_create_file(file_path: String, content: Option<String>) -> Result<(),
 
     info!("Creating file: {}", file_path);
 
-    fs::write(&path, content.unwrap_or_default())
+    fs::write(path, content.unwrap_or_default())
         .map_err(|e| format!("Failed to create file: {}", e))
 }
 
@@ -678,9 +678,9 @@ pub fn ide_delete_file(file_path: String) -> Result<(), String> {
     info!("Deleting: {}", file_path);
 
     if path.is_dir() {
-        fs::remove_dir_all(&path).map_err(|e| format!("Failed to delete directory: {}", e))
+        fs::remove_dir_all(path).map_err(|e| format!("Failed to delete directory: {}", e))
     } else {
-        fs::remove_file(&path).map_err(|e| format!("Failed to delete file: {}", e))
+        fs::remove_file(path).map_err(|e| format!("Failed to delete file: {}", e))
     }
 }
 
@@ -716,7 +716,7 @@ pub fn ide_create_directory(dir_path: String) -> Result<(), String> {
 
     info!("Creating directory: {}", dir_path);
 
-    fs::create_dir_all(&path).map_err(|e| format!("Failed to create directory: {}", e))
+    fs::create_dir_all(path).map_err(|e| format!("Failed to create directory: {}", e))
 }
 
 /// Deletes a directory and all its contents
@@ -735,7 +735,7 @@ pub fn ide_delete_directory(dir_path: String) -> Result<(), String> {
 
     info!("Deleting directory: {}", dir_path);
 
-    fs::remove_dir_all(&path).map_err(|e| format!("Failed to delete directory: {}", e))
+    fs::remove_dir_all(path).map_err(|e| format!("Failed to delete directory: {}", e))
 }
 
 /// Copies a file to a new location

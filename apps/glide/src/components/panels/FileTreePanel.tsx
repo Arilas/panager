@@ -100,6 +100,7 @@ export function FileTreePanel() {
     const map = new Map<string, GitFileStatus>();
     const projectRoot = projectContext?.projectPath ?? "";
 
+    const MAX_DEPTH = 100; // Safety limit for directory depth
     for (const change of gitChanges) {
       // Use the full path for matching
       const fullPath = projectRoot ? `${projectRoot}/${change.path}` : change.path;
@@ -108,7 +109,7 @@ export function FileTreePanel() {
       // Propagate status to all parent directories
       // Parent folders show "modified" if they contain any changed files
       let parentPath = fullPath;
-      while (true) {
+      for (let depth = 0; depth < MAX_DEPTH; depth++) {
         const lastSlash = parentPath.lastIndexOf("/");
         if (lastSlash <= 0 || (projectRoot && parentPath === projectRoot)) break;
 

@@ -470,7 +470,7 @@ impl ChatDb {
 
     /// Create a new chat session
     pub fn create_session(&self, session: &DbSession) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute(
             r#"
             INSERT INTO sessions (id, name, project_path, created_at, updated_at)
@@ -489,7 +489,7 @@ impl ChatDb {
 
     /// Get a session by ID
     pub fn get_session(&self, session_id: &str) -> Result<Option<DbSession>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.query_row(
             r#"
             SELECT id, name, project_path, created_at, updated_at
@@ -512,7 +512,7 @@ impl ChatDb {
 
     /// List all sessions with entry counts (ordered by most recent)
     pub fn list_sessions(&self) -> Result<Vec<DbSessionInfo>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn.prepare(
             r#"
             SELECT
@@ -539,7 +539,7 @@ impl ChatDb {
 
     /// Update session name
     pub fn update_session_name(&self, session_id: &str, name: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let now = chrono::Utc::now().timestamp_millis();
         conn.execute(
             r#"
@@ -554,7 +554,7 @@ impl ChatDb {
 
     /// Update session timestamp (call after adding entries)
     pub fn touch_session(&self, session_id: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let now = chrono::Utc::now().timestamp_millis();
         conn.execute(
             r#"
@@ -569,7 +569,7 @@ impl ChatDb {
 
     /// Delete a session and all its entries
     pub fn delete_session(&self, session_id: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute("DELETE FROM sessions WHERE id = ?1", [session_id])?;
         Ok(())
     }
@@ -580,7 +580,7 @@ impl ChatDb {
 
     /// Add an entry to a session, returns the auto-generated entry ID
     pub fn add_entry(&self, entry: &DbEntry) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         conn.execute(
             r#"
@@ -646,7 +646,7 @@ impl ChatDb {
 
     /// Get all entries for a session (ordered by ID for chronological order)
     pub fn get_session_entries(&self, session_id: &str) -> Result<Vec<DbEntry>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn.prepare(
             r#"
             SELECT
@@ -705,7 +705,7 @@ impl ChatDb {
 
     /// Get the last entry for a session (for message chunk merging)
     pub fn get_last_entry(&self, session_id: &str) -> Result<Option<DbEntry>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.query_row(
             r#"
             SELECT
@@ -759,7 +759,7 @@ impl ChatDb {
 
     /// Update message content (for chunk merging)
     pub fn update_message_content(&self, entry_id: i64, content: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let now = chrono::Utc::now().timestamp_millis();
         conn.execute(
             r#"
@@ -778,7 +778,7 @@ impl ChatDb {
 
     /// Check if a tool call entry exists by tool_call_id (RULE 3 deduplication)
     pub fn tool_call_exists(&self, tool_call_id: &str) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM entries WHERE tool_call_id = ?1 AND type = 'tool_call'",
             params![tool_call_id],
@@ -790,7 +790,7 @@ impl ChatDb {
     /// Get the tool name for a tool call entry by tool_call_id
     /// Used by permission requests to show the actual tool name
     pub fn get_tool_name_by_call_id(&self, tool_call_id: &str) -> Result<Option<String>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let result: std::result::Result<String, _> = conn.query_row(
             "SELECT tool_name FROM entries WHERE tool_call_id = ?1 AND type = 'tool_call'",
             params![tool_call_id],
@@ -799,7 +799,7 @@ impl ChatDb {
         match result {
             Ok(name) => Ok(Some(name)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(e.into()),
+            Err(e) => Err(e),
         }
     }
 
@@ -811,7 +811,7 @@ impl ChatDb {
         title: Option<&str>,
         raw_input: Option<&str>,
     ) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let now = chrono::Utc::now().timestamp_millis();
         conn.execute(
             r#"
@@ -829,7 +829,7 @@ impl ChatDb {
 
     /// Update a tool call entry by tool_call_id (RULE 4)
     pub fn update_tool_call(&self, tool_call_id: &str, status: &str, output: Option<&str>) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let now = chrono::Utc::now().timestamp_millis();
         conn.execute(
             r#"
@@ -850,7 +850,7 @@ impl ChatDb {
         title: Option<&str>,
         output: Option<&str>,
     ) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let now = chrono::Utc::now().timestamp_millis();
         conn.execute(
             r#"
@@ -872,7 +872,7 @@ impl ChatDb {
 
     /// Update a permission request with the user's response
     pub fn update_permission_response(&self, request_id: &str, option: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let now = chrono::Utc::now().timestamp_millis();
         conn.execute(
             r#"

@@ -236,7 +236,7 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
                 match menu_event.id().0.as_str() {
                     "new_window" => {
                         tracing::info!("Menu: New Window");
-                        let _ = create_window(&app_handle, None, None);
+                        let _ = create_window(app_handle, None, None);
                     }
                     "close_window" => {
                         tracing::info!("Menu: Close Window");
@@ -264,7 +264,7 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
                             "Last project window closed, spawning new welcome window"
                         );
                         SHOULD_SPAWN_WELCOME.store(false, Ordering::SeqCst);
-                        let _ = create_window(&app_handle, None, None);
+                        let _ = create_window(app_handle, None, None);
                     } else {
                         tracing::info!("Welcome window closed, allowing app to exit");
                         // App will exit naturally when no windows remain

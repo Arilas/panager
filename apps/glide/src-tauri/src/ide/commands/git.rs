@@ -197,7 +197,7 @@ pub fn ide_unstage_file(project_path: String, file_path: String) -> Result<(), S
     let head_commit = head.peel_to_commit().map_err(|e| e.to_string())?;
     let _head_tree = head_commit.tree().map_err(|e| e.to_string())?;
 
-    repo.reset_default(Some(&head_commit.as_object()), [Path::new(&file_path)])
+    repo.reset_default(Some(head_commit.as_object()), [Path::new(&file_path)])
         .map_err(|e| format!("Failed to unstage file: {}", e))?;
 
     Ok(())
@@ -426,7 +426,7 @@ pub fn ide_git_list_branches(project_path: String) -> Result<Vec<GitLocalBranch>
             .and_then(|u| u.name().ok().flatten().map(String::from));
 
         // Get ahead/behind
-        let (ahead, behind) = if let (Some(local_oid), Some(ref upstream_ref)) =
+        let (ahead, behind) = if let (Some(local_oid), Some(upstream_ref)) =
             (branch.get().target(), upstream.as_ref())
         {
             if let Some(upstream_oid) = upstream_ref.get().target() {
@@ -577,7 +577,7 @@ pub fn ide_git_delete_branch(
             .map_err(|e| format!("Failed to delete branch: {}", e))?;
     } else {
         // Check if branch is merged
-        if let Some(head_ref) = repo.head().ok() {
+        if let Ok(head_ref) = repo.head() {
             if let Some(head_oid) = head_ref.target() {
                 if let Some(branch_oid) = branch.get().target() {
                     let is_merged = repo.merge_base(head_oid, branch_oid).ok() == Some(branch_oid);

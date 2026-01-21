@@ -25,26 +25,24 @@ pub fn ide_search_file_names(
         .git_global(true)
         .build();
 
-    for result in walker {
-        if let Ok(entry) = result {
-            let path = entry.path();
+    for entry in walker.flatten() {
+        let path = entry.path();
 
-            // Skip directories
-            if path.is_dir() {
-                continue;
-            }
+        // Skip directories
+        if path.is_dir() {
+            continue;
+        }
 
-            // Get relative path
-            let relative_path = path
-                .strip_prefix(&project_path)
-                .unwrap_or(path)
-                .to_string_lossy()
-                .to_string();
+        // Get relative path
+        let relative_path = path
+            .strip_prefix(&project_path)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .to_string();
 
-            // Calculate fuzzy match score
-            if let Some(score) = fuzzy_match(&relative_path.to_lowercase(), &query_chars) {
-                results.push((relative_path, score));
-            }
+        // Calculate fuzzy match score
+        if let Some(score) = fuzzy_match(&relative_path.to_lowercase(), &query_chars) {
+            results.push((relative_path, score));
         }
     }
 
@@ -94,43 +92,41 @@ pub fn ide_search_files(
         .git_global(true)
         .build();
 
-    'outer: for result in walker {
-        if let Ok(entry) = result {
-            let path = entry.path();
+    'outer: for entry in walker.flatten() {
+        let path = entry.path();
 
-            // Skip directories and binary files
-            if path.is_dir() {
+        // Skip directories and binary files
+        if path.is_dir() {
+            continue;
+        }
+
+        // Skip large files (> 1MB)
+        if let Ok(metadata) = fs::metadata(path) {
+            if metadata.len() > 1024 * 1024 {
                 continue;
             }
+        }
 
-            // Skip large files (> 1MB)
-            if let Ok(metadata) = fs::metadata(path) {
-                if metadata.len() > 1024 * 1024 {
-                    continue;
-                }
-            }
+        // Try to read file
+        if let Ok(content) = fs::read_to_string(path) {
+            let relative_path = path
+                .strip_prefix(&project_path)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .to_string();
 
-            // Try to read file
-            if let Ok(content) = fs::read_to_string(path) {
-                let relative_path = path
-                    .strip_prefix(&project_path)
-                    .unwrap_or(path)
-                    .to_string_lossy()
-                    .to_string();
+            for (line_idx, line) in content.lines().enumerate() {
+                for mat in pattern.find_iter(line) {
+                    results.push(SearchResult {
+                        file_path: relative_path.clone(),
+                        line_number: (line_idx + 1) as u32,
+                        line_content: line.to_string(),
+                        match_start: mat.start() as u32,
+                        match_end: mat.end() as u32,
+                    });
 
-                for (line_idx, line) in content.lines().enumerate() {
-                    for mat in pattern.find_iter(line) {
-                        results.push(SearchResult {
-                            file_path: relative_path.clone(),
-                            line_number: (line_idx + 1) as u32,
-                            line_content: line.to_string(),
-                            match_start: mat.start() as u32,
-                            match_end: mat.end() as u32,
-                        });
-
-                        if results.len() >= max {
-                            break 'outer;
-                        }
+                    if results.len() >= max {
+                        break 'outer;
                     }
                 }
             }

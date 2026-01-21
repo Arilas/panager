@@ -687,15 +687,13 @@ async function getUniqueNameInDir(
   if (!(await pathExists(copyPath))) return copyName;
 
   // Try "name copy 2.ext", "name copy 3.ext", etc.
-  let i = 2;
-  while (true) {
+  const MAX_COPIES = 1000;
+  for (let i = 2; i <= MAX_COPIES; i++) {
     copyName = `${nameWithoutExt} copy ${i}${ext}`;
     copyPath = `${dirPath}/${copyName}`;
     if (!(await pathExists(copyPath))) return copyName;
-    i++;
-    // Safety limit
-    if (i > 1000) throw new Error("Too many copies");
   }
+  throw new Error("Too many copies");
 }
 
 /** Get file extension including the dot */

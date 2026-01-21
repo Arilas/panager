@@ -592,19 +592,12 @@ pub struct FormatterConfig {
 /// Format on save settings
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]
+#[derive(Default)]
 pub struct FormatOnSaveSettings {
     pub enabled: bool,
     pub formatters: Vec<FormatterConfig>,
 }
 
-impl Default for FormatOnSaveSettings {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            formatters: Vec::new(),
-        }
-    }
-}
 
 /// Behavior settings
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -655,6 +648,7 @@ impl Default for AgentSettings {
 /// Complete IDE settings
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]
+#[derive(Default)]
 pub struct IdeSettings {
     pub general: GeneralSettings,
     pub editor: EditorSettings,
@@ -666,18 +660,6 @@ pub struct IdeSettings {
     pub agent: AgentSettings,
 }
 
-impl Default for IdeSettings {
-    fn default() -> Self {
-        Self {
-            general: GeneralSettings::default(),
-            editor: EditorSettings::default(),
-            language_overrides: HashMap::new(),
-            git: GitSettings::default(),
-            behavior: BehaviorSettings::default(),
-            agent: AgentSettings::default(),
-        }
-    }
-}
 
 // =============================================================================
 // Partial Settings (for per-level editing)
