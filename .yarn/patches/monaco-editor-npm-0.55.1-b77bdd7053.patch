@@ -1,0 +1,26 @@
+diff --git a/esm/vs/editor/standalone/browser/standaloneServices.js b/esm/vs/editor/standalone/browser/standaloneServices.js
+index c8fa632ac1998d08b7ce61ef6910f958d295ce6d..5610b5b1041913bbc0b8f5948d26e90126560192 100644
+--- a/esm/vs/editor/standalone/browser/standaloneServices.js
++++ b/esm/vs/editor/standalone/browser/standaloneServices.js
+@@ -713,6 +713,21 @@ var StandaloneServices;
+     }
+     const instantiationService = new InstantiationService(serviceCollection, true);
+     serviceCollection.set(IInstantiationService, instantiationService);
++    function override(overrides) {
++        for (const serviceId in overrides) {
++            if (overrides.hasOwnProperty(serviceId)) {
++                const serviceIdentifier = createDecorator(serviceId);
++                const r = serviceCollection.get(serviceIdentifier);
++                if (r instanceof SyncDescriptor) {
++                  serviceCollection.set(
++                    serviceIdentifier,
++                    overrides[serviceId],
++                  );
++                }
++            }
++        }
++    }
++    StandaloneServices.override = override;
+     function get(serviceId) {
+         if (!initialized) {
+             initialize({});

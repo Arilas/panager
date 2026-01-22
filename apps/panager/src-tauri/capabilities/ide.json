@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "ide",
+  "description": "Capabilities for IDE windows",
+  "windows": ["ide-*"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:event:default",
+    "core:event:allow-listen",
+    "core:event:allow-emit",
+    "fs:default",
+    "fs:allow-read",
+    "fs:allow-home-read-recursive",
+    "fs:allow-home-meta-recursive"
+  ]
+}

@@ -41,9 +41,10 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
+RUN corepack enable
 
 # Verify installations
-RUN rustc --version && cargo --version && node --version && npm --version
+RUN rustc --version && cargo --version && node --version && yarn --version
 
 WORKDIR /app
 
@@ -57,7 +58,8 @@ RUN cargo install tauri-cli
 
 # Copy package files first for better caching
 COPY package*.json ./
-RUN npm ci
+RUN corepack enable
+RUN yarn install
 
 # Copy Rust dependencies
 COPY src-tauri/Cargo.toml src-tauri/Cargo.lock ./src-tauri/
@@ -71,7 +73,7 @@ RUN mkdir -p src-tauri/src && \
 COPY . .
 
 # Default command for development
-CMD ["npm", "run", "tauri", "dev"]
+CMD ["yarn", "tauri", "dev"]
 
 # -----------------------------------------------------------
 # Build stage - for production builds
@@ -80,13 +82,10 @@ FROM base AS builder
 
 # Copy package files first for better caching
 COPY package*.json ./
-RUN npm ci
-
-# Copy everything
+RUN corepack enable
+RUN yarn install
 COPY . .
-
-# Build the application
-RUN npm run tauri build
+RUN yarn tauri build
 
 # -----------------------------------------------------------
 # Test stage - for running checks and tests
@@ -94,7 +93,7 @@ RUN npm run tauri build
 FROM base AS test
 
 COPY package*.json ./
-RUN npm ci
+RUN yarn install
 
 COPY . .
 
@@ -104,7 +103,7 @@ RUN cd src-tauri && cargo clippy -- -D warnings
 RUN cd src-tauri && cargo test
 
 # Run frontend checks (TypeScript compilation check via build)
-RUN npm run build
+RUN yarn build
 
 CMD ["echo", "All tests passed!"]
 

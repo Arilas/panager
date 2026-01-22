@@ -117,17 +117,17 @@ Automatic detection and alerts for configuration issues:
 
 ```bash
 # Install dependencies
-npm install
+yarn install
 
 # Run in development mode
-npm run tauri dev
+yarn tauri dev
 ```
 
 ## Building
 
 ```bash
 # Build for production
-npm run tauri build
+yarn tauri build
 ```
 
 Build artifacts will be in `src-tauri/target/release/bundle/`.

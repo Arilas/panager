@@ -57,10 +57,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'yarn'
 
-      - name: Install npm dependencies
-        run: npm ci
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install yarn
+        run: yarn install
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --locked || true
 
       - name: Run cargo check
         run: cd src-tauri && cargo check
@@ -81,10 +87,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'yarn'
 
-      - name: Install npm dependencies
-        run: npm ci
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install yarn dependencies
+        run: yarn install
 
       - name: Run TypeScript compilation
-        run: npm run build
+        run: yarn build
