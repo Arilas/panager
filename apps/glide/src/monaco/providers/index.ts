@@ -44,16 +44,27 @@ export const LSP_LANGUAGES = [
   "json",
   "jsonc",
 
-  // CSS
+  // CSS (also used by Tailwind CSS)
   "css",
   "scss",
   "less",
 
-  // HTML
+  // HTML (also used by Emmet, Tailwind CSS)
   "html",
 
   // YAML
   "yaml",
+
+  // Web frameworks (Tailwind CSS, Emmet support)
+  "vue",
+  "svelte",
+  "astro",
+
+  // Markdown (Prettier, ESLint support)
+  "markdown",
+
+  // GraphQL (Prettier support)
+  "graphql",
 ];
 
 let providersRegistered = false;

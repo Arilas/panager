@@ -141,7 +141,17 @@ export function registerCompletionProvider(
   languageId: string
 ): IDisposable {
   return monaco.languages.registerCompletionItemProvider(languageId, {
-    triggerCharacters: [".", '"', "'", "/", "@", "<"],
+    // Trigger characters for various LSP features:
+    // - "." for property access (TypeScript, JavaScript)
+    // - '"', "'" for imports, attributes (all languages)
+    // - "/" for path completions (imports)
+    // - "@" for decorators, directives (TypeScript, Tailwind)
+    // - "<" for JSX tags, HTML elements
+    // - ":" for Tailwind variants (hover:, focus:, etc.)
+    // - "-" for Tailwind utilities (bg-, text-, etc.)
+    // - " " for Tailwind class completions after space
+    // - "`" for template literals
+    triggerCharacters: [".", '"', "'", "/", "@", "<", ":", "-", " ", "`"],
 
     async provideCompletionItems(
       model: editor.ITextModel,
