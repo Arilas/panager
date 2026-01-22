@@ -6,9 +6,75 @@ use std::path::PathBuf;
 use crate::plugins::lsp::{LspClient, LspConfig};
 
 /// TypeScript language server configuration
-pub struct TypeScriptConfig;
+pub struct TypeScriptConfig {
+    /// Merged settings from defaults + user overrides
+    pub settings: serde_json::Value,
+}
+
+impl TypeScriptConfig {
+    /// Create a new TypeScript config with default settings
+    pub fn new() -> Self {
+        Self {
+            settings: Self::default_settings_static(),
+        }
+    }
+
+    /// Create a new TypeScript config with custom settings
+    pub fn with_settings(settings: serde_json::Value) -> Self {
+        Self { settings }
+    }
+
+    /// Default settings (static version for use in new())
+    fn default_settings_static() -> serde_json::Value {
+        serde_json::json!({
+            "typescript": {
+                "inlayHints": {
+                    "includeInlayParameterNameHints": "literals",
+                    "includeInlayParameterNameHintsWhenArgumentMatchesName": false,
+                    "includeInlayFunctionParameterTypeHints": false,
+                    "includeInlayVariableTypeHints": false,
+                    "includeInlayPropertyDeclarationTypeHints": false,
+                    "includeInlayFunctionLikeReturnTypeHints": true,
+                    "includeInlayEnumMemberValueHints": true
+                },
+                "preferences": {
+                    "importModuleSpecifierPreference": "shortest",
+                    "includePackageJsonAutoImports": "auto"
+                },
+                "tsserver": {
+                    "enableProjectDiagnostics": true
+                }
+            },
+            "javascript": {
+                "inlayHints": {
+                    "includeInlayParameterNameHints": "literals",
+                    "includeInlayParameterNameHintsWhenArgumentMatchesName": false,
+                    "includeInlayFunctionParameterTypeHints": false,
+                    "includeInlayVariableTypeHints": false,
+                    "includeInlayPropertyDeclarationTypeHints": false,
+                    "includeInlayFunctionLikeReturnTypeHints": true,
+                    "includeInlayEnumMemberValueHints": true
+                },
+                "preferences": {
+                    "importModuleSpecifierPreference": "shortest",
+                    "includePackageJsonAutoImports": "auto"
+                }
+            }
+        })
+    }
+}
+
+impl Default for TypeScriptConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl LspConfig for TypeScriptConfig {
+    fn server_id(&self) -> &str {
+        "typescript"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -32,6 +98,10 @@ impl LspConfig for TypeScriptConfig {
             },
             "disableAutomaticTypingAcquisition": false
         })
+    }
+
+    fn default_settings(&self) -> serde_json::Value {
+        Self::default_settings_static()
     }
 
     fn capabilities(&self) -> serde_json::Value {
@@ -87,41 +157,8 @@ impl LspConfig for TypeScriptConfig {
     }
 
     fn workspace_configuration(&self) -> serde_json::Value {
-        serde_json::json!({
-            "typescript": {
-                "inlayHints": {
-                    "includeInlayParameterNameHints": "literals",
-                    "includeInlayParameterNameHintsWhenArgumentMatchesName": false,
-                    "includeInlayFunctionParameterTypeHints": false,
-                    "includeInlayVariableTypeHints": false,
-                    "includeInlayPropertyDeclarationTypeHints": false,
-                    "includeInlayFunctionLikeReturnTypeHints": true,
-                    "includeInlayEnumMemberValueHints": true
-                },
-                "preferences": {
-                    "importModuleSpecifierPreference": "shortest",
-                    "includePackageJsonAutoImports": "auto"
-                },
-                "tsserver": {
-                    "enableProjectDiagnostics": true
-                }
-            },
-            "javascript": {
-                "inlayHints": {
-                    "includeInlayParameterNameHints": "literals",
-                    "includeInlayParameterNameHintsWhenArgumentMatchesName": false,
-                    "includeInlayFunctionParameterTypeHints": false,
-                    "includeInlayVariableTypeHints": false,
-                    "includeInlayPropertyDeclarationTypeHints": false,
-                    "includeInlayFunctionLikeReturnTypeHints": true,
-                    "includeInlayEnumMemberValueHints": true
-                },
-                "preferences": {
-                    "importModuleSpecifierPreference": "shortest",
-                    "includePackageJsonAutoImports": "auto"
-                }
-            }
-        })
+        // Return the merged settings (defaults + user overrides)
+        self.settings.clone()
     }
 
     fn language_id(&self, ext: &str) -> &str {

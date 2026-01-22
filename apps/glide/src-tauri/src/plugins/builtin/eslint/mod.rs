@@ -74,6 +74,10 @@ impl EslintConfig {
 }
 
 impl LspConfig for EslintConfig {
+    fn server_id(&self) -> &str {
+        "eslint"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -287,7 +291,7 @@ impl Plugin for EslintPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 // Only start if ESLint config is detected
                 if !EslintConfig::has_eslint_config(&path) {
                     debug!("No ESLint config detected in project, skipping LSP start");

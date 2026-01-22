@@ -59,6 +59,10 @@ impl MdxConfig {
 }
 
 impl LspConfig for MdxConfig {
+    fn server_id(&self) -> &str {
+        "mdx"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -187,7 +191,7 @@ impl Plugin for MdxPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !MdxConfig::has_mdx(&path) {
                     debug!("No MDX context detected, skipping MDX LSP start");
                     return Ok(());

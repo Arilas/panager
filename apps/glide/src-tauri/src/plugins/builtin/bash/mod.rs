@@ -54,6 +54,10 @@ impl BashConfig {
 }
 
 impl LspConfig for BashConfig {
+    fn server_id(&self) -> &str {
+        "bash"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -186,7 +190,7 @@ impl Plugin for BashPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !BashConfig::has_shell_scripts(&path) {
                     debug!("No shell scripts detected, skipping Bash LSP start");
                     return Ok(());

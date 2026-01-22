@@ -211,7 +211,7 @@ impl Plugin for PrettierPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 // Only activate if prettier config is detected
                 if !PrettierConfig::has_prettier_config(&path) {
                     debug!("No Prettier config detected in project");

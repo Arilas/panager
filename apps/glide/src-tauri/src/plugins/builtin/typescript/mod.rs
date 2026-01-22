@@ -14,7 +14,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use crate::plugins::context::PluginContext;
-use crate::plugins::lsp::LspClient;
+use crate::plugins::lsp::{LspClient, LspConfig};
 use crate::plugins::types::{
     HostEvent, LspCodeAction, LspCompletionList, LspDocumentHighlight, LspDocumentSymbol,
     LspFoldingRange, LspFormattingOptions, LspHover, LspInlayHint, LspLinkedEditingRanges,
@@ -61,7 +61,7 @@ impl TypeScriptPlugin {
             lsp: Arc::new(RwLock::new(None)),
             project_root: None,
             ts_version: None,
-            config: TypeScriptConfig,
+            config: TypeScriptConfig::new(),
         }
     }
 
@@ -174,55 +174,82 @@ impl Plugin for TypeScriptPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, lsp_settings } => {
                 let has_tsconfig = path.join("tsconfig.json").exists();
                 let has_jsconfig = path.join("jsconfig.json").exists();
                 let has_package_json = path.join("package.json").exists();
+                let project_detected = has_tsconfig || has_jsconfig || has_package_json;
 
-                if has_tsconfig || has_jsconfig || has_package_json {
-                    // Spawn in background to not block other plugins
-                    let lsp = self.lsp.clone();
-                    let ctx = self.ctx.clone();
-                    let config = TypeScriptConfig;
-                    self.project_root = Some(path.clone());
-                    tokio::spawn(async move {
-                        info!("Starting TypeScript LSP for: {:?}", path);
+                // Check if user explicitly enabled/disabled the server
+                let server_settings = lsp_settings.get("typescript");
+                let should_start = match server_settings.and_then(|s| s.enabled) {
+                    Some(true) => true,                // Explicitly enabled
+                    Some(false) => false,              // Explicitly disabled
+                    None => project_detected,          // Auto-detect based on project
+                };
 
-                        // Detect TypeScript version
-                        let ts_version = Self::detect_typescript_version(&path).await;
-
-                        match LspClient::start(&config, &path, ctx.clone().unwrap()).await {
-                            Ok(client) => {
-                                *lsp.write().await = Some(client);
-                                if let Some(ctx) = ctx {
-                                    let (text, tooltip) = if let Some(ref ts_ver) = ts_version {
-                                        (
-                                            format!("TS {}", ts_ver.version),
-                                            format!(
-                                                "TypeScript {} ({})",
-                                                ts_ver.version,
-                                                if ts_ver.source == "local" { "project" } else { "global" }
-                                            ),
-                                        )
-                                    } else {
-                                        ("TS".to_string(), "TypeScript Language Server running".to_string())
-                                    };
-
-                                    ctx.update_status_bar(StatusBarItem {
-                                        id: "ts-status".to_string(),
-                                        text,
-                                        tooltip: Some(tooltip),
-                                        alignment: StatusBarAlignment::Right,
-                                        priority: 50,
-                                    });
-                                }
-                            }
-                            Err(e) => warn!("Failed to start TypeScript LSP: {}", e),
-                        }
-                    });
-                } else {
-                    debug!("Project doesn't appear to be a TypeScript/JavaScript project");
+                if !should_start {
+                    if server_settings.and_then(|s| s.enabled) == Some(false) {
+                        debug!("TypeScript LSP disabled in settings");
+                    } else {
+                        debug!("Project doesn't appear to be a TypeScript/JavaScript project");
+                    }
+                    return Ok(());
                 }
+
+                // Create config with merged settings
+                let config = if let Some(user_settings) = server_settings {
+                    // Merge default settings with user settings
+                    let defaults = TypeScriptConfig::new().default_settings();
+                    let mut merged = defaults;
+                    crate::ide::settings::deep_merge(&mut merged, &user_settings.settings);
+                    TypeScriptConfig::with_settings(merged)
+                } else {
+                    TypeScriptConfig::new()
+                };
+
+                // Spawn in background to not block other plugins
+                let lsp = self.lsp.clone();
+                let ctx = self.ctx.clone();
+                self.project_root = Some(path.clone());
+                self.config = config;
+                let config = TypeScriptConfig::with_settings(self.config.settings.clone());
+
+                tokio::spawn(async move {
+                    info!("Starting TypeScript LSP for: {:?}", path);
+
+                    // Detect TypeScript version
+                    let ts_version = Self::detect_typescript_version(&path).await;
+
+                    match LspClient::start(&config, &path, ctx.clone().unwrap()).await {
+                        Ok(client) => {
+                            *lsp.write().await = Some(client);
+                            if let Some(ctx) = ctx {
+                                let (text, tooltip) = if let Some(ref ts_ver) = ts_version {
+                                    (
+                                        format!("TS {}", ts_ver.version),
+                                        format!(
+                                            "TypeScript {} ({})",
+                                            ts_ver.version,
+                                            if ts_ver.source == "local" { "project" } else { "global" }
+                                        ),
+                                    )
+                                } else {
+                                    ("TS".to_string(), "TypeScript Language Server running".to_string())
+                                };
+
+                                ctx.update_status_bar(StatusBarItem {
+                                    id: "ts-status".to_string(),
+                                    text,
+                                    tooltip: Some(tooltip),
+                                    alignment: StatusBarAlignment::Right,
+                                    priority: 50,
+                                });
+                            }
+                        }
+                        Err(e) => warn!("Failed to start TypeScript LSP: {}", e),
+                    }
+                });
             }
 
             HostEvent::ProjectClosed => {

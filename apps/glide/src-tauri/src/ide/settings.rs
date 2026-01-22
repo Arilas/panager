@@ -645,6 +645,31 @@ impl Default for AgentSettings {
     }
 }
 
+// =============================================================================
+// Language Server Settings
+// =============================================================================
+
+/// Settings for an individual language server
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct LanguageServerSettings {
+    /// Whether this language server is enabled (None = auto-detect based on project)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    /// Server-specific settings (merged with defaults)
+    #[serde(default)]
+    pub settings: Value,
+}
+
+/// Collection of language server settings
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct LanguageServersSettings {
+    /// Settings by server ID (e.g., "typescript", "eslint", "rust-analyzer")
+    #[serde(flatten)]
+    pub servers: HashMap<String, LanguageServerSettings>,
+}
+
 /// Complete IDE settings
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]
@@ -658,6 +683,9 @@ pub struct IdeSettings {
     pub behavior: BehaviorSettings,
     #[serde(default)]
     pub agent: AgentSettings,
+    /// Language server settings (per-server configuration)
+    #[serde(default)]
+    pub language_servers: HashMap<String, LanguageServerSettings>,
 }
 
 
@@ -681,6 +709,8 @@ pub struct PartialIdeSettings {
     pub behavior: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language_servers: Option<HashMap<String, Value>>,
 }
 
 // =============================================================================
@@ -768,7 +798,7 @@ fn read_settings_file(path: &Path) -> Result<Value, String> {
 }
 
 /// Deep merge two JSON values (source into target)
-fn deep_merge(target: &mut Value, source: &Value) {
+pub fn deep_merge(target: &mut Value, source: &Value) {
     match (target, source) {
         (Value::Object(target_map), Value::Object(source_map)) => {
             for (key, source_value) in source_map {
@@ -1331,6 +1361,74 @@ mod dirs {
 
     pub fn home_dir() -> Option<PathBuf> {
         directories::UserDirs::new().map(|dirs| dirs.home_dir().to_path_buf())
+    }
+}
+
+// =============================================================================
+// LSP Settings Helpers
+// =============================================================================
+
+/// Result of checking LSP enabled status
+#[derive(Debug, Clone)]
+pub enum LspEnabledStatus {
+    /// Explicitly enabled by user
+    Enabled,
+    /// Explicitly disabled by user
+    Disabled,
+    /// Auto-detect based on project (user didn't set enabled field)
+    Auto,
+}
+
+/// Get the enabled status for a language server
+pub fn get_lsp_enabled_status(settings: &IdeSettings, server_id: &str) -> LspEnabledStatus {
+    if let Some(server_settings) = settings.language_servers.get(server_id) {
+        match server_settings.enabled {
+            Some(true) => LspEnabledStatus::Enabled,
+            Some(false) => LspEnabledStatus::Disabled,
+            None => LspEnabledStatus::Auto,
+        }
+    } else {
+        LspEnabledStatus::Auto
+    }
+}
+
+/// Get merged settings for a language server
+///
+/// Merges default settings with user-provided overrides from IdeSettings.
+/// Returns the merged settings as a JSON Value.
+pub fn get_merged_lsp_settings(
+    settings: &IdeSettings,
+    server_id: &str,
+    defaults: Value,
+) -> Value {
+    let mut merged = defaults;
+
+    // Get user settings for this server
+    if let Some(server_settings) = settings.language_servers.get(server_id) {
+        // Deep merge user settings on top of defaults
+        deep_merge(&mut merged, &server_settings.settings);
+    }
+
+    merged
+}
+
+/// Check if a language server should be activated
+///
+/// Returns true if:
+/// - User explicitly enabled it, OR
+/// - User didn't set enabled (auto) AND project_detected is true
+///
+/// Returns false if:
+/// - User explicitly disabled it
+pub fn should_activate_lsp(
+    settings: &IdeSettings,
+    server_id: &str,
+    project_detected: bool,
+) -> bool {
+    match get_lsp_enabled_status(settings, server_id) {
+        LspEnabledStatus::Enabled => true,
+        LspEnabledStatus::Disabled => false,
+        LspEnabledStatus::Auto => project_detected,
     }
 }
 

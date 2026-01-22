@@ -82,6 +82,10 @@ impl TailwindCssConfig {
 }
 
 impl LspConfig for TailwindCssConfig {
+    fn server_id(&self) -> &str {
+        "tailwindcss"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -316,7 +320,7 @@ impl Plugin for TailwindCssPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 // Only start if tailwind is detected in the project
                 if !TailwindCssConfig::has_tailwind(&path) {
                     debug!("No Tailwind CSS detected in project, skipping LSP start");

@@ -53,6 +53,10 @@ impl OxlintConfig {
 }
 
 impl LspConfig for OxlintConfig {
+    fn server_id(&self) -> &str {
+        "oxlint"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -208,7 +212,7 @@ impl Plugin for OxlintPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 // Only start if oxlint config is detected
                 if !OxlintConfig::has_oxlint_config(&path) {
                     debug!("No Oxlint config detected in project, skipping LSP start");

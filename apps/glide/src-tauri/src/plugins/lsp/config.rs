@@ -9,6 +9,10 @@ use std::path::PathBuf;
 /// Each language server plugin implements this trait to define
 /// server-specific behavior like command, initialization options, etc.
 pub trait LspConfig: Send + Sync + 'static {
+    /// Unique server identifier used for settings lookup (e.g., "typescript", "eslint")
+    /// This should match the key used in `languageServers` settings section.
+    fn server_id(&self) -> &str;
+
     /// The command to execute (e.g., "npx", "node")
     fn command(&self) -> &str;
 
@@ -17,6 +21,27 @@ pub trait LspConfig: Send + Sync + 'static {
 
     /// LSP initialization options (server-specific)
     fn initialization_options(&self, root: &PathBuf) -> serde_json::Value;
+
+    /// Default settings for this language server.
+    ///
+    /// These settings are used as defaults and can be overridden by user settings
+    /// in the `languageServers.<server_id>.settings` section.
+    ///
+    /// Example for TypeScript:
+    /// ```json
+    /// {
+    ///   "format": {
+    ///     "semicolons": "insert",
+    ///     "indentSize": 2
+    ///   },
+    ///   "inlayHints": {
+    ///     "includeInlayParameterNameHints": "literals"
+    ///   }
+    /// }
+    /// ```
+    fn default_settings(&self) -> serde_json::Value {
+        serde_json::json!({})
+    }
 
     /// LSP client capabilities to advertise
     fn capabilities(&self) -> serde_json::Value {
@@ -72,8 +97,17 @@ pub trait LspConfig: Send + Sync + 'static {
     }
 
     /// Workspace configuration for workspace/configuration requests
+    /// Override this to provide dynamic configuration based on merged settings.
     fn workspace_configuration(&self) -> serde_json::Value {
         serde_json::json!({})
+    }
+
+    /// Workspace configuration with user settings merged in.
+    /// This is called by the LSP client when the server requests configuration.
+    fn workspace_configuration_with_settings(&self, settings: &serde_json::Value) -> serde_json::Value {
+        // Default implementation: return settings directly
+        // Plugins can override this for custom merging logic
+        settings.clone()
     }
 
     /// Map file extension to LSP language ID for didOpen

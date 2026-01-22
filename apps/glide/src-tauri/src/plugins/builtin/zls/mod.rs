@@ -48,6 +48,10 @@ impl ZlsConfig {
 }
 
 impl LspConfig for ZlsConfig {
+    fn server_id(&self) -> &str {
+        "zls"
+    }
+
     fn command(&self) -> &str {
         "zls"
     }
@@ -223,7 +227,7 @@ impl Plugin for ZlsPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !ZlsConfig::has_zig(&path) {
                     debug!("No Zig project detected, skipping zls LSP start");
                     return Ok(());

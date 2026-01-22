@@ -65,6 +65,10 @@ impl GraphqlConfig {
 }
 
 impl LspConfig for GraphqlConfig {
+    fn server_id(&self) -> &str {
+        "graphql"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -196,7 +200,7 @@ impl Plugin for GraphqlPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !GraphqlConfig::has_graphql(&path) {
                     debug!("No GraphQL detected, skipping LSP start");
                     return Ok(());

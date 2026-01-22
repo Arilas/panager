@@ -44,6 +44,10 @@ impl AngularConfig {
 }
 
 impl LspConfig for AngularConfig {
+    fn server_id(&self) -> &str {
+        "angular"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -238,7 +242,7 @@ impl Plugin for AngularPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !AngularConfig::has_angular(&path) {
                     debug!("No Angular detected, skipping Angular LSP start");
                     return Ok(());

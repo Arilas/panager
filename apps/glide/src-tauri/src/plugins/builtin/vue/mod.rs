@@ -47,6 +47,10 @@ impl VueConfig {
 }
 
 impl LspConfig for VueConfig {
+    fn server_id(&self) -> &str {
+        "vue"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -264,7 +268,7 @@ impl Plugin for VuePlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !VueConfig::has_vue(&path) {
                     debug!("No Vue detected, skipping Vue LSP start");
                     return Ok(());

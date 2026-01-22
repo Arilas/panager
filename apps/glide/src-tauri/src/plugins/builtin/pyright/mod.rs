@@ -51,6 +51,10 @@ impl PyrightConfig {
 }
 
 impl LspConfig for PyrightConfig {
+    fn server_id(&self) -> &str {
+        "pyright"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -233,7 +237,7 @@ impl Plugin for PyrightPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !PyrightConfig::has_python(&path) {
                     debug!("No Python project detected, skipping Pyright LSP start");
                     return Ok(());

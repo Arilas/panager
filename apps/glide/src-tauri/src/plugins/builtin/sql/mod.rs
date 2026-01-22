@@ -67,6 +67,10 @@ impl SqlConfig {
 }
 
 impl LspConfig for SqlConfig {
+    fn server_id(&self) -> &str {
+        "sql"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -215,7 +219,7 @@ impl Plugin for SqlPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !SqlConfig::has_sql_context(&path) {
                     debug!("No SQL context detected, skipping SQL LSP start");
                     return Ok(());

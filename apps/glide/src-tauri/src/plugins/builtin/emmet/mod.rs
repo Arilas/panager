@@ -22,6 +22,10 @@ use crate::plugins::types::{
 pub struct EmmetConfig;
 
 impl LspConfig for EmmetConfig {
+    fn server_id(&self) -> &str {
+        "emmet"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -211,7 +215,7 @@ impl Plugin for EmmetPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 // Emmet is always enabled for web projects
                 self.project_root = Some(path.clone());
                 let lsp = self.lsp.clone();

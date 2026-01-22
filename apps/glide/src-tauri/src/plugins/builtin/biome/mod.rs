@@ -52,6 +52,10 @@ impl BiomeConfig {
 }
 
 impl LspConfig for BiomeConfig {
+    fn server_id(&self) -> &str {
+        "biome"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -222,7 +226,7 @@ impl Plugin for BiomePlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 // Only start if biome config is detected
                 if !BiomeConfig::has_biome_config(&path) {
                     debug!("No Biome config detected in project, skipping LSP start");

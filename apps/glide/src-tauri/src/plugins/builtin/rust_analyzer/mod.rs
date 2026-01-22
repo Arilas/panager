@@ -38,6 +38,10 @@ impl RustAnalyzerConfig {
 }
 
 impl LspConfig for RustAnalyzerConfig {
+    fn server_id(&self) -> &str {
+        "rust-analyzer"
+    }
+
     fn command(&self) -> &str {
         "rust-analyzer"
     }
@@ -269,7 +273,7 @@ impl Plugin for RustAnalyzerPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !RustAnalyzerConfig::is_rust_project(&path) {
                     debug!("No Cargo.toml detected, skipping Rust Analyzer LSP start");
                     return Ok(());

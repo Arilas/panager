@@ -48,6 +48,10 @@ impl GoplsConfig {
 }
 
 impl LspConfig for GoplsConfig {
+    fn server_id(&self) -> &str {
+        "gopls"
+    }
+
     fn command(&self) -> &str {
         "gopls"
     }
@@ -229,7 +233,7 @@ impl Plugin for GoplsPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !GoplsConfig::has_go(&path) {
                     debug!("No Go project detected, skipping gopls LSP start");
                     return Ok(());

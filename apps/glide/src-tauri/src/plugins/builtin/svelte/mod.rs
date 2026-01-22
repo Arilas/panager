@@ -47,6 +47,10 @@ impl SvelteConfig {
 }
 
 impl LspConfig for SvelteConfig {
+    fn server_id(&self) -> &str {
+        "svelte"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -268,7 +272,7 @@ impl Plugin for SveltePlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !SvelteConfig::has_svelte(&path) {
                     debug!("No Svelte detected, skipping Svelte LSP start");
                     return Ok(());

@@ -48,6 +48,10 @@ impl DenoConfig {
 }
 
 impl LspConfig for DenoConfig {
+    fn server_id(&self) -> &str {
+        "deno"
+    }
+
     fn command(&self) -> &str {
         "deno"
     }
@@ -229,7 +233,7 @@ impl Plugin for DenoPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !DenoConfig::has_deno(&path) {
                     debug!("No Deno config detected, skipping Deno LSP start");
                     return Ok(());

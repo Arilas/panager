@@ -63,6 +63,10 @@ impl DockerfileConfig {
 }
 
 impl LspConfig for DockerfileConfig {
+    fn server_id(&self) -> &str {
+        "dockerfile"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -210,7 +214,7 @@ impl Plugin for DockerfilePlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !DockerfileConfig::has_docker_files(&path) {
                     debug!("No Docker files detected, skipping Dockerfile LSP start");
                     return Ok(());

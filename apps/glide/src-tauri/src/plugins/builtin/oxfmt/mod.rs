@@ -46,6 +46,10 @@ impl OxfmtConfig {
 }
 
 impl LspConfig for OxfmtConfig {
+    fn server_id(&self) -> &str {
+        "oxfmt"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -180,7 +184,7 @@ impl Plugin for OxfmtPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !OxfmtConfig::has_oxfmt_config(&path) {
                     debug!("No JS/TS project detected, skipping oxfmt LSP start");
                     return Ok(());

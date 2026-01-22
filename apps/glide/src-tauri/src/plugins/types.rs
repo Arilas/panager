@@ -208,6 +208,9 @@ pub enum HostEvent {
     /// Project was opened
     ProjectOpened {
         path: PathBuf,
+        /// Language server settings (from merged IDE settings)
+        /// Key is the server ID (e.g., "typescript", "eslint")
+        lsp_settings: HashMap<String, crate::ide::settings::LanguageServerSettings>,
     },
     /// Project was closed
     ProjectClosed,

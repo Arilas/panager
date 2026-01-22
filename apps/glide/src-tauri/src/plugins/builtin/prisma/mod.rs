@@ -51,6 +51,10 @@ impl PrismaConfig {
 }
 
 impl LspConfig for PrismaConfig {
+    fn server_id(&self) -> &str {
+        "prisma"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -214,7 +218,7 @@ impl Plugin for PrismaPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 if !PrismaConfig::has_prisma(&path) {
                     debug!("No Prisma schema detected, skipping Prisma LSP start");
                     return Ok(());
