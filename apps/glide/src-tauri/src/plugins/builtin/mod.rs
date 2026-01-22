@@ -15,7 +15,7 @@ pub mod prettier;
 pub mod rust_analyzer;
 pub mod sql;
 pub mod tailwindcss;
-pub mod taplo;
+pub mod tombi;
 pub mod typescript;
 pub mod yaml;
 
@@ -74,7 +74,7 @@ pub async fn register_builtin_plugins(host: &PluginHost) {
         .await;
 
     // Tombi plugin for TOML (via npx)
-    host.register(Box::new(taplo::TaploPlugin::new())).await;
+    host.register(Box::new(tombi::TombiPlugin::new())).await;
 
     // SQL plugin (auto-detected based on database context)
     host.register(Box::new(sql::SqlPlugin::new())).await;
@@ -111,7 +111,7 @@ pub async fn activate_default_plugins(host: &PluginHost) {
         "panager.oxfmt",          // Activates for JS/TS projects (Prettier alternative)
         "panager.dockerfile",     // Activates if Dockerfile exists
         "panager.rust-analyzer",  // Activates if Cargo.toml exists and rust-analyzer is in PATH
-        "panager.taplo",          // Activates if TOML files exist (uses Tombi via npx)
+        "panager.tombi",          // Activates if TOML files exist (via npx)
         "panager.sql",            // Activates if SQL/database context detected
     ];
 

@@ -154,8 +154,8 @@ impl LspConfig for TombiConfig {
 /// Type alias for Tombi LSP client
 pub type TombiLspClient = LspClient<TombiConfig>;
 
-/// Tombi plugin state (exported as TaploPlugin for backwards compatibility)
-pub struct TaploPlugin {
+/// Tombi plugin state
+pub struct TombiPlugin {
     manifest: PluginManifest,
     ctx: Option<PluginContext>,
     lsp: Arc<RwLock<Option<TombiLspClient>>>,
@@ -163,11 +163,11 @@ pub struct TaploPlugin {
     config: TombiConfig,
 }
 
-impl TaploPlugin {
+impl TombiPlugin {
     pub fn new() -> Self {
         Self {
             manifest: PluginManifest {
-                id: "panager.taplo".to_string(),
+                id: "panager.tombi".to_string(),
                 name: "Tombi".to_string(),
                 version: "1.0.0".to_string(),
                 description: "TOML language support via Tombi".to_string(),
@@ -196,14 +196,14 @@ impl TaploPlugin {
     }
 }
 
-impl Default for TaploPlugin {
+impl Default for TombiPlugin {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl Plugin for TaploPlugin {
+impl Plugin for TombiPlugin {
     fn manifest(&self) -> &PluginManifest {
         &self.manifest
     }
@@ -300,7 +300,7 @@ impl Plugin for TaploPlugin {
 }
 
 #[async_trait]
-impl LspProvider for TaploPlugin {
+impl LspProvider for TombiPlugin {
     async fn goto_definition(&self, path: &PathBuf, line: u32, character: u32) -> Result<Vec<LspLocation>, String> {
         let lsp = self.lsp.read().await;
         let lsp = lsp.as_ref().ok_or("LSP not running")?;

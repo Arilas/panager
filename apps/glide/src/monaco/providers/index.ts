@@ -69,7 +69,7 @@ export const LSP_LANGUAGES = [
   // Rust (rust-analyzer support)
   "rust",
 
-  // TOML (taplo support)
+  // TOML (tombi support)
   "toml",
 
   // SQL (sql-language-server support)
