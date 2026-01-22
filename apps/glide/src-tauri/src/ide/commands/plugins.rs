@@ -78,3 +78,13 @@ pub async fn ide_get_plugin(
             error,
         }))
 }
+
+/// Restart a plugin (deactivate then activate)
+#[tauri::command]
+#[specta::specta]
+pub async fn ide_restart_plugin(
+    host: State<'_, Arc<PluginHost>>,
+    plugin_id: String,
+) -> Result<(), String> {
+    host.restart(&plugin_id).await
+}

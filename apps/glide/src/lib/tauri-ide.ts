@@ -469,6 +469,10 @@ export async function getPlugin(pluginId: string): Promise<PluginInfo | null> {
   return invoke("ide_get_plugin", { pluginId });
 }
 
+export async function restartPlugin(pluginId: string): Promise<void> {
+  return invoke("ide_restart_plugin", { pluginId });
+}
+
 // LSP operations
 
 import type {

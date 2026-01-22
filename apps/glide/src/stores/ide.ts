@@ -42,6 +42,7 @@ interface IdeState {
   showGoToSymbol: boolean;
   showSettingsDialog: boolean;
   showBranchSwitch: boolean;
+  showLspDialog: boolean;
 
   // Actions
   setProjectContext: (context: IdeProjectContext) => void;
@@ -55,6 +56,7 @@ interface IdeState {
   setShowGoToSymbol: (show: boolean) => void;
   setShowSettingsDialog: (show: boolean) => void;
   setShowBranchSwitch: (show: boolean) => void;
+  setShowLspDialog: (show: boolean) => void;
 
   // Bottom panel actions
   setBottomPanelOpen: (open: boolean) => void;
@@ -93,6 +95,7 @@ export const useIdeStore = create<IdeState>((set, get) => ({
   showGoToSymbol: false,
   showSettingsDialog: false,
   showBranchSwitch: false,
+  showLspDialog: false,
 
   // Actions
   setProjectContext: (context) => set({ projectContext: context }),
@@ -124,6 +127,8 @@ export const useIdeStore = create<IdeState>((set, get) => ({
   setShowSettingsDialog: (show) => set({ showSettingsDialog: show }),
 
   setShowBranchSwitch: (show) => set({ showBranchSwitch: show }),
+
+  setShowLspDialog: (show) => set({ showLspDialog: show }),
 
   // Bottom panel actions
   setBottomPanelOpen: (open) => set({ bottomPanelOpen: open }),

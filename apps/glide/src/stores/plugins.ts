@@ -18,6 +18,7 @@ interface PluginsState {
   fetchPlugins: () => Promise<void>;
   enablePlugin: (pluginId: string) => Promise<void>;
   disablePlugin: (pluginId: string) => Promise<void>;
+  restartPlugin: (pluginId: string) => Promise<void>;
 
   // Event handlers (called from usePluginEvents)
   updateStatusBarItem: (item: StatusBarItem) => void;
@@ -72,6 +73,16 @@ export const usePluginsStore = create<PluginsState>((set, get) => ({
       await get().fetchPlugins();
     } catch (e) {
       console.error("Failed to disable plugin:", e);
+    }
+  },
+
+  restartPlugin: async (pluginId) => {
+    try {
+      await api.restartPlugin(pluginId);
+      // Refresh plugin list to get updated state
+      await get().fetchPlugins();
+    } catch (e) {
+      console.error("Failed to restart plugin:", e);
     }
   },
 

@@ -6,6 +6,7 @@
  */
 
 import { useMemo } from "react";
+import { Server } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useTabsStore } from "../../stores/tabs";
 import { usePluginsStore } from "../../stores/plugins";
@@ -18,9 +19,11 @@ import type { FileTabData } from "../../lib/tabs/types";
 export function StatusBar() {
   const cursorPosition = useIdeStore((s) => s.cursorPosition);
   const setShowGoToLine = useIdeStore((s) => s.setShowGoToLine);
+  const setShowLspDialog = useIdeStore((s) => s.setShowLspDialog);
   const activeGroupId = useTabsStore((s) => s.activeGroupId);
   const groups = useTabsStore((s) => s.groups);
   const statusBarItems = usePluginsStore((s) => s.statusBarItems);
+  const plugins = usePluginsStore((s) => s.plugins);
   const effectiveTheme = useEffectiveTheme();
   const liquidGlass = useLiquidGlass();
 
@@ -35,6 +38,16 @@ export function StatusBar() {
   );
 
   const isDark = effectiveTheme === "dark";
+
+  // Count active LSP plugins
+  const lspStats = useMemo(() => {
+    const lspPlugins = plugins.filter(
+      (p) => p.manifest.languages && p.manifest.languages.length > 0
+    );
+    const active = lspPlugins.filter((p) => p.state === "active").length;
+    const hasError = lspPlugins.some((p) => p.state === "error");
+    return { active, total: lspPlugins.length, hasError };
+  }, [plugins]);
 
   // Get active tab language from the tabs store
   const activeFileLanguage = useMemo(() => {
@@ -102,6 +115,21 @@ export function StatusBar() {
 
         {/* Encoding */}
         <span>UTF-8</span>
+
+        {/* LSP Center - clickable to open LSP dialog */}
+        <button
+          onClick={() => setShowLspDialog(true)}
+          className={cn(
+            "flex items-center gap-1.5 hover:text-foreground transition-colors",
+            lspStats.hasError && "text-red-500"
+          )}
+          title="Language Servers"
+        >
+          <Server className="h-3 w-3" />
+          <span>
+            {lspStats.active}/{lspStats.total}
+          </span>
+        </button>
 
         {/* Right-aligned plugin status bar items (e.g., TypeScript version) */}
         {rightStatusItems.map((item) => (

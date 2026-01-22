@@ -202,6 +202,33 @@ impl PluginHost {
         Ok(())
     }
 
+    /// Restart a plugin by ID (deactivate then activate)
+    pub async fn restart(&self, plugin_id: &str) -> Result<(), String> {
+        info!("Restarting plugin: {}", plugin_id);
+
+        // First deactivate if active
+        {
+            let plugins = self.plugins.read().await;
+            if let Some(instance) = plugins.get(plugin_id) {
+                if instance.state == PluginState::Active {
+                    drop(plugins);
+                    self.deactivate(plugin_id).await?;
+                }
+            } else {
+                return Err(format!("Plugin not found: {}", plugin_id));
+            }
+        }
+
+        // Small delay to ensure clean shutdown
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        // Then activate
+        self.activate(plugin_id).await?;
+
+        info!("Plugin {} restarted successfully", plugin_id);
+        Ok(())
+    }
+
     /// Broadcast a host event to all active plugins
     ///
     /// If `language` is provided, only plugins supporting that language receive the event.
