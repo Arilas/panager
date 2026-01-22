@@ -55,10 +55,12 @@ export const LSP_LANGUAGES = [
   // YAML
   "yaml",
 
-  // Web frameworks (Tailwind CSS, Emmet support)
+  // Web frameworks (Vue, Svelte, Astro LSP support)
   "vue",
   "svelte",
   "astro",
+
+  // Angular uses TypeScript and HTML (already registered above)
 
   // Markdown (Prettier, ESLint support)
   "markdown",

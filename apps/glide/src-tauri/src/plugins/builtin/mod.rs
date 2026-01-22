@@ -2,6 +2,8 @@
 //!
 //! This module contains plugins that are bundled with the IDE.
 
+pub mod angular;
+pub mod astro;
 pub mod biome;
 pub mod css;
 pub mod dockerfile;
@@ -15,9 +17,11 @@ pub mod prettier;
 pub mod prisma;
 pub mod rust_analyzer;
 pub mod sql;
+pub mod svelte;
 pub mod tailwindcss;
 pub mod tombi;
 pub mod typescript;
+pub mod vue;
 pub mod yaml;
 
 use super::host::PluginHost;
@@ -82,6 +86,18 @@ pub async fn register_builtin_plugins(host: &PluginHost) {
 
     // Prisma plugin (auto-detected based on schema.prisma)
     host.register(Box::new(prisma::PrismaPlugin::new())).await;
+
+    // Vue plugin (auto-detected based on vue dependency)
+    host.register(Box::new(vue::VuePlugin::new())).await;
+
+    // Astro plugin (auto-detected based on astro config)
+    host.register(Box::new(astro::AstroPlugin::new())).await;
+
+    // Svelte plugin (auto-detected based on svelte config)
+    host.register(Box::new(svelte::SveltePlugin::new())).await;
+
+    // Angular plugin (auto-detected based on angular.json)
+    host.register(Box::new(angular::AngularPlugin::new())).await;
 }
 
 /// Activate all built-in plugins that should start automatically
@@ -118,6 +134,10 @@ pub async fn activate_default_plugins(host: &PluginHost) {
         "panager.tombi",          // Activates if TOML files exist (via npx)
         "panager.sql",            // Activates if SQL/database context detected
         "panager.prisma",         // Activates if schema.prisma exists
+        "panager.vue",            // Activates if vue dependency detected
+        "panager.astro",          // Activates if astro config exists
+        "panager.svelte",         // Activates if svelte config exists
+        "panager.angular",        // Activates if angular.json exists
     ];
 
     for plugin_id in conditional_plugins {
