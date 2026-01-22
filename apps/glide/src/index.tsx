@@ -1,6 +1,7 @@
 /**
  * Glide Entry Point
  */
+import "./workers";
 
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -15,5 +16,5 @@ initializeMonaco().catch(console.error);
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <GlideApp />
-  </React.StrictMode>
+  </React.StrictMode>,
 );

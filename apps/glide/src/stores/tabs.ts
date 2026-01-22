@@ -558,6 +558,7 @@ export const useTabsStore = create<TabsState>()(
 
       const targetGroupId = groupId ?? activeGroupId;
 
+      // Update UI immediately
       set((state) => {
         const newGroups = state.groups.map((g) =>
           g.id === targetGroupId ? { ...g, activeUrl: url } : g
@@ -565,8 +566,10 @@ export const useTabsStore = create<TabsState>()(
         return { groups: newGroups };
       });
 
-      // Persist and resolve
-      tabsApi.setActiveTab(projectPath, targetGroupId, url).catch(console.error);
+      // Debounce database persistence for rapid tab switching
+      debouncedPersist(`active-tab-${targetGroupId}`, () =>
+        tabsApi.setActiveTab(projectPath, targetGroupId, url)
+      );
 
       // Resolve if not already resolved
       const group = groups.find((g) => g.id === targetGroupId);

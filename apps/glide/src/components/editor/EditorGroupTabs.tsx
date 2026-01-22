@@ -7,6 +7,7 @@
 
 import { useMemo, useRef, useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { useTabsStore } from "../../stores/tabs";
 import { useAgentStore } from "../../stores/agent";
 import { useAcpEvents } from "../../hooks/useAcpEvents";
@@ -35,8 +36,17 @@ interface ContextMenuState {
 }
 
 export function EditorGroupTabs({ groupId, isGroupActive }: EditorGroupTabsProps) {
-  // Tab store actions
-  const groups = useTabsStore((s) => s.groups);
+  // Use granular selectors with shallow comparison to avoid re-renders
+  const tabs = useTabsStore(
+    useShallow((s) => {
+      const group = s.groups.find((g) => g.id === groupId);
+      return group?.tabs ?? [];
+    })
+  );
+  const activeUrl = useTabsStore((s) => {
+    const group = s.groups.find((g) => g.id === groupId);
+    return group?.activeUrl ?? null;
+  });
   const registry = useTabsStore((s) => s.registry);
   const setActiveTab = useTabsStore((s) => s.setActiveTab);
   const setActiveGroup = useTabsStore((s) => s.setActiveGroup);
@@ -64,11 +74,6 @@ export function EditorGroupTabs({ groupId, isGroupActive }: EditorGroupTabsProps
   // ACP/Agent hooks
   const { newSession, connect } = useAcpEvents();
   const status = useAgentStore((s) => s.status);
-
-  // Find this group
-  const group = useMemo(() => groups.find((g) => g.id === groupId), [groups, groupId]);
-  const tabs = group?.tabs ?? [];
-  const activeUrl = group?.activeUrl ?? null;
 
   // Refs for auto-scroll
   const scrollContainerRef = useRef<HTMLDivElement>(null);

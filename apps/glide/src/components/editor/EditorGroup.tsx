@@ -9,8 +9,9 @@
  * Multiple groups can exist side-by-side for split view.
  */
 
-import { useMemo, useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { FileCode2, Loader2 } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { useTabsStore } from "../../stores/tabs";
 import { useEffectiveTheme, useLiquidGlass } from "../../hooks/useEffectiveTheme";
 import { Breadcrumb } from "./Breadcrumb";
@@ -24,26 +25,24 @@ interface EditorGroupProps {
 }
 
 export function EditorGroup({ groupId, isActive }: EditorGroupProps) {
-  const groups = useTabsStore((s) => s.groups);
+  // Use granular selectors with shallow comparison to avoid re-renders
+  const activeTab = useTabsStore(
+    useShallow((s) => {
+      const group = s.groups.find((g) => g.id === groupId);
+      if (!group?.activeUrl) return null;
+      return group.tabs.find((t) => t.url === group.activeUrl) ?? null;
+    })
+  );
+  const hasTabs = useTabsStore((s) => {
+    const group = s.groups.find((g) => g.id === groupId);
+    return (group?.tabs.length ?? 0) > 0;
+  });
   const registry = useTabsStore((s) => s.registry);
   const setActiveGroup = useTabsStore((s) => s.setActiveGroup);
   const effectiveTheme = useEffectiveTheme();
   const liquidGlass = useLiquidGlass();
 
   const isDark = effectiveTheme === "dark";
-
-  // Find this group
-  const group = useMemo(() => {
-    return groups.find((g) => g.id === groupId);
-  }, [groups, groupId]);
-
-  // Get active tab
-  const activeTab = useMemo(() => {
-    if (!group || !group.activeUrl) return null;
-    return group.tabs.find((t) => t.url === group.activeUrl) ?? null;
-  }, [group]);
-
-  const hasTabs = group && group.tabs.length > 0;
 
   // Handle click to activate group
   const handleGroupClick = () => {
