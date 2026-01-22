@@ -216,6 +216,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@bithero/monaco-editor-vite-plugin@npm:^1.0.3":
+  version: 1.0.3
+  resolution: "@bithero/monaco-editor-vite-plugin@npm:1.0.3"
+  peerDependencies:
+    monaco-editor: ">= 0.44.0"
+  checksum: 10c0/3f43fc6b614eacd23ab6ba9a208ad94d3ab082f0e3ef2e17c3a344be4ca3056556534efc310cf3338cfe6cef7e3aa618f53a34f1475bd995ffd3bf9ca183cec0
+  languageName: node
+  linkType: hard
+
 "@emnapi/core@npm:^1.7.1":
   version: 1.8.1
   resolution: "@emnapi/core@npm:1.8.1"
@@ -2505,6 +2514,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "glide@workspace:apps/glide"
   dependencies:
+    "@bithero/monaco-editor-vite-plugin": "npm:^1.0.3"
     "@monaco-editor/react": "patch:@monaco-editor/react@npm%3A4.7.0#~/.yarn/patches/@monaco-editor-react-npm-4.7.0-b3c86dba8d.patch"
     "@radix-ui/react-dialog": "npm:^1.1.4"
     "@radix-ui/react-dropdown-menu": "npm:^2.1.4"

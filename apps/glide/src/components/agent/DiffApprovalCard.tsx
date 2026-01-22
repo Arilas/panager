@@ -7,10 +7,10 @@
 import { Check, X, Expand, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 import { useAgentStore } from "../../stores/agent";
-import { useEditorStore } from "../../stores/editor";
+import { useTabsStore } from "../../stores/tabs";
 import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
-import { getLanguageFromExtension } from "../../lib/languageMapping";
+import { buildDiffUrl } from "../../lib/tabs/url";
 import type { PendingApproval, DiffLine } from "../../types/acp";
 
 interface DiffApprovalCardProps {
@@ -25,7 +25,7 @@ export function DiffApprovalCard({ approval, onApprove, onReject }: DiffApproval
 
   const [isExpanded, setIsExpanded] = useState(true);
   const updateApprovalStatus = useAgentStore((s) => s.updateApprovalStatus);
-  const openDiffTab = useEditorStore((s) => s.openDiffTab);
+  const openTab = useTabsStore((s) => s.openTab);
 
   const handleApprove = () => {
     updateApprovalStatus(approval.id, "approved");
@@ -38,21 +38,9 @@ export function DiffApprovalCard({ approval, onApprove, onReject }: DiffApproval
   };
 
   const handleOpenInEditor = () => {
-    // Get file name and language
-    const fileName = approval.filePath.split("/").pop() || approval.filePath;
-    const language = getLanguageFromExtension(approval.filePath);
-
-    // Open the diff in a full editor tab
-    openDiffTab({
-      type: "diff",
-      path: approval.filePath,
-      filePath: approval.filePath,
-      fileName,
-      originalContent: approval.diff.oldText,
-      modifiedContent: approval.diff.newText,
-      staged: false,
-      language,
-    });
+    // Open the diff in a full editor tab using the diff URL scheme
+    const url = buildDiffUrl(approval.filePath, false);
+    openTab({ url, isPreview: false });
   };
 
   // Flatten all hunks into lines for display

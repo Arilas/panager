@@ -227,6 +227,25 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
             acp::commands::acp_load_session,
             acp::commands::acp_delete_session,
             acp::commands::acp_update_session_name,
+            // IDE - Tab management
+            ide::commands::ide_get_tab_groups,
+            ide::commands::ide_create_tab_group,
+            ide::commands::ide_delete_tab_group,
+            ide::commands::ide_set_active_group,
+            ide::commands::ide_reorder_groups,
+            ide::commands::ide_get_tabs,
+            ide::commands::ide_get_all_tabs,
+            ide::commands::ide_save_tab,
+            ide::commands::ide_update_tab_url,
+            ide::commands::ide_delete_tab,
+            ide::commands::ide_set_active_tab,
+            ide::commands::ide_reorder_tabs,
+            ide::commands::ide_move_tab_to_group,
+            ide::commands::ide_update_tab_session,
+            ide::commands::ide_set_tab_pinned,
+            ide::commands::ide_convert_preview_to_permanent,
+            ide::commands::ide_delete_preview_tabs,
+            ide::commands::ide_clear_all_tabs,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

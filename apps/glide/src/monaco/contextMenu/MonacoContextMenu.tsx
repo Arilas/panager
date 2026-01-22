@@ -13,7 +13,7 @@ import {
   useLiquidGlass,
 } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
-import { useEditorStore } from "../../stores/editor";
+import { useMonacoStore } from "../../stores/monaco";
 
 export interface ContextMenuAction {
   id: string;
@@ -116,7 +116,7 @@ export function MonacoContextMenu({ state, onClose }: MonacoContextMenuProps) {
       // Run the action after focusing the editor
       requestAnimationFrame(() => {
         // Get the active editor from the store and focus it
-        const activeEditor = useEditorStore.getState().activeEditor;
+        const activeEditor = useMonacoStore.getState().activeEditor;
         if (activeEditor) {
           activeEditor.focus();
         }

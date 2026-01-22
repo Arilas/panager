@@ -6,7 +6,7 @@
  */
 
 import type { editor } from "monaco-editor";
-import { useEditorStore } from "../../stores/editor";
+import { useMonacoStore } from "../../stores/monaco";
 import { useIdeSettingsStore } from "../../stores/settings";
 import type { GitBlameLine } from "../../types";
 
@@ -108,10 +108,10 @@ export class BlameWidgetManager {
 
     // Subscribe to editor store changes (blame data, lineDiff)
     // Track previous values for comparison
-    let prevBlameData = useEditorStore.getState().getFileState(filePath)?.blameData;
-    let prevLineDiff = useEditorStore.getState().getFileState(filePath)?.lineDiff;
+    let prevBlameData = useMonacoStore.getState().getFileState(filePath)?.blameData;
+    let prevLineDiff = useMonacoStore.getState().getFileState(filePath)?.lineDiff;
 
-    const editorUnsubscribe = useEditorStore.subscribe((state) => {
+    const editorUnsubscribe = useMonacoStore.subscribe((state) => {
       const fileState = state.getFileState(filePath);
       const blameData = fileState?.blameData;
       const lineDiff = fileState?.lineDiff;
@@ -210,7 +210,7 @@ export class BlameWidgetManager {
       return;
     }
 
-    const fileState = useEditorStore.getState().getFileState(this.filePath);
+    const fileState = useMonacoStore.getState().getFileState(this.filePath);
     if (!fileState) {
       this.removeWidget();
       return;

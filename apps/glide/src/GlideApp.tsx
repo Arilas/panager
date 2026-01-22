@@ -12,6 +12,8 @@ import { useIdeStore } from "./stores/ide";
 import { useFilesStore } from "./stores/files";
 import { useGitStore } from "./stores/git";
 import { useIdeSettingsStore } from "./stores/settings";
+import { useTabsStore } from "./stores/tabs";
+import { registerBuiltinResolvers, tabResolverRegistry } from "./lib/tabs";
 import {
   IdeSettingsProvider,
   isMacOS26OrHigher,
@@ -19,7 +21,7 @@ import {
 import { IdeLayout } from "./components/layout/IdeLayout";
 import { MonacoContextMenuProvider } from "./monaco/contextMenu";
 import { useFileWatcher } from "./hooks/useFileWatcher";
-import { usePersistedIdeState } from "./hooks/usePersistedIdeState";
+import { usePersistedSidebarWidth } from "./hooks/usePersistedSidebarWidth";
 import { useWindowGeometry } from "./hooks/useWindowGeometry";
 import type { IdeProjectContext } from "./types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -45,6 +47,7 @@ export function GlideApp() {
   const loadFileTree = useFilesStore((s) => s.loadFileTree);
   const loadGitStatus = useGitStore((s) => s.loadGitStatus);
   const initializeSettings = useIdeSettingsStore((s) => s.initialize);
+  const initializeTabs = useTabsStore((s) => s.initialize);
 
   // Parse URL parameters and initialize
   useEffect(() => {
@@ -72,12 +75,18 @@ export function GlideApp() {
     setLoading(false);
   }, [setProjectContext]);
 
-  // Load file tree, git status, and notify plugins when context is set
+  // Load file tree, git status, initialize tabs, and notify plugins when context is set
   useEffect(() => {
     if (!projectContext) return;
 
     loadFileTree(projectContext.projectPath);
     loadGitStatus(projectContext.projectPath).catch(console.error);
+
+    // Initialize tab resolvers and tabs store
+    registerBuiltinResolvers(projectContext.projectPath);
+    initializeTabs(projectContext.projectPath, tabResolverRegistry).catch(
+      console.error,
+    );
 
     // Notify plugins about project being opened (starts LSP servers, etc.)
     notifyProjectOpened(projectContext.projectPath).catch(console.error);
@@ -88,7 +97,7 @@ export function GlideApp() {
       projectContext.projectName,
       projectContext.projectPath,
     ).catch(console.error);
-  }, [projectContext, loadFileTree, loadGitStatus]);
+  }, [projectContext, loadFileTree, loadGitStatus, initializeTabs]);
 
   // Initialize settings when project context is set
   useEffect(() => {
@@ -102,7 +111,7 @@ export function GlideApp() {
   useFileWatcher();
 
   // Set up state persistence (only when project is open)
-  usePersistedIdeState();
+  usePersistedSidebarWidth();
 
   // Set up window geometry tracking for session restore
   const { cleanupAndRemove } = useWindowGeometry(projectContext);

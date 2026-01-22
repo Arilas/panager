@@ -14,7 +14,8 @@ import {
   FileCode,
 } from "lucide-react";
 import { useProblemsStore } from "../../stores/problems";
-import { useFilesStore } from "../../stores/files";
+import { useTabsStore } from "../../stores/tabs";
+import { buildFileUrl } from "../../lib/tabs/url";
 import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import type { Diagnostic, DiagnosticSeverity } from "../../types/problems";
@@ -100,7 +101,7 @@ interface DiagnosticGroupProps {
 }
 
 function DiagnosticGroup({ filePath, diagnostics }: DiagnosticGroupProps) {
-  const openFile = useFilesStore((s) => s.openFile);
+  const openTab = useTabsStore((s) => s.openTab);
   const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
 
@@ -165,8 +166,8 @@ function DiagnosticGroup({ filePath, diagnostics }: DiagnosticGroupProps) {
             diagnostic={diagnostic}
             onNavigate={() => {
               // Open file and go to line
-              openFile(filePath);
-              // TODO: Navigate to specific line in editor
+              // TODO: Pass cursorPosition to navigate to specific line
+              openTab({ url: buildFileUrl(filePath), isPreview: false });
             }}
           />
         ))}

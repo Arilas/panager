@@ -19,7 +19,8 @@ import {
 import { open } from "@tauri-apps/plugin-shell";
 import { useIdeStore } from "../../stores/ide";
 import { useFilesStore } from "../../stores/files";
-import { useEditorStore } from "../../stores/editor";
+import { useTabsStore } from "../../stores/tabs";
+import { buildFileUrl } from "../../lib/tabs/url";
 import { useGitStore } from "../../stores/git";
 import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
@@ -85,7 +86,9 @@ export function FileTreePanel() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   // Confirmation dialog states
-  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(
+    null,
+  );
   const [moveDialog, setMoveDialog] = useState<MoveDialogState | null>(null);
   const [dialogLoading, setDialogLoading] = useState(false);
 
@@ -103,7 +106,9 @@ export function FileTreePanel() {
 
     for (const change of gitChanges) {
       // Use the full path for matching
-      const fullPath = projectRoot ? `${projectRoot}/${change.path}` : change.path;
+      const fullPath = projectRoot
+        ? `${projectRoot}/${change.path}`
+        : change.path;
       map.set(fullPath, change.status);
 
       // Propagate status to all parent directories
@@ -111,7 +116,8 @@ export function FileTreePanel() {
       let parentPath = fullPath;
       for (let depth = 0; depth < MAX_DIRECTORY_DEPTH; depth++) {
         const lastSlash = parentPath.lastIndexOf("/");
-        if (lastSlash <= 0 || (projectRoot && parentPath === projectRoot)) break;
+        if (lastSlash <= 0 || (projectRoot && parentPath === projectRoot))
+          break;
 
         parentPath = parentPath.substring(0, lastSlash);
 
@@ -146,7 +152,10 @@ export function FileTreePanel() {
     if (!contextMenu || !projectContext) return;
     const parentPath = contextMenu.entry.isDirectory
       ? contextMenu.entry.path
-      : contextMenu.entry.path.substring(0, contextMenu.entry.path.lastIndexOf("/"));
+      : contextMenu.entry.path.substring(
+          0,
+          contextMenu.entry.path.lastIndexOf("/"),
+        );
 
     // Ensure parent is expanded
     await expandDirectory(parentPath, projectContext.projectPath);
@@ -157,7 +166,10 @@ export function FileTreePanel() {
     if (!contextMenu || !projectContext) return;
     const parentPath = contextMenu.entry.isDirectory
       ? contextMenu.entry.path
-      : contextMenu.entry.path.substring(0, contextMenu.entry.path.lastIndexOf("/"));
+      : contextMenu.entry.path.substring(
+          0,
+          contextMenu.entry.path.lastIndexOf("/"),
+        );
 
     // Ensure parent is expanded
     await expandDirectory(parentPath, projectContext.projectPath);
@@ -204,7 +216,10 @@ export function FileTreePanel() {
     if (!contextMenu) return;
     const targetDir = contextMenu.entry.isDirectory
       ? contextMenu.entry.path
-      : contextMenu.entry.path.substring(0, contextMenu.entry.path.lastIndexOf("/"));
+      : contextMenu.entry.path.substring(
+          0,
+          contextMenu.entry.path.lastIndexOf("/"),
+        );
 
     // If it's a cut operation, show confirmation dialog
     if (clipboard.operation === "cut") {
@@ -240,7 +255,7 @@ export function FileTreePanel() {
     if (!contextMenu || !projectContext) return;
     const relativePath = contextMenu.entry.path.replace(
       projectContext.projectPath + "/",
-      ""
+      "",
     );
     navigator.clipboard.writeText(relativePath);
   };
@@ -254,7 +269,10 @@ export function FileTreePanel() {
     if (!contextMenu) return;
     const dirPath = contextMenu.entry.isDirectory
       ? contextMenu.entry.path
-      : contextMenu.entry.path.substring(0, contextMenu.entry.path.lastIndexOf("/"));
+      : contextMenu.entry.path.substring(
+          0,
+          contextMenu.entry.path.lastIndexOf("/"),
+        );
 
     // Open default terminal at the directory
     // On macOS, use 'open -a Terminal' or iTerm if available
@@ -290,13 +308,13 @@ export function FileTreePanel() {
       <div
         className={cn(
           "flex items-center justify-between px-3 py-2",
-          "border-b border-black/5 dark:border-white/5"
+          "border-b border-black/5 dark:border-white/5",
         )}
       >
         <span
           className={cn(
             "text-xs font-medium uppercase tracking-wider",
-            isDark ? "text-neutral-400" : "text-neutral-500"
+            isDark ? "text-neutral-400" : "text-neutral-500",
           )}
         >
           Explorer
@@ -305,7 +323,7 @@ export function FileTreePanel() {
           onClick={handleRefresh}
           className={cn(
             "p-1 rounded transition-colors",
-            isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+            isDark ? "hover:bg-white/10" : "hover:bg-black/10",
           )}
           title="Refresh"
         >
@@ -313,7 +331,7 @@ export function FileTreePanel() {
             className={cn(
               "w-3.5 h-3.5",
               isDark ? "text-neutral-500" : "text-neutral-400",
-              treeLoading && "animate-spin"
+              treeLoading && "animate-spin",
             )}
           />
         </button>
@@ -323,45 +341,49 @@ export function FileTreePanel() {
       <div
         className={cn(
           "flex items-center justify-between px-3 py-2",
-          "border-b border-black/5 dark:border-white/5"
+          "border-b border-black/5 dark:border-white/5",
         )}
       >
         <span
           className={cn(
             "text-sm font-medium truncate",
-            isDark ? "text-neutral-300" : "text-neutral-700"
+            isDark ? "text-neutral-300" : "text-neutral-700",
           )}
         >
           {projectContext?.projectName}
         </span>
         <div className="flex items-center gap-0.5 shrink-0">
           <button
-            onClick={() => projectContext && startCreating(projectContext.projectPath, false)}
+            onClick={() =>
+              projectContext && startCreating(projectContext.projectPath, false)
+            }
             className={cn(
               "p-1 rounded transition-colors",
-              isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+              isDark ? "hover:bg-white/10" : "hover:bg-black/10",
             )}
             title="New File"
           >
             <FilePlus
               className={cn(
                 "w-3.5 h-3.5",
-                isDark ? "text-neutral-500" : "text-neutral-400"
+                isDark ? "text-neutral-500" : "text-neutral-400",
               )}
             />
           </button>
           <button
-            onClick={() => projectContext && startCreating(projectContext.projectPath, true)}
+            onClick={() =>
+              projectContext && startCreating(projectContext.projectPath, true)
+            }
             className={cn(
               "p-1 rounded transition-colors",
-              isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+              isDark ? "hover:bg-white/10" : "hover:bg-black/10",
             )}
             title="New Folder"
           >
             <FolderPlus
               className={cn(
                 "w-3.5 h-3.5",
-                isDark ? "text-neutral-500" : "text-neutral-400"
+                isDark ? "text-neutral-500" : "text-neutral-400",
               )}
             />
           </button>
@@ -369,12 +391,15 @@ export function FileTreePanel() {
       </div>
 
       {/* Tree */}
-      <div ref={treeContainerRef} className="flex-1 overflow-auto py-1 group/tree select-none">
+      <div
+        ref={treeContainerRef}
+        className="flex-1 overflow-auto py-1 group/tree select-none"
+      >
         {treeLoading && tree.length === 0 ? (
           <div
             className={cn(
               "px-3 py-4 text-sm",
-              isDark ? "text-neutral-500" : "text-neutral-400"
+              isDark ? "text-neutral-500" : "text-neutral-400",
             )}
           >
             Loading...
@@ -383,7 +408,7 @@ export function FileTreePanel() {
           <div
             className={cn(
               "px-3 py-4 text-sm",
-              isDark ? "text-neutral-500" : "text-neutral-400"
+              isDark ? "text-neutral-500" : "text-neutral-400",
             )}
           >
             No files found
@@ -396,7 +421,9 @@ export function FileTreePanel() {
                 isDirectory={creatingEntry!.isDirectory}
                 onConfirm={confirmCreating}
                 onCancel={cancelCreating}
-                placeholder={creatingEntry!.isDirectory ? "folder name" : "file name"}
+                placeholder={
+                  creatingEntry!.isDirectory ? "folder name" : "file name"
+                }
                 depth={0}
               />
             )}
@@ -481,7 +508,9 @@ export function FileTreePanel() {
 }
 
 /** Get color class for git status */
-function getGitStatusColor(status: GitFileStatus | undefined): string | undefined {
+function getGitStatusColor(
+  status: GitFileStatus | undefined,
+): string | undefined {
   if (!status) return undefined;
 
   switch (status) {
@@ -502,7 +531,9 @@ function getGitStatusColor(status: GitFileStatus | undefined): string | undefine
 }
 
 /** Get status indicator letter for git status */
-function getGitStatusIndicator(status: GitFileStatus | undefined): string | undefined {
+function getGitStatusIndicator(
+  status: GitFileStatus | undefined,
+): string | undefined {
   if (!status) return undefined;
 
   switch (status) {
@@ -558,9 +589,8 @@ function FileTreeNode({
   const expandedPaths = useFilesStore((s) => s.expandedPaths);
   const loadingPaths = useFilesStore((s) => s.loadingPaths);
   const toggleDirectory = useFilesStore((s) => s.toggleDirectory);
-  const openFile = useFilesStore((s) => s.openFile);
-  const openFilePreview = useFilesStore((s) => s.openFilePreview);
-  const activeTabPath = useEditorStore((s) => s.activeTabPath);
+  const openTab = useTabsStore((s) => s.openTab);
+  const activeTabPath = useTabsStore((s) => s.getActiveFilePath());
   const effectiveTheme = useEffectiveTheme();
   const isDark = effectiveTheme === "dark";
   const isExpanded = expandedPaths.has(entry.path);
@@ -568,13 +598,16 @@ function FileTreeNode({
   const isActive = activeTabPath === entry.path;
   const isDimmed = entry.isHidden || entry.isGitignored;
   const isBeingRenamed = renamingPath === entry.path;
-  const isCutItem = clipboard.operation === "cut" && clipboard.items.includes(entry.path);
+  const isCutItem =
+    clipboard.operation === "cut" && clipboard.items.includes(entry.path);
 
   // Get git status for this file/folder
   const gitStatus = gitStatusMap.get(entry.path);
   const gitStatusColor = getGitStatusColor(gitStatus);
   // Only show indicator letter for files, not folders
-  const gitStatusIndicator = entry.isDirectory ? undefined : getGitStatusIndicator(gitStatus);
+  const gitStatusIndicator = entry.isDirectory
+    ? undefined
+    : getGitStatusIndicator(gitStatus);
 
   // Check if we should show inline input for creating inside this folder
   const showCreatingInside =
@@ -591,7 +624,8 @@ function FileTreeNode({
         toggleDirectory(entry.path, projectContext.projectPath);
       }
     } else {
-      openFilePreview(entry.path);
+      // Open as preview tab
+      openTab({ url: buildFileUrl(entry.path), isPreview: true });
     }
   };
 
@@ -599,7 +633,8 @@ function FileTreeNode({
   const handleDoubleClick = () => {
     if (isBeingRenamed) return;
     if (!entry.isDirectory) {
-      openFile(entry.path);
+      // Open as permanent tab
+      openTab({ url: buildFileUrl(entry.path), isPreview: false });
     }
   };
 
@@ -616,10 +651,13 @@ function FileTreeNode({
     showLine ? (
       <div
         key={index}
-        className={cn("absolute top-0 bottom-0 w-px transition-colors duration-150", guideLineColor)}
+        className={cn(
+          "absolute top-0 bottom-0 w-px transition-colors duration-150",
+          guideLineColor,
+        )}
         style={{ left: baseIndent + index * indentSize + 8 }}
       />
-    ) : null
+    ) : null,
   );
 
   // If being renamed, show inline input instead
@@ -674,7 +712,7 @@ function FileTreeNode({
           isActive && [
             isDark ? "bg-white/10 text-white" : "bg-black/10 text-neutral-900",
           ],
-          isCutItem && "opacity-50"
+          isCutItem && "opacity-50",
         )}
         style={{ paddingLeft: baseIndent }}
       >
@@ -682,7 +720,9 @@ function FileTreeNode({
         {depth > 0 && guideLineElements}
 
         {/* Indentation spacer */}
-        {depth > 0 && <div style={{ width: depth * indentSize }} className="shrink-0" />}
+        {depth > 0 && (
+          <div style={{ width: depth * indentSize }} className="shrink-0" />
+        )}
 
         {/* Expand/collapse icon for directories */}
         {entry.isDirectory ? (
@@ -691,21 +731,21 @@ function FileTreeNode({
               <RefreshCw
                 className={cn(
                   "w-3 h-3 animate-spin",
-                  isDark ? "text-neutral-500" : "text-neutral-400"
+                  isDark ? "text-neutral-500" : "text-neutral-400",
                 )}
               />
             ) : isExpanded ? (
               <ChevronDown
                 className={cn(
                   "w-3.5 h-3.5",
-                  isDark ? "text-neutral-500" : "text-neutral-400"
+                  isDark ? "text-neutral-500" : "text-neutral-400",
                 )}
               />
             ) : (
               <ChevronRight
                 className={cn(
                   "w-3.5 h-3.5",
-                  isDark ? "text-neutral-500" : "text-neutral-400"
+                  isDark ? "text-neutral-500" : "text-neutral-400",
                 )}
               />
             )}
@@ -720,14 +760,14 @@ function FileTreeNode({
             <FolderOpen
               className={cn(
                 "w-4 h-4 shrink-0",
-                isDimmed ? "text-amber-500/40" : "text-amber-500/80"
+                isDimmed ? "text-amber-500/40" : "text-amber-500/80",
               )}
             />
           ) : (
             <Folder
               className={cn(
                 "w-4 h-4 shrink-0",
-                isDimmed ? "text-amber-500/40" : "text-amber-500/80"
+                isDimmed ? "text-amber-500/40" : "text-amber-500/80",
               )}
             />
           )
@@ -741,7 +781,7 @@ function FileTreeNode({
                   : "text-neutral-300"
                 : isDark
                   ? "text-neutral-500"
-                  : "text-neutral-400"
+                  : "text-neutral-400",
             )}
           />
         )}
@@ -751,7 +791,7 @@ function FileTreeNode({
           className={cn(
             "truncate ml-1",
             isDimmed && (isDark ? "text-neutral-500" : "text-neutral-400"),
-            gitStatusColor
+            gitStatusColor,
           )}
         >
           {entry.name}
@@ -762,7 +802,7 @@ function FileTreeNode({
           <span
             className={cn(
               "ml-auto pl-2 text-xs font-medium shrink-0",
-              gitStatusColor
+              gitStatusColor,
             )}
           >
             {gitStatusIndicator}
@@ -779,7 +819,9 @@ function FileTreeNode({
               isDirectory={creatingEntry!.isDirectory}
               onConfirm={onConfirmCreating}
               onCancel={onCancelCreating}
-              placeholder={creatingEntry!.isDirectory ? "folder name" : "file name"}
+              placeholder={
+                creatingEntry!.isDirectory ? "folder name" : "file name"
+              }
               depth={depth + 1}
             />
           )}

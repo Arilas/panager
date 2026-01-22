@@ -8,8 +8,9 @@ import { useEffect, useCallback, useRef } from "react";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { useIdeStore } from "../stores/ide";
 import { useFilesStore } from "../stores/files";
-import { useEditorStore } from "../stores/editor";
-import { startWatcher, stopWatcher, readFile } from "../lib/tauri-ide";
+import { useTabsStore } from "../stores/tabs";
+import { startWatcher, stopWatcher } from "../lib/tauri-ide";
+import { buildFileUrl } from "../lib/tabs/url";
 import { FILE_WATCHER_DEBOUNCE_MS } from "../lib/constants";
 import type { IdeFileEvent } from "../types";
 
@@ -30,22 +31,20 @@ export function useFileWatcher() {
 
   // Handle file content update for modified files
   const handleFileModified = useCallback(async (path: string) => {
-    const editorStore = useEditorStore.getState();
-    const fileState = editorStore.getFileState(path);
+    const tabsStore = useTabsStore.getState();
+    const url = buildFileUrl(path);
 
-    // Only update if file is open and not dirty (has unsaved changes)
-    if (fileState && fileState.content === fileState.savedContent) {
-      try {
-        const fileContent = await readFile(path);
-        if (!fileContent.isBinary) {
-          // Update the content in the editor
-          editorStore.updateContent(path, fileContent.content);
-          // Also update savedContent so it doesn't show as dirty
-          editorStore.markSaved(path, fileContent.content);
-        }
-      } catch (error) {
-        console.error("Failed to reload modified file:", error);
-      }
+    // Check if file is open by looking for it in tabs
+    const tabInfo = tabsStore.findTabInAnyGroup(url);
+    if (!tabInfo) return;
+
+    const { tab } = tabInfo;
+    if (!tab.resolved) return;
+
+    // Only reload if not dirty (no unsaved changes)
+    if (!tab.isDirty) {
+      // Use the tabs store's reloadContent which will re-resolve the tab
+      await tabsStore.reloadContent(url);
     }
   }, []);
 

@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useRef, useCallback } from "react";
-import { useEditorStore } from "../stores/editor";
+import { useTabsStore } from "../stores/tabs";
 import { useFilesStore } from "../stores/files";
 import { useIdeStore } from "../stores/ide";
 import { MAX_DIRECTORY_DEPTH } from "../lib/constants";
@@ -117,7 +117,7 @@ export function useRevealActiveFile({
   containerRef,
   enabled = true,
 }: UseRevealActiveFileOptions) {
-  const activeTabPath = useEditorStore((s) => s.activeTabPath);
+  const activeTabPath = useTabsStore((s) => s.getActiveFilePath());
   const tree = useFilesStore((s) => s.tree);
   const expandedPaths = useFilesStore((s) => s.expandedPaths);
   const expandDirectory = useFilesStore((s) => s.expandDirectory);

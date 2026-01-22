@@ -1,12 +1,12 @@
 /**
  * Store Subscriptions for Monaco
  *
- * Sets up subscriptions to editorStore to trigger:
+ * Sets up subscriptions to monacoStore to trigger:
  * - CodeLens refresh when blame/symbols change
  * - Decoration updates when lineDiff changes
  */
 
-import { useEditorStore, isFileTab, type TabState } from "../stores/editor";
+import { useMonacoStore, type FileData } from "../stores/monaco";
 import { useGitStore } from "../stores/git";
 import { triggerCodeLensRefresh } from "./providers/codeLens";
 
@@ -14,8 +14,7 @@ let subscriptionsSetup = false;
 const unsubscribers: Array<() => void> = [];
 
 // Track previous state for comparison
-let prevTabStates: Record<string, TabState> = {};
-let prevPreviewTab: TabState | null = null;
+let prevFileData: Record<string, FileData> = {};
 let prevBranchName: string | undefined = undefined;
 
 /**
@@ -27,53 +26,31 @@ export function setupStoreSubscriptions(): void {
 
   console.log("[Monaco] Setting up store subscriptions");
 
-  // Subscribe to editor store for file state changes
+  // Subscribe to monaco store for file data changes
   unsubscribers.push(
-    useEditorStore.subscribe((state) => {
+    useMonacoStore.subscribe((state) => {
       let needsRefresh = false;
 
-      // Check permanent tabs (only file tabs have blame/symbols/lineDiff)
-      for (const [path, tabState] of Object.entries(state.tabStates)) {
-        if (!isFileTab(tabState)) continue;
-
-        const prevTabState = prevTabStates[path];
-        if (!prevTabState || !isFileTab(prevTabState)) {
+      // Check file data for blame/symbols/lineDiff changes
+      for (const [path, fileData] of Object.entries(state.fileData)) {
+        const prevData = prevFileData[path];
+        if (!prevData) {
           // New file opened
           needsRefresh = true;
           break;
         }
         if (
-          tabState.blameData !== prevTabState.blameData ||
-          tabState.symbols !== prevTabState.symbols ||
-          tabState.lineDiff !== prevTabState.lineDiff
+          fileData.blameData !== prevData.blameData ||
+          fileData.symbols !== prevData.symbols ||
+          fileData.lineDiff !== prevData.lineDiff
         ) {
           needsRefresh = true;
           break;
         }
       }
 
-      // Check preview tab (only if it's a file tab)
-      if (!needsRefresh && state.previewTab && isFileTab(state.previewTab)) {
-        if (!prevPreviewTab || !isFileTab(prevPreviewTab)) {
-          needsRefresh = true;
-        } else {
-          if (
-            state.previewTab.blameData !== prevPreviewTab.blameData ||
-            state.previewTab.symbols !== prevPreviewTab.symbols ||
-            state.previewTab.lineDiff !== prevPreviewTab.lineDiff
-          ) {
-            needsRefresh = true;
-          }
-        }
-      }
-
-      // Check settings changes
-      // Note: We don't track prev settings, but changes are rare enough
-      // that triggering refresh is acceptable
-
       // Update previous state
-      prevTabStates = state.tabStates;
-      prevPreviewTab = state.previewTab;
+      prevFileData = state.fileData;
 
       if (needsRefresh) {
         triggerCodeLensRefresh();
@@ -90,7 +67,7 @@ export function setupStoreSubscriptions(): void {
         prevBranchName !== undefined
       ) {
         console.log("[Monaco] Branch changed, clearing blame caches");
-        useEditorStore.getState().clearAllBlameCaches();
+        useMonacoStore.getState().clearAllBlameCaches();
         triggerCodeLensRefresh();
       }
       prevBranchName = currentBranch;
@@ -111,8 +88,7 @@ export function cleanupSubscriptions(): void {
   }
   unsubscribers.length = 0;
   subscriptionsSetup = false;
-  prevTabStates = {};
-  prevPreviewTab = null;
+  prevFileData = {};
   prevBranchName = undefined;
 }
 

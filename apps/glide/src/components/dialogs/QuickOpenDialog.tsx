@@ -19,7 +19,8 @@ import {
   Check,
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
-import { useFilesStore } from "../../stores/files";
+import { useTabsStore } from "../../stores/tabs";
+import { buildFileUrl } from "../../lib/tabs/url";
 import { searchFileNames } from "../../lib/tauri-ide";
 import { useLiquidGlass } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
@@ -31,7 +32,7 @@ interface QuickOpenDialogProps {
 
 export function QuickOpenDialog({ open, onOpenChange }: QuickOpenDialogProps) {
   const projectContext = useIdeStore((s) => s.projectContext);
-  const openFile = useFilesStore((s) => s.openFile);
+  const openTab = useTabsStore((s) => s.openTab);
   const useLiquidGlassEnabled = useLiquidGlass();
 
   // UI state for toggles
@@ -90,11 +91,11 @@ export function QuickOpenDialog({ open, onOpenChange }: QuickOpenDialogProps) {
     (file: string) => {
       if (projectContext) {
         const fullPath = `${projectContext.projectPath}/${file}`;
-        openFile(fullPath);
+        openTab({ url: buildFileUrl(fullPath), isPreview: false });
         onOpenChange(false);
       }
     },
-    [projectContext, openFile, onOpenChange]
+    [projectContext, openTab, onOpenChange]
   );
 
   const handleOpenSettings = useCallback(() => {

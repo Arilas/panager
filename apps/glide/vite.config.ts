@@ -1,13 +1,20 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
+import { monaco } from "@bithero/monaco-editor-vite-plugin";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react()],
+  plugins: [
+    react(),
+    monaco({
+      languages: "all",
+      features: "all",
+    }),
+  ],
 
   // Multi-page app: IDE (index.html) and Welcome (welcome.html)
   build: {

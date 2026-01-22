@@ -5,7 +5,7 @@
  * The diff computation happens in the store when content or HEAD content changes.
  */
 
-import { useEditorStore } from "../stores/editor";
+import { useMonacoStore } from "../stores/monaco";
 import type { LineDiffResult } from "../lib/lineDiff";
 
 interface UseLineDiffOptions {
@@ -28,7 +28,7 @@ interface UseLineDiffResult {
  * The diff is computed in the store when content changes.
  */
 export function useLineDiff({ filePath }: UseLineDiffOptions): UseLineDiffResult {
-  const fileState = useEditorStore((s) => s.getFileState(filePath));
+  const fileState = useMonacoStore((s) => s.getFileState(filePath));
   const lineDiff = fileState?.lineDiff ?? null;
 
   return {

@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { editor, IDisposable } from "monaco-editor";
 import type { Monaco, OnMount } from "@monaco-editor/react";
-import { useEditorStore } from "../stores/editor";
+import { useMonacoStore } from "../stores/monaco";
 import { useIdeStore } from "../stores/ide";
 import {
   blameWidgetManager,
@@ -73,7 +73,7 @@ async function loadBlameData(filePath: string): Promise<void> {
   const projectContext = useIdeStore.getState().projectContext;
   if (!projectContext) return;
 
-  const store = useEditorStore.getState();
+  const store = useMonacoStore.getState();
 
   // Check if already loading
   const fileState = store.getFileState(filePath);
@@ -97,7 +97,7 @@ async function loadHeadContent(filePath: string): Promise<void> {
   const projectContext = useIdeStore.getState().projectContext;
   if (!projectContext) return;
 
-  const store = useEditorStore.getState();
+  const store = useMonacoStore.getState();
 
   // Check if already have HEAD content
   const fileState = store.getFileState(filePath);
@@ -118,7 +118,7 @@ async function loadHeadContent(filePath: string): Promise<void> {
 async function loadSymbols(filePath: string, language: string): Promise<void> {
   if (!SUPPORTED_LANGUAGES.has(language)) return;
 
-  const store = useEditorStore.getState();
+  const store = useMonacoStore.getState();
 
   // Check if already loading or have symbols
   const fileState = store.getFileState(filePath);
@@ -174,10 +174,10 @@ function loadFileEditorData(filePath: string, language: string): void {
  * Hook for Monaco editor integration.
  */
 export function useEditor({ filePath, language }: UseEditorOptions) {
-  const initStatus = useEditorStore((s) => s.initState.status);
-  const setActiveEditor = useEditorStore((s) => s.setActiveEditor);
-  const saveCursorPosition = useEditorStore((s) => s.saveCursorPosition);
-  const saveScrollPosition = useEditorStore((s) => s.saveScrollPosition);
+  const initStatus = useMonacoStore((s) => s.initState.status);
+  const setActiveEditor = useMonacoStore((s) => s.setActiveEditor);
+  const saveCursorPosition = useMonacoStore((s) => s.saveCursorPosition);
+  const saveScrollPosition = useMonacoStore((s) => s.saveScrollPosition);
   const setCursorPosition = useIdeStore((s) => s.setCursorPosition);
 
   const scrollTimeoutRef = useRef<number | null>(null);
@@ -196,7 +196,7 @@ export function useEditor({ filePath, language }: UseEditorOptions) {
       gutterDecorationManager.attach(editorInstance, filePath);
 
       // Restore session state
-      const fileState = useEditorStore.getState().getFileState(filePath);
+      const fileState = useMonacoStore.getState().getFileState(filePath);
       if (fileState) {
         // Restore cursor position
         editorInstance.setPosition({

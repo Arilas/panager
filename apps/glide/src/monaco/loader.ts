@@ -12,7 +12,7 @@ import type { Monaco } from "@monaco-editor/react";
 import * as monacoEditor from "monaco-editor";
 // @ts-expect-error We made overrides to the standaloneServices module
 import * as StandaloneServices from "monaco-editor/esm/vs/editor/standalone/browser/standaloneServices.js";
-import { useEditorStore } from "../stores/editor";
+import { useMonacoStore } from "../stores/monaco";
 import { configureTypeScript } from "./typescript";
 import { initializeShiki } from "./themes";
 import { registerAllProviders } from "./providers";
@@ -49,7 +49,7 @@ async function doInitialize(): Promise<Monaco> {
       StandaloneServices.StandaloneServices.override(
         getContextMenuServiceOverride(),
       );
-      useEditorStore.getState().setInitStatus("loading");
+      useMonacoStore.getState().setInitStatus("loading");
 
       console.log(`[Monaco] Initialization attempt ${attempt}/${MAX_RETRIES}`);
 
@@ -90,8 +90,8 @@ async function doInitialize(): Promise<Monaco> {
 
       // Store the instance
       monacoInstance = monaco;
-      useEditorStore.getState().setMonacoInstance(monaco);
-      useEditorStore.getState().setInitStatus("ready");
+      useMonacoStore.getState().setMonacoInstance(monaco);
+      useMonacoStore.getState().setInitStatus("ready");
 
       console.log("[Monaco] Initialization complete");
       return monaco;
@@ -101,7 +101,7 @@ async function doInitialize(): Promise<Monaco> {
       if (attempt === MAX_RETRIES) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        useEditorStore.getState().setInitStatus("error", errorMessage);
+        useMonacoStore.getState().setInitStatus("error", errorMessage);
         throw error;
       }
 
@@ -132,5 +132,5 @@ export function isMonacoReady(): boolean {
  * Get the current initialization status.
  */
 export function getInitStatus() {
-  return useEditorStore.getState().initState;
+  return useMonacoStore.getState().initState;
 }

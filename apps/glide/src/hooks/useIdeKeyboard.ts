@@ -5,7 +5,7 @@
 import { useEffect } from "react";
 import { useIdeStore } from "../stores/ide";
 import { useFilesStore } from "../stores/files";
-import { useEditorStore } from "../stores/editor";
+import { useTabsStore } from "../stores/tabs";
 
 export function useIdeKeyboard() {
   const setShowQuickOpen = useIdeStore((s) => s.setShowQuickOpen);
@@ -17,10 +17,15 @@ export function useIdeKeyboard() {
   const toggleSidebar = useIdeStore((s) => s.toggleSidebar);
   const toggleBottomPanel = useIdeStore((s) => s.toggleBottomPanel);
   const openBottomPanelTab = useIdeStore((s) => s.openBottomPanelTab);
-  const closeTab = useEditorStore((s) => s.closeTab);
-  const activeTabPath = useEditorStore((s) => s.activeTabPath);
+  const closeTab = useTabsStore((s) => s.closeTab);
+  const activeGroupId = useTabsStore((s) => s.activeGroupId);
+  const groups = useTabsStore((s) => s.groups);
   const saveActiveFile = useFilesStore((s) => s.saveActiveFile);
   const saveAllFiles = useFilesStore((s) => s.saveAllFiles);
+
+  // Get active tab URL from current group
+  const activeGroup = groups.find((g) => g.id === activeGroupId);
+  const activeTabUrl = activeGroup?.activeUrl ?? null;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -58,8 +63,8 @@ export function useIdeKeyboard() {
       // Cmd+W - Close current file
       if (isMod && e.key === "w" && !isShift) {
         e.preventDefault();
-        if (activeTabPath) {
-          closeTab(activeTabPath);
+        if (activeTabUrl) {
+          closeTab(activeTabUrl);
         }
         return;
       }
@@ -141,7 +146,7 @@ export function useIdeKeyboard() {
     toggleBottomPanel,
     openBottomPanelTab,
     closeTab,
-    activeTabPath,
+    activeTabUrl,
     saveActiveFile,
     saveAllFiles,
   ]);

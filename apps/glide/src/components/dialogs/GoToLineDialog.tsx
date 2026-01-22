@@ -8,7 +8,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Command } from "cmdk";
 import { Hash } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
-import { useEditorStore } from "../../stores/editor";
+import { useMonacoStore } from "../../stores/monaco";
 import { useLiquidGlass } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 
@@ -19,7 +19,7 @@ interface GoToLineDialogProps {
 
 export function GoToLineDialog({ open, onOpenChange }: GoToLineDialogProps) {
   const setCursorPosition = useIdeStore((s) => s.setCursorPosition);
-  const activeEditor = useEditorStore((s) => s.activeEditor);
+  const activeEditor = useMonacoStore((s) => s.activeEditor);
   const useLiquidGlassEnabled = useLiquidGlass();
 
   const [value, setValue] = useState("");

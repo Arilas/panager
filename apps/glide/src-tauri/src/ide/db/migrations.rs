@@ -9,7 +9,7 @@
 use rusqlite::{Connection, Result};
 
 /// Current schema version - increment this when adding new migrations
-const CURRENT_VERSION: i32 = 4;
+const CURRENT_VERSION: i32 = 5;
 
 /// Run all pending migrations
 pub fn run_migrations(conn: &Connection) -> Result<()> {
@@ -48,6 +48,12 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     if current_version < 4 {
         migrate_v4(conn)?;
         set_version(conn, 4)?;
+    }
+
+    // Migration v5: Add tab_groups and tabs tables for unified tab management
+    if current_version < 5 {
+        migrate_v5(conn)?;
+        set_version(conn, 5)?;
     }
 
     Ok(())
@@ -308,6 +314,62 @@ fn migrate_v4(conn: &Connection) -> Result<()> {
         CREATE INDEX idx_entries_type ON entries(session_id, type);
         CREATE INDEX idx_entries_tool_call_id ON entries(tool_call_id) WHERE tool_call_id IS NOT NULL;
         CREATE INDEX idx_entries_request_id ON entries(request_id) WHERE request_id IS NOT NULL;
+        "#,
+    )?;
+
+    Ok(())
+}
+
+/// Migration v5: Add tab_groups and tabs tables for unified tab management
+///
+/// This migration introduces:
+/// 1. tab_groups table for split view support
+/// 2. tabs table with URL-based identification and session data
+///
+/// See plan file for the tab system architecture design.
+fn migrate_v5(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        -- Tab groups for split view support
+        CREATE TABLE tab_groups (
+            id TEXT PRIMARY KEY,
+            position INTEGER NOT NULL,         -- Order of groups (left to right)
+            is_active INTEGER DEFAULT 0,       -- Currently focused group (0 or 1)
+            created_at INTEGER NOT NULL
+        );
+
+        CREATE INDEX idx_tab_groups_position ON tab_groups(position);
+
+        -- Tabs belong to groups
+        CREATE TABLE tabs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_id TEXT NOT NULL REFERENCES tab_groups(id) ON DELETE CASCADE,
+            url TEXT NOT NULL,                  -- Tab URL (file://, diff://, chat://, etc.)
+            type TEXT NOT NULL,                 -- Resolver ID (file, diff, chat, markdown)
+            display_name TEXT NOT NULL,         -- Human-readable name for tab bar
+            position INTEGER NOT NULL,          -- Order within group
+            is_pinned INTEGER DEFAULT 0,        -- Pinned tabs stay at start (0 or 1)
+            is_active INTEGER DEFAULT 0,        -- Active tab within group (0 or 1)
+            is_preview INTEGER DEFAULT 0,       -- Preview tabs are replaced on new open (0 or 1)
+
+            -- Session data (persisted for all tabs)
+            cursor_line INTEGER,
+            cursor_column INTEGER,
+            scroll_top REAL,
+            scroll_left REAL,
+            selections TEXT,                    -- JSON array
+            folded_regions TEXT,                -- JSON array
+
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+
+            -- Same URL can exist in different groups, but not same group
+            UNIQUE(group_id, url)
+        );
+
+        CREATE INDEX idx_tabs_group ON tabs(group_id);
+        CREATE INDEX idx_tabs_url ON tabs(url);
+        CREATE INDEX idx_tabs_position ON tabs(group_id, position);
         "#,
     )?;
 

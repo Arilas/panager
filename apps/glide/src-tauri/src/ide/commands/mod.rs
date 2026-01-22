@@ -10,6 +10,7 @@ pub mod recent;
 pub mod search;
 pub mod session;
 pub mod settings;
+pub mod tabs;
 pub mod watcher;
 pub mod window;
 
@@ -21,5 +22,6 @@ pub use recent::*;
 pub use search::*;
 pub use session::*;
 pub use settings::*;
+pub use tabs::*;
 pub use watcher::*;
 pub use window::*;

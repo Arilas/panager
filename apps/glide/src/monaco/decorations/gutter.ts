@@ -7,7 +7,7 @@
  */
 
 import type { editor } from "monaco-editor";
-import { useEditorStore } from "../../stores/editor";
+import { useMonacoStore } from "../../stores/monaco";
 import { useIdeSettingsStore } from "../../stores/settings";
 import { GUTTER_ADDED_CLASS, GUTTER_MODIFIED_CLASS } from "./styles";
 
@@ -32,9 +32,9 @@ export class GutterDecorationManager {
 
     // Subscribe to editor store changes (lineDiff)
     // Track previous values for comparison
-    let prevLineDiff = useEditorStore.getState().getFileState(filePath)?.lineDiff;
+    let prevLineDiff = useMonacoStore.getState().getFileState(filePath)?.lineDiff;
 
-    const editorUnsubscribe = useEditorStore.subscribe((state) => {
+    const editorUnsubscribe = useMonacoStore.subscribe((state) => {
       const fileState = state.getFileState(filePath);
       const lineDiff = fileState?.lineDiff;
 
@@ -109,7 +109,7 @@ export class GutterDecorationManager {
       return;
     }
 
-    const fileState = useEditorStore.getState().getFileState(this.filePath);
+    const fileState = useMonacoStore.getState().getFileState(this.filePath);
     const lineDiff = fileState?.lineDiff;
 
     // Clear existing decorations

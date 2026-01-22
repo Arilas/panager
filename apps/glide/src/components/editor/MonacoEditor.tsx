@@ -7,12 +7,13 @@
 
 import { useCallback } from "react";
 import Editor, { OnChange } from "@monaco-editor/react";
-import { useEditorStore } from "../../stores/editor";
+import { useTabsStore } from "../../stores/tabs";
 import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { useEditorSettings } from "../../stores/settings";
 import { useEditor } from "../../hooks/useEditor";
 import { getMonacoTheme } from "../../monaco";
 import { mapMonacoToShikiLanguage } from "../../lib/languageMapping";
+import { buildFileUrl } from "../../lib/tabs/url";
 import { cn } from "../../lib/utils";
 
 interface MonacoEditorProps {
@@ -30,7 +31,10 @@ export function MonacoEditor({
 }: MonacoEditorProps) {
   const effectiveTheme = useEffectiveTheme();
   const editorSettings = useEditorSettings();
-  const updateContent = useEditorStore((s) => s.updateContent);
+  const updateContent = useTabsStore((s) => s.updateContent);
+
+  // Build URL for content updates
+  const url = buildFileUrl(path);
 
   // Use the new editor hook
   const { onMount, isLoading, hasError } = useEditor({
@@ -48,10 +52,10 @@ export function MonacoEditor({
   const handleEditorChange: OnChange = useCallback(
     (value) => {
       if (value !== undefined && value !== content) {
-        updateContent(path, value);
+        updateContent(url, value);
       }
     },
-    [path, content, updateContent],
+    [url, content, updateContent],
   );
 
   // Show error state

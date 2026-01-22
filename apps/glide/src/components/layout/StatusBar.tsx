@@ -7,18 +7,19 @@
 
 import { useMemo } from "react";
 import { useIdeStore } from "../../stores/ide";
-import { useEditorStore, isFileTab } from "../../stores/editor";
+import { useTabsStore } from "../../stores/tabs";
 import { usePluginsStore } from "../../stores/plugins";
 import { useEffectiveTheme, useLiquidGlass } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 import { BranchSelector } from "../git/BranchSelector";
+import { isFileUrl } from "../../lib/tabs/url";
+import type { FileTabData } from "../../lib/tabs/types";
 
 export function StatusBar() {
   const cursorPosition = useIdeStore((s) => s.cursorPosition);
   const setShowGoToLine = useIdeStore((s) => s.setShowGoToLine);
-  const activeTabPath = useEditorStore((s) => s.activeTabPath);
-  const tabStates = useEditorStore((s) => s.tabStates);
-  const previewTab = useEditorStore((s) => s.previewTab);
+  const activeGroupId = useTabsStore((s) => s.activeGroupId);
+  const groups = useTabsStore((s) => s.groups);
   const statusBarItems = usePluginsStore((s) => s.statusBarItems);
   const effectiveTheme = useEffectiveTheme();
   const liquidGlass = useLiquidGlass();
@@ -35,18 +36,20 @@ export function StatusBar() {
 
   const isDark = effectiveTheme === "dark";
 
-  // Get active tab state (from permanent tabs or preview) - only file tabs have language info
-  const activeFileState = useMemo(() => {
-    if (!activeTabPath) return null;
-    if (previewTab?.path === activeTabPath && isFileTab(previewTab)) {
-      return previewTab;
-    }
-    const tabState = tabStates[activeTabPath];
-    if (tabState && isFileTab(tabState)) {
-      return tabState;
-    }
-    return null;
-  }, [activeTabPath, previewTab, tabStates]);
+  // Get active tab language from the tabs store
+  const activeFileLanguage = useMemo(() => {
+    const activeGroup = groups.find((g) => g.id === activeGroupId);
+    if (!activeGroup?.activeUrl) return null;
+
+    const activeTab = activeGroup.tabs.find((t) => t.url === activeGroup.activeUrl);
+    if (!activeTab?.resolved) return null;
+
+    // Only file tabs have language info
+    if (!isFileUrl(activeTab.url)) return null;
+
+    const data = activeTab.resolved.data as FileTabData;
+    return data?.language ?? null;
+  }, [groups, activeGroupId]);
 
   return (
     <div
@@ -93,8 +96,8 @@ export function StatusBar() {
         )}
 
         {/* Language (only for file tabs) */}
-        {activeFileState && (
-          <span className="capitalize">{activeFileState.language}</span>
+        {activeFileLanguage && (
+          <span className="capitalize">{activeFileLanguage}</span>
         )}
 
         {/* Encoding */}

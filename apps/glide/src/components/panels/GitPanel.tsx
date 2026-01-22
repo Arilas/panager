@@ -24,8 +24,8 @@ import {
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
 import { useGitStore } from "../../stores/git";
-import { useFilesStore } from "../../stores/files";
-import { useEditorStore, isDiffTab } from "../../stores/editor";
+import { useTabsStore } from "../../stores/tabs";
+import { isDiffUrl, buildFileUrl, buildDiffUrl, parseDiffUrl } from "../../lib/tabs/url";
 import { useEffectiveTheme } from "../../hooks/useEffectiveTheme";
 import { useGeneralSettings } from "../../stores/settings";
 import { cn } from "../../lib/utils";
@@ -33,41 +33,7 @@ import type { GitFileChange, GitFileStatus } from "../../types";
 import { CommitInput } from "../git/CommitInput";
 import { StashPanel } from "../git/StashPanel";
 import { GitChangeTree } from "../git/GitChangeTree";
-import { stageFile, unstageFile, discardChanges, getFileDiff } from "../../lib/tauri-ide";
-
-/** Get Monaco language ID from file path */
-function getLanguageFromPath(filePath: string): string {
-  const ext = filePath.split(".").pop()?.toLowerCase() || "";
-  const langMap: Record<string, string> = {
-    ts: "typescript",
-    tsx: "typescript",
-    js: "javascript",
-    jsx: "javascript",
-    json: "json",
-    html: "html",
-    css: "css",
-    scss: "scss",
-    less: "less",
-    md: "markdown",
-    py: "python",
-    rs: "rust",
-    go: "go",
-    java: "java",
-    c: "c",
-    cpp: "cpp",
-    h: "c",
-    hpp: "cpp",
-    yaml: "yaml",
-    yml: "yaml",
-    xml: "xml",
-    sql: "sql",
-    sh: "shell",
-    bash: "shell",
-    zsh: "shell",
-    toml: "toml",
-  };
-  return langMap[ext] || "plaintext";
-}
+import { stageFile, unstageFile, discardChanges } from "../../lib/tauri-ide";
 
 export function GitPanel() {
   const projectContext = useIdeStore((s) => s.projectContext);
@@ -82,9 +48,8 @@ export function GitPanel() {
     changesViewMode,
     setChangesViewMode,
   } = useGitStore();
-  const openFilePreview = useFilesStore((s) => s.openFilePreview);
-  const activeTabPath = useEditorStore((s) => s.activeTabPath);
-  const getActiveTabState = useEditorStore((s) => s.getActiveTabState);
+  const openTab = useTabsStore((s) => s.openTab);
+  const getActiveTab = useTabsStore((s) => s.getActiveTab);
   const effectiveTheme = useEffectiveTheme();
   const generalSettings = useGeneralSettings();
 
@@ -102,29 +67,29 @@ export function GitPanel() {
 
   // Derive selected file from active tab (diff or regular file)
   const selectedFilePath = useMemo(() => {
-    if (!activeTabPath || !projectContext) return null;
+    const activeTab = getActiveTab();
+    if (!activeTab || !projectContext) return null;
 
-    // If diff tab is active, extract the original file path from the diff:// path
-    if (activeTabPath.startsWith("diff://")) {
-      const activeTab = getActiveTabState();
-      if (activeTab && isDiffTab(activeTab)) {
-        // Extract original path - remove diff:// prefix and :staged suffix if present
-        let originalPath = activeTabPath.slice("diff://".length);
-        if (originalPath.endsWith(":staged")) {
-          originalPath = originalPath.slice(0, -":staged".length);
-        }
-        if (originalPath.startsWith(projectContext.projectPath)) {
-          return originalPath.slice(projectContext.projectPath.length + 1); // +1 for the "/"
-        }
+    const url = activeTab.url;
+
+    // If diff tab is active, extract the original file path
+    if (isDiffUrl(url)) {
+      const { filePath } = parseDiffUrl(url);
+      if (filePath.startsWith(projectContext.projectPath)) {
+        return filePath.slice(projectContext.projectPath.length + 1); // +1 for the "/"
       }
-    } else {
-      // Regular file tab - extract relative path
-      if (activeTabPath.startsWith(projectContext.projectPath)) {
-        return activeTabPath.slice(projectContext.projectPath.length + 1);
+      return null;
+    }
+
+    // Regular file tab - extract relative path
+    if (url.startsWith("file://")) {
+      const filePath = url.slice(7); // Remove "file://"
+      if (filePath.startsWith(projectContext.projectPath)) {
+        return filePath.slice(projectContext.projectPath.length + 1);
       }
     }
     return null;
-  }, [activeTabPath, getActiveTabState, projectContext]);
+  }, [getActiveTab, projectContext]);
 
   const isDark = effectiveTheme === "dark";
 
@@ -156,36 +121,15 @@ export function GitPanel() {
   );
   const untrackedChanges = changes.filter((c) => c.status === "untracked");
 
-  const openDiffTab = useEditorStore((s) => s.openDiffTab);
-
   const handleFileClick = async (file: GitFileChange) => {
     if (!projectContext) return;
 
-    try {
-      // Get the diff data from the backend
-      const diff = await getFileDiff(projectContext.projectPath, file.path, file.staged);
+    // Build the diff URL - the resolver will handle loading the content
+    const fullPath = `${projectContext.projectPath}/${file.path}`;
+    const url = buildDiffUrl(fullPath, file.staged);
 
-      if (diff.isBinary) {
-        console.warn("Cannot display diff for binary file:", file.path);
-        return;
-      }
-
-      // Open the diff in a new tab (as preview by default)
-      const fileName = file.path.split("/").pop() || file.path;
-      const fullPath = `${projectContext.projectPath}/${file.path}`;
-      openDiffTab({
-        type: "diff",
-        path: fullPath,
-        filePath: fullPath,
-        fileName,
-        originalContent: diff.originalContent,
-        modifiedContent: diff.modifiedContent,
-        language: getLanguageFromPath(file.path),
-        staged: file.staged,
-      });
-    } catch (error) {
-      console.error("Failed to load diff:", error);
-    }
+    // Open the diff tab (resolver handles loading)
+    openTab({ url, isPreview: true });
   };
 
   const handleStageFile = async (file: GitFileChange) => {
@@ -246,7 +190,7 @@ export function GitPanel() {
   const handleFileOpen = (file: GitFileChange) => {
     if (projectContext) {
       const fullPath = `${projectContext.projectPath}/${file.path}`;
-      openFilePreview(fullPath);
+      openTab({ url: buildFileUrl(fullPath), isPreview: true });
     }
   };
 

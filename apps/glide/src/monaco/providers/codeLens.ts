@@ -13,7 +13,7 @@ import type {
   CancellationToken,
   Emitter,
 } from "monaco-editor";
-import { useEditorStore } from "../../stores/editor";
+import { useMonacoStore } from "../../stores/monaco";
 import { useIdeSettingsStore } from "../../stores/settings";
 import type { GitBlameLine } from "../../types";
 import { LSP_LANGUAGES } from "./index";
@@ -65,7 +65,7 @@ export function registerCodeLensProvider(monaco: Monaco): IDisposable {
       }
 
       // Get file state from editor store
-      const fileState = useEditorStore.getState().getFileState(filePath);
+      const fileState = useMonacoStore.getState().getFileState(filePath);
       if (!fileState || !fileState.blameData || fileState.symbols.length === 0) {
         return { lenses: [], dispose: () => {} };
       }

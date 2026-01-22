@@ -1,16 +1,17 @@
 //! IDE Database Module
 //!
-//! Provides per-project SQLite database for storing chat sessions and entries.
-//! Each project has its own `.panager/` directory with a SQLite database.
+//! Provides per-project SQLite database for storing:
+//! - Chat sessions and entries (unified entry architecture)
+//! - Tabs and tab groups (unified tab management)
 //!
-//! Uses a unified "entry" architecture where all chat items (messages, tool calls,
-//! permission requests, meta) are stored in a single entries table with a type field.
-//! See plan file "Entry Processing Rules" for shared logic between backend and frontend.
+//! Each project has its own `.glide/` directory with a SQLite database.
 
 pub mod chat;
 pub mod migrations;
+pub mod tabs;
 
 pub use chat::{
     ChatDb, DbEntry, DbSession, DbSessionInfo, DbSessionWithEntries, EntryType,
 };
 pub use migrations::run_migrations;
+pub use tabs::{DbTab, DbTabGroup, DbTabSession, TabsDb};

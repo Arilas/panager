@@ -16,7 +16,7 @@ import {
   Settings,
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
-import { useEditorStore } from "../../stores/editor";
+import { useNavigationStore } from "../../stores/navigation";
 import { useEffectiveTheme, useLiquidGlass } from "../../hooks/useEffectiveTheme";
 import { cn } from "../../lib/utils";
 
@@ -31,11 +31,11 @@ export function IdeTitlebar() {
   const toggleBottomPanel = useIdeStore((s) => s.toggleBottomPanel);
   const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
 
-  // History navigation from editor store
-  const navigateBack = useEditorStore((s) => s.navigateBack);
-  const navigateForward = useEditorStore((s) => s.navigateForward);
-  const canGoBack = useEditorStore((s) => s.canNavigateBack());
-  const canGoForward = useEditorStore((s) => s.canNavigateForward());
+  // History navigation from navigation store
+  const navigateBack = useNavigationStore((s) => s.navigateBack);
+  const navigateForward = useNavigationStore((s) => s.navigateForward);
+  const canGoBack = useNavigationStore((s) => s.canNavigateBack());
+  const canGoForward = useNavigationStore((s) => s.canNavigateForward());
 
   const effectiveTheme = useEffectiveTheme();
   const liquidGlass = useLiquidGlass();

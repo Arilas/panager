@@ -38,6 +38,7 @@
     "zustand": "^5"
   },
   "devDependencies": {
+    "@bithero/monaco-editor-vite-plugin": "^1.0.3",
     "@tailwindcss/postcss": "^4.1.18",
     "@tauri-apps/cli": "^2",
     "@types/diff": "^7.0.2",

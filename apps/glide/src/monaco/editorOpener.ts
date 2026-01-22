@@ -7,7 +7,8 @@
 
 import type { Monaco } from "@monaco-editor/react";
 import type { editor, IDisposable, IPosition, IRange } from "monaco-editor";
-import { useFilesStore } from "../stores/files";
+import { useTabsStore } from "../stores/tabs";
+import { buildFileUrl } from "../lib/tabs/url";
 
 let openerRegistered = false;
 let openerDisposable: IDisposable | null = null;
@@ -41,8 +42,12 @@ export function registerEditorOpener(monaco: Monaco): IDisposable | null {
 
       console.log("[EditorOpener] Opening file:", filePath, "at position:", position);
 
-      // Open the file through the files store (handles history tracking and position)
-      useFilesStore.getState().openFileAtPosition(filePath, position);
+      // Open the file through the tabs store with cursor position
+      useTabsStore.getState().openTab({
+        url: buildFileUrl(filePath),
+        isPreview: false,
+        cursorPosition: position,
+      });
       return true; // We handled it
     },
   });

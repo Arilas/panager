@@ -18,8 +18,10 @@ import {
   Variable,
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
-import { useEditorStore } from "../../stores/editor";
+import { useMonacoStore } from "../../stores/monaco";
+import { useTabsStore } from "../../stores/tabs";
 import { useLiquidGlass } from "../../hooks/useEffectiveTheme";
+import { parseFileUrl, isFileUrl } from "../../lib/tabs/url";
 import { cn } from "../../lib/utils";
 import { SymbolKind, type LspDocumentSymbol } from "../../types/lsp";
 
@@ -101,16 +103,30 @@ function getSymbolKindLabel(kind: number): string {
 
 export function GoToSymbolDialog({ open, onOpenChange }: GoToSymbolDialogProps) {
   const setCursorPosition = useIdeStore((s) => s.setCursorPosition);
-  const activeEditor = useEditorStore((s) => s.activeEditor);
-  const getActiveFileState = useEditorStore((s) => s.getActiveFileState);
+  const activeEditor = useMonacoStore((s) => s.activeEditor);
+  const getFileData = useMonacoStore((s) => s.getFileData);
+  const activeGroupId = useTabsStore((s) => s.activeGroupId);
+  const groups = useTabsStore((s) => s.groups);
   const useLiquidGlassEnabled = useLiquidGlass();
 
   const [search, setSearch] = useState("");
 
+  // Get active file path from tabs store
+  const activeFilePath = useMemo(() => {
+    const activeGroup = groups.find((g) => g.id === activeGroupId);
+    const activeUrl = activeGroup?.activeUrl;
+    if (!activeUrl || !isFileUrl(activeUrl)) return null;
+    try {
+      return parseFileUrl(activeUrl);
+    } catch {
+      return null;
+    }
+  }, [groups, activeGroupId]);
+
   // Get symbols from the active file
-  const fileState = getActiveFileState();
-  const symbols = fileState?.symbols ?? [];
-  const symbolsLoading = fileState?.symbolsLoading ?? false;
+  const fileData = activeFilePath ? getFileData(activeFilePath) : null;
+  const symbols = fileData?.symbols ?? [];
+  const symbolsLoading = fileData?.symbolsLoading ?? false;
 
   // Filter symbols based on search
   const filteredSymbols = useMemo(() => {

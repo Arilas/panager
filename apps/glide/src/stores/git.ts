@@ -30,7 +30,7 @@ import {
   gitStashApply,
   gitStashDrop,
 } from "../lib/tauri-ide";
-import { useEditorStore } from "./editor";
+import { useMonacoStore } from "./monaco";
 
 interface GitState {
   // Git status
@@ -264,8 +264,8 @@ export const useGitStore = create<GitState>((set, get) => ({
     await gitSwitchBranch(projectPath, name);
     await get().loadBranches(projectPath);
     await get().refresh(projectPath);
-    // Clear blame caches on branch switch (now in editorStore)
-    useEditorStore.getState().clearAllBlameCaches();
+    // Clear blame caches on branch switch
+    useMonacoStore.getState().clearAllBlameCaches();
   },
 
   deleteBranch: async (projectPath, name, force = false) => {

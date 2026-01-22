@@ -13,7 +13,6 @@ import { create } from "zustand";
 import type { FileEntry } from "../types";
 import {
   readDirectory,
-  readFile,
   writeFile,
   createFile,
   deleteFile,
@@ -24,7 +23,8 @@ import {
   copyDirectory,
   pathExists,
 } from "../lib/tauri-ide";
-import { useEditorStore, isFileTab } from "./editor";
+import { useTabsStore } from "./tabs";
+import { buildFileUrl, isFileUrl } from "../lib/tabs/url";
 import { useIdeStore } from "./ide";
 import { useIdeSettingsStore } from "./settings";
 import { MAX_FILE_COPIES } from "../lib/constants";
@@ -85,10 +85,7 @@ interface FilesState {
   toggleDirectory: (path: string, projectPath: string) => Promise<void>;
   setRevealFilePath: (path: string | null) => void;
 
-  // File I/O actions (delegate to editorStore for tab management)
-  openFile: (path: string) => Promise<void>;
-  openFilePreview: (path: string) => Promise<void>;
-  openFileAtPosition: (path: string, position: FilePosition) => Promise<void>;
+  // File I/O actions
   saveFile: (path: string) => Promise<void>;
   saveActiveFile: () => Promise<void>;
   saveAllFiles: () => Promise<void>;
@@ -206,112 +203,14 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   // File I/O Actions
   // ============================================================
 
-  openFile: async (path) => {
-    const editorStore = useEditorStore.getState();
-
-    // Check if already open in editor store
-    const existingState = editorStore.getFileState(path);
-    if (existingState) {
-      // File is already open - just activate it
-      // If it's a preview, convert to permanent
-      if (editorStore.previewTab?.path === path) {
-        editorStore.convertPreviewToPermanent();
-      }
-      editorStore.setActiveTab(path);
-      return;
-    }
-
-    try {
-      const fileContent = await readFile(path);
-
-      if (fileContent.isBinary) {
-        console.warn("Cannot open binary file:", path);
-        return;
-      }
-
-      // Open as permanent tab in editor store
-      editorStore.openTab(
-        path,
-        fileContent.content,
-        fileContent.language,
-        false
-      );
-    } catch (error) {
-      console.error("Failed to open file:", error);
-    }
-  },
-
-  openFilePreview: async (path) => {
-    const editorStore = useEditorStore.getState();
-
-    // Check if already open in editor store
-    const existingState = editorStore.getFileState(path);
-    if (existingState) {
-      // File is already open - just activate it
-      editorStore.setActiveTab(path);
-      return;
-    }
-
-    try {
-      const fileContent = await readFile(path);
-
-      if (fileContent.isBinary) {
-        console.warn("Cannot open binary file:", path);
-        return;
-      }
-
-      // Open as preview tab in editor store
-      editorStore.openTab(
-        path,
-        fileContent.content,
-        fileContent.language,
-        true
-      );
-    } catch (error) {
-      console.error("Failed to open file:", error);
-    }
-  },
-
-  openFileAtPosition: async (path, position) => {
-    const editorStore = useEditorStore.getState();
-
-    // Store the pending navigation for the editor hook
-    pendingNavigation = { path, position };
-
-    // Check if already open
-    const existingState = editorStore.getFileState(path);
-    if (existingState) {
-      // File is already open - update position and activate
-      editorStore.saveCursorPosition(path, position);
-      editorStore.setActiveTab(path);
-      return;
-    }
-
-    try {
-      const fileContent = await readFile(path);
-
-      if (fileContent.isBinary) {
-        console.warn("Cannot open binary file:", path);
-        return;
-      }
-
-      // Open as permanent tab with initial position
-      editorStore.openTab(
-        path,
-        fileContent.content,
-        fileContent.language,
-        false,
-        { position }
-      );
-    } catch (error) {
-      console.error("Failed to open file at position:", error);
-    }
-  },
-
   saveFile: async (path) => {
-    const editorStore = useEditorStore.getState();
-    const fileState = editorStore.getFileState(path);
-    if (!fileState) return;
+    const tabsStore = useTabsStore.getState();
+    const url = buildFileUrl(path);
+    const tabInfo = tabsStore.findTabInAnyGroup(url);
+    if (!tabInfo?.tab.resolved) return;
+
+    const data = tabInfo.tab.resolved.data as { currentContent: string };
+    const content = data.currentContent;
 
     // Get project context and settings for format-on-save
     const projectContext = useIdeStore.getState().projectContext;
@@ -319,20 +218,18 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     const formatOnSaveEnabled = settingsStore.settings.behavior.formatOnSave.enabled;
 
     try {
-      const result = await writeFile(path, fileState.content, {
+      const result = await writeFile(path, content, {
         runFormatters: formatOnSaveEnabled,
         projectPath: projectContext?.projectPath,
         scopeDefaultFolder: settingsStore.scopeDefaultFolder,
       });
 
       // If formatters ran and returned updated content, use that
-      const savedContent = result.content ?? fileState.content;
-      editorStore.markSaved(path, savedContent);
-
-      // If content was modified by formatters, update the editor
-      if (result.content && result.content !== fileState.content) {
-        editorStore.updateContent(path, result.content);
+      if (result.content && result.content !== content) {
+        // Update content first, then mark saved
+        tabsStore.updateContent(url, result.content);
       }
+      tabsStore.markSaved(url);
     } catch (error) {
       console.error("Failed to save file:", error);
       throw error;
@@ -341,31 +238,26 @@ export const useFilesStore = create<FilesState>((set, get) => ({
 
   saveActiveFile: async () => {
     const { saveFile } = get();
-    const activeTabPath = useEditorStore.getState().activeTabPath;
-    if (activeTabPath) {
-      await saveFile(activeTabPath);
+    const activeFilePath = useTabsStore.getState().getActiveFilePath();
+    if (activeFilePath) {
+      await saveFile(activeFilePath);
     }
   },
 
   saveAllFiles: async () => {
     const { saveFile } = get();
-    const editorStore = useEditorStore.getState();
+    const tabsStore = useTabsStore.getState();
 
-    // Get all dirty file tabs (only file tabs can be dirty, not diff tabs)
+    // Get all dirty file tabs from all groups
     const dirtyPaths: string[] = [];
-    for (const path of editorStore.openTabs) {
-      const tabState = editorStore.tabStates[path];
-      if (tabState && isFileTab(tabState) && tabState.content !== tabState.savedContent) {
-        dirtyPaths.push(path);
+    for (const group of tabsStore.groups) {
+      for (const tab of group.tabs) {
+        if (isFileUrl(tab.url) && tab.isDirty) {
+          // Extract path from file:// URL
+          const path = tab.url.slice(7); // Remove "file://"
+          dirtyPaths.push(path);
+        }
       }
-    }
-    // Also check preview tab (only if it's a file tab)
-    if (
-      editorStore.previewTab &&
-      isFileTab(editorStore.previewTab) &&
-      editorStore.previewTab.content !== editorStore.previewTab.savedContent
-    ) {
-      dirtyPaths.push(editorStore.previewTab.path);
     }
 
     await Promise.all(dirtyPaths.map((path) => saveFile(path)));
@@ -398,10 +290,11 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   },
 
   removeFileFromTree: (path) => {
-    // Close the file in editor store if it's open
-    const editorStore = useEditorStore.getState();
-    if (editorStore.getFileState(path)) {
-      editorStore.closeTab(path);
+    // Close the file in tabs store if it's open
+    const tabsStore = useTabsStore.getState();
+    const url = buildFileUrl(path);
+    if (tabsStore.findTabInAnyGroup(url)) {
+      tabsStore.closeTab(url);
     }
 
     // Remove from tree
@@ -507,9 +400,10 @@ export const useFilesStore = create<FilesState>((set, get) => ({
           addFileToTree(destPath, isDirectory);
 
           // Close any open tabs for the old path (file watcher will handle updates)
-          const editorStore = useEditorStore.getState();
-          if (!isDirectory && editorStore.getFileState(sourcePath)) {
-            editorStore.closeTab(sourcePath);
+          const tabsStore = useTabsStore.getState();
+          const sourceUrl = buildFileUrl(sourcePath);
+          if (!isDirectory && tabsStore.findTabInAnyGroup(sourceUrl)) {
+            tabsStore.closeTab(sourceUrl);
           }
         }
       }
@@ -565,10 +459,13 @@ export const useFilesStore = create<FilesState>((set, get) => ({
       // Clear creating state
       set({ creatingEntry: null });
 
-      // If it's a file, open it
+      // If it's a file, open it using the new tabs store
       if (!isDirectory) {
-        const { openFile } = get();
-        await openFile(newPath);
+        const tabsStore = useTabsStore.getState();
+        await tabsStore.openTab({
+          url: buildFileUrl(newPath),
+          isPreview: false,
+        });
       }
     } catch (error) {
       console.error("Failed to create:", error);
@@ -605,10 +502,11 @@ export const useFilesStore = create<FilesState>((set, get) => ({
       await renameFile(renamingPath, newPath);
 
       // Close any open tabs for the old path (file watcher will handle updates)
-      const editorStore = useEditorStore.getState();
+      const tabsStore = useTabsStore.getState();
       const isDirectory = isPathDirectory(get().tree, renamingPath);
-      if (!isDirectory && editorStore.getFileState(renamingPath)) {
-        editorStore.closeTab(renamingPath);
+      const oldUrl = buildFileUrl(renamingPath);
+      if (!isDirectory && tabsStore.findTabInAnyGroup(oldUrl)) {
+        tabsStore.closeTab(oldUrl);
       }
 
       // Clear rename state

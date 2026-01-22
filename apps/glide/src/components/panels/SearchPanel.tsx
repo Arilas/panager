@@ -14,7 +14,8 @@ import {
   Regex,
 } from "lucide-react";
 import { useIdeStore } from "../../stores/ide";
-import { useFilesStore } from "../../stores/files";
+import { useTabsStore } from "../../stores/tabs";
+import { buildFileUrl } from "../../lib/tabs/url";
 import { searchFiles } from "../../lib/tauri-ide";
 import { cn } from "../../lib/utils";
 import { SEARCH_DEBOUNCE_MS } from "../../lib/constants";
@@ -26,7 +27,7 @@ interface GroupedResults {
 
 export function SearchPanel() {
   const projectContext = useIdeStore((s) => s.projectContext);
-  const openFile = useFilesStore((s) => s.openFile);
+  const openTab = useTabsStore((s) => s.openTab);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -114,8 +115,8 @@ export function SearchPanel() {
     if (!projectContext) return;
     // Convert relative path to full path
     const fullPath = `${projectContext.projectPath}/${result.filePath}`;
-    openFile(fullPath);
-    // TODO: Jump to line when Monaco supports it
+    // TODO: Pass cursorPosition to jump to line
+    openTab({ url: buildFileUrl(fullPath), isPreview: false });
   };
 
   const clearSearch = () => {
