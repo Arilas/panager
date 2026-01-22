@@ -197,13 +197,18 @@ impl Plugin for TypeScriptPlugin {
                     return Ok(());
                 }
 
+                // Check if user wants to use tsgo (Go-based TypeScript server)
+                let use_tsgo = server_settings
+                    .map(|s| s.settings.get("useTsgo").and_then(|v| v.as_bool()).unwrap_or(false))
+                    .unwrap_or(false);
+
                 // Create config with merged settings
                 let config = if let Some(user_settings) = server_settings {
                     // Merge default settings with user settings
                     let defaults = TypeScriptConfig::new().default_settings();
                     let mut merged = defaults;
                     crate::ide::settings::deep_merge(&mut merged, &user_settings.settings);
-                    TypeScriptConfig::with_settings(merged)
+                    TypeScriptConfig::with_settings(merged, use_tsgo)
                 } else {
                     TypeScriptConfig::new()
                 };
@@ -213,19 +218,29 @@ impl Plugin for TypeScriptPlugin {
                 let ctx = self.ctx.clone();
                 self.project_root = Some(path.clone());
                 self.config = config;
-                let config = TypeScriptConfig::with_settings(self.config.settings.clone());
+                let config = TypeScriptConfig::with_settings(self.config.settings.clone(), use_tsgo);
 
                 tokio::spawn(async move {
-                    info!("Starting TypeScript LSP for: {:?}", path);
+                    if use_tsgo {
+                        info!("Starting tsgo (Go-based TypeScript LSP) for: {:?}", path);
+                    } else {
+                        info!("Starting TypeScript LSP for: {:?}", path);
+                    }
 
-                    // Detect TypeScript version
-                    let ts_version = Self::detect_typescript_version(&path).await;
+                    // Detect TypeScript version (only relevant for non-tsgo)
+                    let ts_version = if use_tsgo {
+                        None
+                    } else {
+                        Self::detect_typescript_version(&path).await
+                    };
 
                     match LspClient::start(&config, &path, ctx.clone().unwrap()).await {
                         Ok(client) => {
                             *lsp.write().await = Some(client);
                             if let Some(ctx) = ctx {
-                                let (text, tooltip) = if let Some(ref ts_ver) = ts_version {
+                                let (text, tooltip) = if use_tsgo {
+                                    ("tsgo".to_string(), "TypeScript (tsgo - Go-based server)".to_string())
+                                } else if let Some(ref ts_ver) = ts_version {
                                     (
                                         format!("TS {}", ts_ver.version),
                                         format!(

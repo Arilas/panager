@@ -9,6 +9,8 @@ use crate::plugins::lsp::{LspClient, LspConfig};
 pub struct TypeScriptConfig {
     /// Merged settings from defaults + user overrides
     pub settings: serde_json::Value,
+    /// Whether to use tsgo (Go-based TypeScript server) instead of typescript-language-server
+    pub use_tsgo: bool,
 }
 
 impl TypeScriptConfig {
@@ -16,12 +18,13 @@ impl TypeScriptConfig {
     pub fn new() -> Self {
         Self {
             settings: Self::default_settings_static(),
+            use_tsgo: false,
         }
     }
 
     /// Create a new TypeScript config with custom settings
-    pub fn with_settings(settings: serde_json::Value) -> Self {
-        Self { settings }
+    pub fn with_settings(settings: serde_json::Value, use_tsgo: bool) -> Self {
+        Self { settings, use_tsgo }
     }
 
     /// Default settings (static version for use in new())
@@ -76,28 +79,50 @@ impl LspConfig for TypeScriptConfig {
     }
 
     fn command(&self) -> &str {
-        "npx"
+        if self.use_tsgo {
+            "npx"
+        } else {
+            "npx"
+        }
     }
 
     fn args(&self) -> Vec<String> {
-        vec!["typescript-language-server".to_string(), "--stdio".to_string()]
+        if self.use_tsgo {
+            // tsgo - Go-based TypeScript language server
+            // https://github.com/nicholasdille/tsgo
+            vec![
+                "--yes".to_string(),
+                "@anthropic/tsgo".to_string(),
+                "lsp".to_string(),
+            ]
+        } else {
+            // Default: typescript-language-server
+            vec!["typescript-language-server".to_string(), "--stdio".to_string()]
+        }
     }
 
     fn initialization_options(&self, _root: &PathBuf) -> serde_json::Value {
-        serde_json::json!({
-            "hostInfo": "Panager IDE",
-            "tsserver": {
-                "useSyntaxServer": "auto",
-                "logVerbosity": "off"
-            },
-            "preferences": {
-                "importModuleSpecifierPreference": "shortest",
-                "includePackageJsonAutoImports": "auto",
-                "allowIncompleteCompletions": true,
-                "includeCompletionsForModuleExports": true
-            },
-            "disableAutomaticTypingAcquisition": false
-        })
+        if self.use_tsgo {
+            // tsgo-specific initialization options
+            serde_json::json!({
+                "hostInfo": "Panager IDE"
+            })
+        } else {
+            serde_json::json!({
+                "hostInfo": "Panager IDE",
+                "tsserver": {
+                    "useSyntaxServer": "auto",
+                    "logVerbosity": "off"
+                },
+                "preferences": {
+                    "importModuleSpecifierPreference": "shortest",
+                    "includePackageJsonAutoImports": "auto",
+                    "allowIncompleteCompletions": true,
+                    "includeCompletionsForModuleExports": true
+                },
+                "disableAutomaticTypingAcquisition": false
+            })
+        }
     }
 
     fn default_settings(&self) -> serde_json::Value {
