@@ -12,6 +12,7 @@ pub mod json;
 pub mod oxfmt;
 pub mod oxlint;
 pub mod prettier;
+pub mod prisma;
 pub mod rust_analyzer;
 pub mod sql;
 pub mod tailwindcss;
@@ -78,6 +79,9 @@ pub async fn register_builtin_plugins(host: &PluginHost) {
 
     // SQL plugin (auto-detected based on database context)
     host.register(Box::new(sql::SqlPlugin::new())).await;
+
+    // Prisma plugin (auto-detected based on schema.prisma)
+    host.register(Box::new(prisma::PrismaPlugin::new())).await;
 }
 
 /// Activate all built-in plugins that should start automatically
@@ -113,6 +117,7 @@ pub async fn activate_default_plugins(host: &PluginHost) {
         "panager.rust-analyzer",  // Activates if Cargo.toml exists and rust-analyzer is in PATH
         "panager.tombi",          // Activates if TOML files exist (via npx)
         "panager.sql",            // Activates if SQL/database context detected
+        "panager.prisma",         // Activates if schema.prisma exists
     ];
 
     for plugin_id in conditional_plugins {

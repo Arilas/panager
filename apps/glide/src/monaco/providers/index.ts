@@ -77,6 +77,9 @@ export const LSP_LANGUAGES = [
 
   // Dockerfile (dockerfile-language-server support)
   "dockerfile",
+
+  // Prisma (prisma-language-server support)
+  "prisma",
 ];
 
 let providersRegistered = false;
