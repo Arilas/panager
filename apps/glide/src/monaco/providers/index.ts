@@ -82,6 +82,25 @@ export const LSP_LANGUAGES = [
 
   // Prisma (prisma-language-server support)
   "prisma",
+
+  // Python (pyright support)
+  "python",
+
+  // Go (gopls support)
+  "go",
+
+  // Zig (zls support)
+  "zig",
+
+  // Shell scripts (bash-language-server support)
+  "shellscript",
+  "bash",
+  "sh",
+
+  // MDX (mdx-language-server support)
+  "mdx",
+
+  // Deno (deno lsp support) - uses typescript/javascript IDs above
 ];
 
 let providersRegistered = false;

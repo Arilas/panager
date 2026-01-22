@@ -4,17 +4,23 @@
 
 pub mod angular;
 pub mod astro;
+pub mod bash;
 pub mod biome;
 pub mod css;
+pub mod deno;
 pub mod dockerfile;
 pub mod emmet;
 pub mod eslint;
+pub mod gopls;
+pub mod graphql;
 pub mod html;
 pub mod json;
+pub mod mdx;
 pub mod oxfmt;
 pub mod oxlint;
 pub mod prettier;
 pub mod prisma;
+pub mod pyright;
 pub mod rust_analyzer;
 pub mod sql;
 pub mod svelte;
@@ -23,6 +29,7 @@ pub mod tombi;
 pub mod typescript;
 pub mod vue;
 pub mod yaml;
+pub mod zls;
 
 use super::host::PluginHost;
 use tracing::info;
@@ -98,6 +105,27 @@ pub async fn register_builtin_plugins(host: &PluginHost) {
 
     // Angular plugin (auto-detected based on angular.json)
     host.register(Box::new(angular::AngularPlugin::new())).await;
+
+    // GraphQL plugin (auto-detected based on graphql config)
+    host.register(Box::new(graphql::GraphqlPlugin::new())).await;
+
+    // Bash plugin (shell script support)
+    host.register(Box::new(bash::BashPlugin::new())).await;
+
+    // MDX plugin (auto-detected based on mdx dependencies)
+    host.register(Box::new(mdx::MdxPlugin::new())).await;
+
+    // Pyright plugin (Python support via npx)
+    host.register(Box::new(pyright::PyrightPlugin::new())).await;
+
+    // Deno plugin (requires deno in PATH)
+    host.register(Box::new(deno::DenoPlugin::new())).await;
+
+    // Go plugin (requires gopls in PATH)
+    host.register(Box::new(gopls::GoplsPlugin::new())).await;
+
+    // Zig plugin (requires zls in PATH)
+    host.register(Box::new(zls::ZlsPlugin::new())).await;
 }
 
 /// Activate all built-in plugins that should start automatically
@@ -138,6 +166,13 @@ pub async fn activate_default_plugins(host: &PluginHost) {
         "panager.astro",          // Activates if astro config exists
         "panager.svelte",         // Activates if svelte config exists
         "panager.angular",        // Activates if angular.json exists
+        "panager.graphql",        // Activates if graphql config exists
+        "panager.bash",           // Activates if shell scripts detected
+        "panager.mdx",            // Activates if mdx dependencies detected
+        "panager.pyright",        // Activates if Python project detected
+        "panager.deno",           // Activates if deno.json exists and deno is in PATH
+        "panager.gopls",          // Activates if go.mod exists and gopls is in PATH
+        "panager.zls",            // Activates if build.zig exists and zls is in PATH
     ];
 
     for plugin_id in conditional_plugins {
