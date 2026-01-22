@@ -17,6 +17,7 @@ use crate::plugins::types::{
 /// Get language ID from file path
 fn get_language_from_path(path: &str) -> String {
     match path.rsplit('.').next() {
+        // TypeScript/JavaScript
         Some("ts") => "typescript",
         Some("tsx") => "typescriptreact",
         Some("js") => "javascript",
@@ -25,6 +26,25 @@ fn get_language_from_path(path: &str) -> String {
         Some("cts") => "typescript",
         Some("mjs") => "javascript",
         Some("cjs") => "javascript",
+
+        // JSON
+        Some("json") => "json",
+        Some("jsonc") => "jsonc",
+
+        // CSS
+        Some("css") => "css",
+        Some("scss") => "scss",
+        Some("sass") => "scss",
+        Some("less") => "less",
+
+        // HTML
+        Some("html") => "html",
+        Some("htm") => "html",
+
+        // YAML
+        Some("yaml") => "yaml",
+        Some("yml") => "yaml",
+
         _ => "plaintext",
     }
     .to_string()

@@ -32,12 +32,28 @@ import { registerLinkedEditingRangeProvider } from "./linkedEditingRanges";
 // for compatibility. The editor uses Shiki IDs for tokenization, but LSP providers
 // are registered for both to ensure they work regardless of which ID is used.
 export const LSP_LANGUAGES = [
+  // TypeScript/JavaScript
   "typescript",
   "typescriptreact", // Monaco ID
   "tsx", // Shiki ID
   "javascript",
   "javascriptreact", // Monaco ID
   "jsx", // Shiki ID
+
+  // JSON
+  "json",
+  "jsonc",
+
+  // CSS
+  "css",
+  "scss",
+  "less",
+
+  // HTML
+  "html",
+
+  // YAML
+  "yaml",
 ];
 
 let providersRegistered = false;

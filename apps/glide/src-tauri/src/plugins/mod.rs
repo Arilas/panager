@@ -5,10 +5,12 @@
 //! - Plugin host for lifecycle management
 //! - Plugin context for plugin-to-host communication
 //! - Built-in plugins (TypeScript, etc.)
+//! - Generic LSP client for language servers
 
 pub mod builtin;
 pub mod context;
 pub mod host;
+pub mod lsp;
 pub mod types;
 
 pub use context::PluginContext;

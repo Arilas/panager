@@ -14,6 +14,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use crate::plugins::context::PluginContext;
+use crate::plugins::lsp::LspClient;
 use crate::plugins::types::{
     HostEvent, LspCodeAction, LspCompletionList, LspDocumentHighlight, LspDocumentSymbol,
     LspFoldingRange, LspFormattingOptions, LspHover, LspInlayHint, LspLinkedEditingRanges,
@@ -21,33 +22,26 @@ use crate::plugins::types::{
     LspWorkspaceEdit, Plugin, PluginManifest, StatusBarAlignment, StatusBarItem,
 };
 
-use lsp::LspClient;
+use lsp::{TypeScriptConfig, TypeScriptLspClient};
 
 /// TypeScript version info
 #[derive(Debug, Clone)]
 struct TypeScriptVersion {
-    /// The version string (e.g., "5.3.3")
     version: String,
-    /// Where TypeScript was found ("local" or "global")
     source: String,
 }
 
 /// TypeScript plugin state
 pub struct TypeScriptPlugin {
-    /// Plugin metadata
     manifest: PluginManifest,
-    /// Plugin context for communication
     ctx: Option<PluginContext>,
-    /// LSP client
-    lsp: Arc<RwLock<Option<LspClient>>>,
-    /// Project root path
+    lsp: Arc<RwLock<Option<TypeScriptLspClient>>>,
     project_root: Option<PathBuf>,
-    /// Detected TypeScript version
     ts_version: Option<TypeScriptVersion>,
+    config: TypeScriptConfig,
 }
 
 impl TypeScriptPlugin {
-    /// Create a new TypeScript plugin instance
     pub fn new() -> Self {
         Self {
             manifest: PluginManifest {
@@ -67,13 +61,11 @@ impl TypeScriptPlugin {
             lsp: Arc::new(RwLock::new(None)),
             project_root: None,
             ts_version: None,
+            config: TypeScriptConfig,
         }
     }
 
-    /// Detect TypeScript version in a project
-    /// Returns (version, source) where source is "local" or "global"
     async fn detect_typescript_version(root: &PathBuf) -> Option<TypeScriptVersion> {
-        // First, try to read local TypeScript version from node_modules
         let local_pkg_path = root.join("node_modules/typescript/package.json");
         if local_pkg_path.exists() {
             if let Ok(content) = tokio::fs::read_to_string(&local_pkg_path).await {
@@ -89,7 +81,6 @@ impl TypeScriptPlugin {
             }
         }
 
-        // Fall back to global TypeScript via npx
         let output = Command::new("npx")
             .args(["tsc", "--version"])
             .current_dir(root)
@@ -101,7 +92,6 @@ impl TypeScriptPlugin {
         if let Ok(output) = output {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                // Output is like "Version 5.3.3"
                 let version = stdout
                     .trim()
                     .strip_prefix("Version ")
@@ -120,55 +110,6 @@ impl TypeScriptPlugin {
         None
     }
 
-    /// Start the LSP server for a project
-    async fn start_lsp(&mut self, root: &PathBuf) -> Result<(), String> {
-        info!("Starting TypeScript LSP for: {:?}", root);
-
-        let ctx = self.ctx.clone().ok_or("Plugin not activated")?;
-
-        // Detect TypeScript version
-        self.ts_version = Self::detect_typescript_version(root).await;
-
-        let lsp = LspClient::start(root, ctx).await?;
-
-        *self.lsp.write().await = Some(lsp);
-        self.project_root = Some(root.clone());
-
-        // Update status bar to show TypeScript version
-        if let Some(ref ctx) = self.ctx {
-            let (text, tooltip) = if let Some(ref ts_ver) = self.ts_version {
-                (
-                    format!("TS {}", ts_ver.version),
-                    format!(
-                        "TypeScript {} ({})",
-                        ts_ver.version,
-                        if ts_ver.source == "local" {
-                            "project"
-                        } else {
-                            "global"
-                        }
-                    ),
-                )
-            } else {
-                (
-                    "TS".to_string(),
-                    "TypeScript Language Server running".to_string(),
-                )
-            };
-
-            ctx.update_status_bar(StatusBarItem {
-                id: "ts-status".to_string(),
-                text,
-                tooltip: Some(tooltip),
-                alignment: StatusBarAlignment::Right,
-                priority: 50,
-            });
-        }
-
-        Ok(())
-    }
-
-    /// Stop the LSP server
     async fn stop_lsp(&mut self) {
         info!("Stopping TypeScript LSP");
 
@@ -179,7 +120,6 @@ impl TypeScriptPlugin {
         self.project_root = None;
         self.ts_version = None;
 
-        // Update status bar
         if let Some(ref ctx) = self.ctx {
             ctx.update_status_bar(StatusBarItem {
                 id: "ts-status".to_string(),
@@ -208,7 +148,6 @@ impl Plugin for TypeScriptPlugin {
         info!("Activating TypeScript plugin");
         self.ctx = Some(ctx.clone());
 
-        // Show initial status bar item
         ctx.update_status_bar(StatusBarItem {
             id: "ts-status".to_string(),
             text: "TS".to_string(),
@@ -223,10 +162,8 @@ impl Plugin for TypeScriptPlugin {
     async fn deactivate(&mut self) -> Result<(), String> {
         info!("Deactivating TypeScript plugin");
 
-        // Stop LSP if running
         self.stop_lsp().await;
 
-        // Remove status bar item
         if let Some(ref ctx) = self.ctx {
             ctx.remove_status_bar("ts-status".to_string());
         }
@@ -238,15 +175,51 @@ impl Plugin for TypeScriptPlugin {
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
             HostEvent::ProjectOpened { path } => {
-                // Check if this looks like a TypeScript/JavaScript project
                 let has_tsconfig = path.join("tsconfig.json").exists();
                 let has_jsconfig = path.join("jsconfig.json").exists();
                 let has_package_json = path.join("package.json").exists();
 
                 if has_tsconfig || has_jsconfig || has_package_json {
-                    if let Err(e) = self.start_lsp(&path).await {
-                        warn!("Failed to start TypeScript LSP: {}", e);
-                    }
+                    // Spawn in background to not block other plugins
+                    let lsp = self.lsp.clone();
+                    let ctx = self.ctx.clone();
+                    let config = TypeScriptConfig;
+                    self.project_root = Some(path.clone());
+                    tokio::spawn(async move {
+                        info!("Starting TypeScript LSP for: {:?}", path);
+
+                        // Detect TypeScript version
+                        let ts_version = Self::detect_typescript_version(&path).await;
+
+                        match LspClient::start(&config, &path, ctx.clone().unwrap()).await {
+                            Ok(client) => {
+                                *lsp.write().await = Some(client);
+                                if let Some(ctx) = ctx {
+                                    let (text, tooltip) = if let Some(ref ts_ver) = ts_version {
+                                        (
+                                            format!("TS {}", ts_ver.version),
+                                            format!(
+                                                "TypeScript {} ({})",
+                                                ts_ver.version,
+                                                if ts_ver.source == "local" { "project" } else { "global" }
+                                            ),
+                                        )
+                                    } else {
+                                        ("TS".to_string(), "TypeScript Language Server running".to_string())
+                                    };
+
+                                    ctx.update_status_bar(StatusBarItem {
+                                        id: "ts-status".to_string(),
+                                        text,
+                                        tooltip: Some(tooltip),
+                                        alignment: StatusBarAlignment::Right,
+                                        priority: 50,
+                                    });
+                                }
+                            }
+                            Err(e) => warn!("Failed to start TypeScript LSP: {}", e),
+                        }
+                    });
                 } else {
                     debug!("Project doesn't appear to be a TypeScript/JavaScript project");
                 }
@@ -256,15 +229,11 @@ impl Plugin for TypeScriptPlugin {
                 self.stop_lsp().await;
             }
 
-            HostEvent::FileOpened {
-                path,
-                content,
-                language,
-            } => {
+            HostEvent::FileOpened { path, content, language } => {
                 debug!("TypeScript plugin received FileOpened: {:?}, lang: {}", path, language);
                 if let Some(lsp) = self.lsp.read().await.as_ref() {
                     debug!("Sending didOpen to LSP for: {:?}", path);
-                    lsp.did_open(&path, &content, &language).await;
+                    lsp.did_open(&self.config, &path, &content).await;
                 } else {
                     warn!("LSP not running, cannot send didOpen for: {:?}", path);
                 }
@@ -368,17 +337,13 @@ impl LspProvider for TypeScriptPlugin {
     ) -> Result<Vec<LspCodeAction>, String> {
         let lsp = self.lsp.read().await;
         let lsp = lsp.as_ref().ok_or("LSP not running")?;
-        lsp.code_action(path, start_line, start_character, end_line, end_character, diagnostics)
-            .await
+        lsp.code_action(path, start_line, start_character, end_line, end_character, diagnostics).await
     }
 
     async fn document_symbols(&self, path: &PathBuf) -> Result<Vec<LspDocumentSymbol>, String> {
-        debug!("document_symbols called for: {:?}", path);
         let lsp = self.lsp.read().await;
         let lsp = lsp.as_ref().ok_or("LSP not running")?;
-        let result = lsp.document_symbols(path).await;
-        debug!("document_symbols result: {:?} symbols", result.as_ref().map(|v| v.len()));
-        result
+        lsp.document_symbols(path).await
     }
 
     async fn inlay_hints(
@@ -391,8 +356,7 @@ impl LspProvider for TypeScriptPlugin {
     ) -> Result<Vec<LspInlayHint>, String> {
         let lsp = self.lsp.read().await;
         let lsp = lsp.as_ref().ok_or("LSP not running")?;
-        lsp.inlay_hints(path, start_line, start_character, end_line, end_character)
-            .await
+        lsp.inlay_hints(path, start_line, start_character, end_line, end_character).await
     }
 
     async fn document_highlight(
@@ -415,8 +379,7 @@ impl LspProvider for TypeScriptPlugin {
     ) -> Result<Option<LspSignatureHelp>, String> {
         let lsp = self.lsp.read().await;
         let lsp = lsp.as_ref().ok_or("LSP not running")?;
-        lsp.signature_help(path, line, character, trigger_character)
-            .await
+        lsp.signature_help(path, line, character, trigger_character).await
     }
 
     async fn format_document(
@@ -440,15 +403,7 @@ impl LspProvider for TypeScriptPlugin {
     ) -> Result<Vec<LspTextEdit>, String> {
         let lsp = self.lsp.read().await;
         let lsp = lsp.as_ref().ok_or("LSP not running")?;
-        lsp.format_range(
-            path,
-            start_line,
-            start_character,
-            end_line,
-            end_character,
-            options,
-        )
-        .await
+        lsp.format_range(path, start_line, start_character, end_line, end_character, options).await
     }
 
     async fn format_on_type(
@@ -461,8 +416,7 @@ impl LspProvider for TypeScriptPlugin {
     ) -> Result<Vec<LspTextEdit>, String> {
         let lsp = self.lsp.read().await;
         let lsp = lsp.as_ref().ok_or("LSP not running")?;
-        lsp.format_on_type(path, line, character, trigger_character, options)
-            .await
+        lsp.format_on_type(path, line, character, trigger_character, options).await
     }
 
     async fn type_definition(
