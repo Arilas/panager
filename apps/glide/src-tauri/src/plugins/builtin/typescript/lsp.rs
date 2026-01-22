@@ -88,12 +88,14 @@ impl LspConfig for TypeScriptConfig {
 
     fn args(&self) -> Vec<String> {
         if self.use_tsgo {
-            // tsgo - Go-based TypeScript language server
-            // https://github.com/nicholasdille/tsgo
+            // tsgo - Go-based TypeScript language server (TypeScript Native Preview)
+            // https://github.com/microsoft/typescript-go
+            // https://www.npmjs.com/package/@typescript/native-preview
             vec![
                 "--yes".to_string(),
-                "@anthropic/tsgo".to_string(),
-                "lsp".to_string(),
+                "@typescript/native-preview".to_string(),
+                "--lsp".to_string(),
+                "--stdio".to_string(),
             ]
         } else {
             // Default: typescript-language-server
