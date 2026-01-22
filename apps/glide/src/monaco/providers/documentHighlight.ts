@@ -9,6 +9,7 @@ import type { Monaco } from "@monaco-editor/react";
 import type { editor, Position, CancellationToken, IDisposable } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
 import { DocumentHighlightKind } from "../../types/lsp";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Map LSP DocumentHighlightKind to Monaco DocumentHighlightKind.
@@ -58,7 +59,7 @@ export function registerDocumentHighlightProvider(
           kind: mapHighlightKind(monaco, highlight.kind),
         }));
       } catch (e) {
-        console.error("[LSP] document_highlight error:", e);
+        logLspErrorIfNeeded("document_highlight", e);
         return [];
       }
     },

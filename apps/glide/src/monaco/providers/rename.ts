@@ -13,6 +13,7 @@ import type {
   languages,
 } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Register rename provider for a language.
@@ -60,7 +61,7 @@ export function registerRenameProvider(
 
         return edits;
       } catch (e) {
-        console.error("[LSP] rename error:", e);
+        logLspErrorIfNeeded("rename", e);
         return { edits: [] };
       }
     },

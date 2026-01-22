@@ -9,7 +9,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::process::Command;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::plugins::context::PluginContext;
 use crate::plugins::types::{
@@ -250,7 +250,7 @@ impl Plugin for PrettierPlugin {
     }
 
     fn supports_language(&self, language: &str) -> bool {
-        if *self.is_active.try_read().unwrap_or(&std::sync::RwLock::new(false).read().unwrap()) {
+        if self.is_active.try_read().map(|guard| *guard).unwrap_or(false) {
             self.manifest.languages.iter().any(|l| l == language)
         } else {
             false

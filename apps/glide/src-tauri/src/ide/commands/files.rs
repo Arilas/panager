@@ -438,6 +438,7 @@ fn detect_language(file_path: &str) -> String {
         // Build tools
         "cmake" => "cmake",
         "ninja" => "ninja",
+        "dockerfile" => "dockerfile",
 
         // Misc languages
         "graphql" | "gql" => "graphql",

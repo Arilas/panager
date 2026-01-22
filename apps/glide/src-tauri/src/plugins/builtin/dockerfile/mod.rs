@@ -39,6 +39,17 @@ impl DockerfileConfig {
             }
         }
 
+        // Check for files with .Dockerfile extension in root directory
+        if let Ok(entries) = std::fs::read_dir(root) {
+            for entry in entries.flatten() {
+                if let Some(file_name) = entry.file_name().to_str() {
+                    if file_name.ends_with(".Dockerfile") || file_name.ends_with(".dockerfile") {
+                        return true;
+                    }
+                }
+            }
+        }
+
         // Check for docker-compose files
         let compose_patterns = [
             "docker-compose.yml",

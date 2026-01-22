@@ -3,7 +3,57 @@
 //! This module provides the TypeScript-specific configuration for the generic LSP client.
 
 use std::path::PathBuf;
+use tracing::{debug, warn};
 use crate::plugins::lsp::{LspClient, LspConfig};
+
+/// Find TypeScript SDK path in the project
+/// Returns an absolute file:// URI path to the TypeScript lib directory
+fn find_typescript_tsdk(root: &PathBuf) -> Option<String> {
+    // Normalize the root path
+    let root = if let Ok(canonical) = std::fs::canonicalize(root) {
+        canonical
+    } else {
+        root.clone()
+    };
+    
+    // Check for node_modules/typescript/lib in project root
+    let local_ts = root.join("node_modules/typescript/lib");
+    if local_ts.exists() && local_ts.is_dir() {
+        debug!("Found TypeScript SDK at: {:?}", local_ts);
+        if let Ok(abs_path) = std::fs::canonicalize(&local_ts) {
+            // Normalize path separators for file:// URI (use forward slashes)
+            let path_str = abs_path.to_string_lossy().replace('\\', "/");
+            let uri = format!("file://{}", path_str);
+            debug!("Using absolute path: {}", uri);
+            return Some(uri);
+        }
+    }
+    
+    // Check parent directories (for monorepos)
+    let mut current = root.clone();
+    for depth in 0..5 {
+        // Limit search depth
+        if let Some(parent) = current.parent() {
+            let ts_path = parent.join("node_modules/typescript/lib");
+            if ts_path.exists() && ts_path.is_dir() {
+                debug!("Found TypeScript SDK in parent (depth {}): {:?}", depth, ts_path);
+                if let Ok(abs_path) = std::fs::canonicalize(&ts_path) {
+                    // Normalize path separators for file:// URI (use forward slashes)
+                    let path_str = abs_path.to_string_lossy().replace('\\', "/");
+                    let uri = format!("file://{}", path_str);
+                    debug!("Using absolute path: {}", uri);
+                    return Some(uri);
+                }
+            }
+            current = parent.to_path_buf();
+        } else {
+            break;
+        }
+    }
+    
+    debug!("TypeScript SDK not found in project or parent directories");
+    None
+}
 
 /// TypeScript language server configuration
 pub struct TypeScriptConfig {
@@ -103,14 +153,19 @@ impl LspConfig for TypeScriptConfig {
         }
     }
 
-    fn initialization_options(&self, _root: &PathBuf) -> serde_json::Value {
+    fn initialization_options(&self, root: &PathBuf) -> serde_json::Value {
         if self.use_tsgo {
             // tsgo-specific initialization options
             serde_json::json!({
                 "hostInfo": "Panager IDE"
             })
         } else {
-            serde_json::json!({
+            // Find TypeScript installation
+            let tsdk_path = find_typescript_tsdk(root);
+            
+            debug!("TypeScript SDK search for root {:?}: {:?}", root, tsdk_path);
+            
+            let mut options = serde_json::json!({
                 "hostInfo": "Panager IDE",
                 "tsserver": {
                     "useSyntaxServer": "auto",
@@ -123,7 +178,29 @@ impl LspConfig for TypeScriptConfig {
                     "includeCompletionsForModuleExports": true
                 },
                 "disableAutomaticTypingAcquisition": false
-            })
+            });
+            
+            // Add typescript.tsdk - required by typescript-language-server
+            if let Some(tsdk) = tsdk_path {
+                options["typescript"] = serde_json::json!({
+                    "tsdk": tsdk
+                });
+                debug!("Added typescript.tsdk: {}", tsdk);
+            } else {
+                // TypeScript SDK not found - this is required by typescript-language-server
+                // We need to provide it, so try to use npx to resolve it or provide a path
+                // that the server can resolve relative to the project root
+                warn!("TypeScript SDK not found in project, using relative path fallback");
+                
+                // Use relative path - the server should resolve it relative to rootUri
+                // This works if TypeScript is installed via npx or in a parent node_modules
+                options["typescript"] = serde_json::json!({
+                    "tsdk": "node_modules/typescript/lib"
+                });
+                debug!("Using fallback typescript.tsdk: node_modules/typescript/lib");
+            }
+            
+            options
         }
     }
 

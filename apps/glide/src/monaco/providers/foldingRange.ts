@@ -9,6 +9,7 @@ import type { Monaco } from "@monaco-editor/react";
 import type { editor, CancellationToken, IDisposable, languages } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
 import { FoldingRangeKind } from "../../types/lsp";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Map LSP folding range kind to Monaco FoldingRangeKind.
@@ -51,7 +52,7 @@ export function registerFoldingRangeProvider(
           kind: mapFoldingRangeKind(monaco, range.kind),
         }));
       } catch (e) {
-        console.error("[LSP] folding_range error:", e);
+        logLspErrorIfNeeded("folding_range", e);
         return [];
       }
     },

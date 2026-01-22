@@ -22,9 +22,13 @@ use crate::plugins::types::{
 pub struct TailwindCssConfig;
 
 impl TailwindCssConfig {
-    /// Check if a project has Tailwind CSS installed by examining package.json and lock files
+    /// Check if a project has Tailwind CSS installed by examining:
+    /// - package.json dependencies
+    /// - Lock files (package-lock.json, yarn.lock, pnpm-lock.yaml)
+    /// - Tailwind config files (tailwind.config.js/ts/cjs/mjs)
+    /// - CSS files with @import 'tailwindcss' (Tailwind v4)
     pub fn has_tailwind(root: &PathBuf) -> bool {
-        // Check package.json
+        // Check package.json for tailwindcss dependency
         let package_json = root.join("package.json");
         if package_json.exists() {
             if let Ok(content) = std::fs::read_to_string(&package_json) {
@@ -39,23 +43,12 @@ impl TailwindCssConfig {
             "package-lock.json",
             "yarn.lock",
             "pnpm-lock.yaml",
-            "bun.lockb",
         ];
 
         for lock_file in lock_files {
             let lock_path = root.join(lock_file);
             if lock_path.exists() {
-                // For binary lock files (bun.lockb), just check if it exists alongside tailwind config
-                if lock_file == "bun.lockb" {
-                    // Check for tailwind config files
-                    if root.join("tailwind.config.js").exists()
-                        || root.join("tailwind.config.ts").exists()
-                        || root.join("tailwind.config.cjs").exists()
-                        || root.join("tailwind.config.mjs").exists()
-                    {
-                        return true;
-                    }
-                } else if let Ok(content) = std::fs::read_to_string(&lock_path) {
+                if let Ok(content) = std::fs::read_to_string(&lock_path) {
                     if content.contains("tailwindcss") {
                         return true;
                     }
@@ -63,7 +56,7 @@ impl TailwindCssConfig {
             }
         }
 
-        // Check for tailwind config files directly
+        // Check for tailwind config files (v3 and earlier)
         let config_files = [
             "tailwind.config.js",
             "tailwind.config.ts",
@@ -77,7 +70,101 @@ impl TailwindCssConfig {
             }
         }
 
+        // Check for Tailwind v4 CSS import pattern: @import 'tailwindcss' or @import "tailwindcss"
+        // Look in common CSS entry points
+        if Self::check_css_for_tailwind_import(root) {
+            return true;
+        }
+
         false
+    }
+
+    /// Check CSS files for Tailwind v4 import pattern
+    fn check_css_for_tailwind_import(root: &PathBuf) -> bool {
+        // Reuse find_tailwind_v4_css which has full monorepo support
+        Self::find_tailwind_v4_css(root).is_some()
+    }
+
+    /// Find CSS file with Tailwind v4 import and return its path
+    fn find_tailwind_v4_css(root: &PathBuf) -> Option<String> {
+        info!("Looking for Tailwind v4 CSS in: {}", root.display());
+
+        // Common CSS entry point locations (relative to project root or package root)
+        let css_paths = [
+            "src/index.css",
+            "src/styles.css",
+            "src/global.css",
+            "src/globals.css",
+            "src/app.css",
+            "src/main.css",
+            "styles/globals.css",
+            "styles/global.css",
+            "styles/index.css",
+            "app/globals.css",
+            "app/global.css",
+            "assets/css/main.css",
+            "css/main.css",
+            "css/styles.css",
+        ];
+
+        // Check root level first
+        for css_path in &css_paths {
+            if let Some(path) = Self::check_css_file_for_tailwind(root, css_path) {
+                info!("Found Tailwind v4 CSS at root level: {}", path);
+                return Some(path);
+            }
+        }
+
+        // For monorepos, also check in apps/* and packages/* subdirectories
+        let monorepo_dirs = ["apps", "packages", "libs"];
+        for monorepo_dir in monorepo_dirs {
+            let dir_path = root.join(monorepo_dir);
+            if dir_path.exists() && dir_path.is_dir() {
+                info!("Checking monorepo directory: {}", dir_path.display());
+                if let Ok(entries) = std::fs::read_dir(&dir_path) {
+                    for entry in entries.flatten() {
+                        if entry.path().is_dir() {
+                            debug!("Checking package: {}", entry.path().display());
+                            for css_path in &css_paths {
+                                if let Some(path) = Self::check_css_file_for_tailwind(&entry.path(), css_path) {
+                                    info!("Found Tailwind v4 CSS in monorepo package: {}", path);
+                                    return Some(path);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        info!("No Tailwind v4 CSS file found in project");
+        None
+    }
+
+    /// Check a specific CSS file for Tailwind v4 import
+    fn check_css_file_for_tailwind(base: &PathBuf, css_path: &str) -> Option<String> {
+        let full_path = base.join(css_path);
+        if full_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&full_path) {
+                // Check for various Tailwind import patterns
+                let has_tailwind = content.contains("@import 'tailwindcss'")
+                    || content.contains("@import \"tailwindcss\"")
+                    || content.contains("@import 'tailwindcss/")
+                    || content.contains("@import \"tailwindcss/")
+                    // Also check for @tailwind directives (v3 style, but still valid)
+                    || content.contains("@tailwind base")
+                    || content.contains("@tailwind components")
+                    || content.contains("@tailwind utilities");
+
+                if has_tailwind {
+                    debug!("CSS file {} contains Tailwind directives", full_path.display());
+                    return Some(full_path.to_string_lossy().to_string());
+                } else {
+                    debug!("CSS file {} exists but no Tailwind imports found", full_path.display());
+                }
+            }
+        }
+        None
     }
 }
 
@@ -93,52 +180,51 @@ impl LspConfig for TailwindCssConfig {
     fn args(&self) -> Vec<String> {
         vec![
             "--yes".to_string(),
-            "@tailwindcss/language-server".to_string(),
+            // Use the official @tailwindcss/language-server package
+            // Specify package and executable separately for scoped packages
+            "--package=@tailwindcss/language-server".to_string(),
+            "tailwindcss-language-server".to_string(),
             "--stdio".to_string(),
         ]
     }
 
     fn initialization_options(&self, root: &PathBuf) -> serde_json::Value {
-        // Find tailwind config path
-        let config_files = [
+        info!("Building Tailwind initialization options for: {}", root.display());
+
+        // For v4, Tailwind LSP may have trouble detecting CSS files in monorepos
+        // We can explicitly specify the config file path to help it find the project
+        // See: https://github.com/tailwindlabs/tailwindcss-intellisense
+
+        // Try to find v4 CSS file or v3 config file
+        let v4_css_path = Self::find_tailwind_v4_css(root);
+        let v3_config_path = [
             "tailwind.config.js",
             "tailwind.config.ts",
             "tailwind.config.cjs",
             "tailwind.config.mjs",
-        ];
+        ]
+        .iter()
+        .find(|f| root.join(f).exists())
+        .map(|f| root.join(f).to_string_lossy().to_string());
 
-        let config_path = config_files
-            .iter()
-            .find(|f| root.join(f).exists())
-            .map(|f| root.join(f).to_string_lossy().to_string());
+        // Use v4 CSS path if found, otherwise v3 config
+        let config_file = v4_css_path.or(v3_config_path);
 
-        serde_json::json!({
-            "tailwindCSS": {
-                "emmetCompletions": true,
-                "includeLanguages": {
-                    "javascript": "javascript",
-                    "javascriptreact": "javascript",
-                    "typescript": "javascript",
-                    "typescriptreact": "javascript",
-                    "html": "html",
-                    "vue": "html",
-                    "svelte": "html",
-                    "astro": "html"
-                },
-                "classAttributes": ["class", "className", "classList", "ngClass"],
-                "experimental": {
-                    "classRegex": [
-                        ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
-                        ["cx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"],
-                        ["cn\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"],
-                        ["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
-                    ]
+        if let Some(ref path) = config_file {
+            info!("Tailwind config/CSS file found: {}", path);
+            // Pass the configFile explicitly to help Tailwind LSP find the project
+            // This is especially important for monorepos where auto-detection may fail
+            serde_json::json!({
+                "tailwindCSS": {
+                    "experimental": {
+                        "configFile": path
+                    }
                 }
-            },
-            "editor": {
-                "tabSize": 2
-            }
-        })
+            })
+        } else {
+            info!("No Tailwind config or v4 CSS file found - letting LSP auto-detect");
+            serde_json::json!({})
+        }
     }
 
     fn capabilities(&self) -> serde_json::Value {
@@ -148,14 +234,17 @@ impl LspConfig for TailwindCssConfig {
                     "relatedInformation": true
                 },
                 "synchronization": {
+                    "dynamicRegistration": true,
                     "didSave": true,
                     "willSave": false,
                     "willSaveWaitUntil": false
                 },
                 "hover": {
+                    "dynamicRegistration": true,
                     "contentFormat": ["markdown", "plaintext"]
                 },
                 "completion": {
+                    "dynamicRegistration": true,
                     "completionItem": {
                         "snippetSupport": true,
                         "documentationFormat": ["markdown", "plaintext"],
@@ -166,13 +255,19 @@ impl LspConfig for TailwindCssConfig {
                     "contextSupport": true
                 },
                 "codeAction": {
+                    "dynamicRegistration": true,
                     "codeActionLiteralSupport": {
                         "codeActionKind": {
                             "valueSet": ["quickfix", "source"]
                         }
                     }
                 },
-                "colorProvider": {}
+                "colorProvider": {
+                    "dynamicRegistration": true
+                },
+                "documentLink": {
+                    "dynamicRegistration": true
+                }
             },
             "workspace": {
                 "workspaceFolders": true,
@@ -188,6 +283,25 @@ impl LspConfig for TailwindCssConfig {
         serde_json::json!({
             "tailwindCSS": {
                 "validate": true,
+                "emmetCompletions": true,
+                "hovers": true,
+                "suggestions": true,
+                "codeActions": true,
+                "colorDecorators": true,
+                "includeLanguages": {
+                    "javascript": "javascript",
+                    "javascriptreact": "javascript",
+                    "typescript": "javascript",
+                    "typescriptreact": "javascript",
+                    "html": "html",
+                    "vue": "html",
+                    "svelte": "html",
+                    "astro": "html"
+                },
+                "classAttributes": ["class", "className", "classList", "ngClass"],
+                "files": {
+                    "exclude": ["**/.git/**", "**/node_modules/**", "**/.hg/**", "**/.svn/**"]
+                },
                 "lint": {
                     "cssConflict": "warning",
                     "invalidApply": "error",
@@ -205,6 +319,9 @@ impl LspConfig for TailwindCssConfig {
                         ["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
                     ]
                 }
+            },
+            "editor": {
+                "tabSize": 2
             }
         })
     }
@@ -238,6 +355,13 @@ impl LspConfig for TailwindCssConfig {
 /// Type alias for Tailwind CSS LSP client
 pub type TailwindCssLspClient = LspClient<TailwindCssConfig>;
 
+/// Open file info for syncing with LSP
+#[derive(Clone)]
+struct OpenFile {
+    path: PathBuf,
+    content: String,
+}
+
 /// Tailwind CSS plugin state
 pub struct TailwindCssPlugin {
     manifest: PluginManifest,
@@ -245,6 +369,8 @@ pub struct TailwindCssPlugin {
     lsp: Arc<RwLock<Option<TailwindCssLspClient>>>,
     project_root: Option<PathBuf>,
     config: TailwindCssConfig,
+    /// Files that were opened before LSP was ready - will be synced when LSP starts
+    pending_files: Arc<RwLock<Vec<OpenFile>>>,
 }
 
 impl TailwindCssPlugin {
@@ -275,6 +401,7 @@ impl TailwindCssPlugin {
             lsp: Arc::new(RwLock::new(None)),
             project_root: None,
             config: TailwindCssConfig,
+            pending_files: Arc::new(RwLock::new(Vec::new())),
         }
     }
 
@@ -284,6 +411,9 @@ impl TailwindCssPlugin {
         if let Some(lsp) = self.lsp.write().await.take() {
             lsp.shutdown().await;
         }
+
+        // Clear pending files
+        self.pending_files.write().await.clear();
 
         self.project_root = None;
 
@@ -331,10 +461,18 @@ impl Plugin for TailwindCssPlugin {
                 let lsp = self.lsp.clone();
                 let ctx = self.ctx.clone();
                 let config = TailwindCssConfig;
+                let pending_files = self.pending_files.clone();
                 tokio::spawn(async move {
                     info!("Starting Tailwind CSS LSP for: {:?}", path);
                     match LspClient::start(&config, &path, ctx.clone().unwrap()).await {
                         Ok(client) => {
+                            // Sync any files that were opened before LSP was ready
+                            let files_to_sync = pending_files.write().await.drain(..).collect::<Vec<_>>();
+                            for file in files_to_sync {
+                                debug!("Syncing pending file to Tailwind LSP: {:?}", file.path);
+                                client.did_open(&config, &file.path, &file.content).await;
+                            }
+
                             *lsp.write().await = Some(client);
                             if let Some(ctx) = ctx {
                                 ctx.update_status_bar(StatusBarItem {
@@ -359,6 +497,13 @@ impl Plugin for TailwindCssPlugin {
                 debug!("Tailwind CSS plugin received FileOpened: {:?}, lang: {}", path, language);
                 if let Some(lsp) = self.lsp.read().await.as_ref() {
                     lsp.did_open(&self.config, &path, &content).await;
+                } else {
+                    // LSP not ready yet, queue the file for later sync
+                    debug!("Tailwind LSP not ready, queuing file: {:?}", path);
+                    self.pending_files.write().await.push(OpenFile {
+                        path: path.clone(),
+                        content: content.clone(),
+                    });
                 }
             }
 
@@ -385,12 +530,10 @@ impl Plugin for TailwindCssPlugin {
     }
 
     fn supports_language(&self, language: &str) -> bool {
-        // Only provide support if LSP is running (meaning tailwind was detected)
-        if self.lsp.try_read().map(|l| l.is_some()).unwrap_or(false) {
-            self.manifest.languages.iter().any(|l| l == language)
-        } else {
-            false
-        }
+        // Return true if the language is in our supported list
+        // The actual LSP request will fail gracefully if LSP isn't ready
+        // This avoids race conditions with try_read() during initialization
+        self.manifest.languages.iter().any(|l| l == language)
     }
 
     fn as_lsp_provider(&self) -> Option<&dyn LspProvider> {

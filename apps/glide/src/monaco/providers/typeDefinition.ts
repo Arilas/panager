@@ -15,6 +15,7 @@ import type {
 } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
 import { ensureModelsForUris } from "../fileContentProvider";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Register type definition provider for a language.
@@ -52,7 +53,7 @@ export function registerTypeDefinitionProvider(
 
         return monacoLocations;
       } catch (e) {
-        console.error("[LSP] type_definition error:", e);
+        logLspErrorIfNeeded("type_definition", e);
         return [];
       }
     },

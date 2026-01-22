@@ -16,6 +16,7 @@ import type {
 import * as lspApi from "../../lib/tauri-ide";
 import { notifyFileChanged } from "../../lib/tauri-ide";
 import type { LspCompletionItem } from "../../types/lsp";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Map LSP CompletionItemKind to Monaco CompletionItemKind.
@@ -197,7 +198,7 @@ export function registerCompletionProvider(
           incomplete: result.isIncomplete,
         };
       } catch (e) {
-        console.error("[LSP] completion error:", e);
+        logLspErrorIfNeeded("completion", e);
         return { suggestions: [] };
       }
     },

@@ -18,8 +18,8 @@ use super::context::PluginContext;
 use super::types::{
     HostEvent, LspCodeAction, LspCompletionList, LspDocumentHighlight, LspDocumentSymbol,
     LspFoldingRange, LspFormattingOptions, LspHover, LspInlayHint, LspLinkedEditingRanges,
-    LspLocation, LspPosition, LspSelectionRange, LspSignatureHelp, LspTextEdit, LspWorkspaceEdit,
-    Plugin, PluginEvent, PluginManifest, PluginState,
+    LspLocation, LspMarkupContent, LspPosition, LspSelectionRange, LspSignatureHelp, LspTextEdit,
+    LspWorkspaceEdit, Plugin, PluginEvent, PluginManifest, PluginState,
 };
 
 /// A registered plugin instance with its state
@@ -318,22 +318,24 @@ impl PluginHost {
     // LSP Bridge Methods
     // =========================================================================
 
-    /// Find an LSP provider for a given language
-    fn find_lsp_provider_for_language<'a>(
+    /// Find all LSP providers for a given language
+    /// Returns providers in order of registration (primary providers like TypeScript first)
+    fn find_lsp_providers_for_language<'a>(
         plugins: &'a HashMap<String, PluginInstance>,
         language: &str,
-    ) -> Option<&'a dyn crate::plugins::types::LspProvider> {
+    ) -> Vec<&'a dyn crate::plugins::types::LspProvider> {
+        let mut providers = Vec::new();
         for instance in plugins.values() {
             if instance.state == PluginState::Active && instance.plugin.supports_language(language) {
                 if let Some(provider) = instance.plugin.as_lsp_provider() {
-                    return Some(provider);
+                    providers.push(provider);
                 }
             }
         }
-        None
+        providers
     }
 
-    /// Go to definition
+    /// Go to definition - calls all providers and merges results
     pub async fn lsp_goto_definition(
         &self,
         language: &str,
@@ -342,12 +344,22 @@ impl PluginHost {
         character: u32,
     ) -> Result<Vec<LspLocation>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.goto_definition(path, line, character).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        let mut all_locations = Vec::new();
+        for provider in providers {
+            match provider.goto_definition(path, line, character).await {
+                Ok(locations) => all_locations.extend(locations),
+                Err(e) => debug!("LSP goto_definition provider error (ignored): {}", e),
+            }
+        }
+        Ok(all_locations)
     }
 
-    /// Get hover information
+    /// Get hover information - merges results from all providers
     pub async fn lsp_hover(
         &self,
         language: &str,
@@ -356,12 +368,57 @@ impl PluginHost {
         character: u32,
     ) -> Result<Option<LspHover>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.hover(path, line, character).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        // Collect all hover results and merge them
+        let mut hovers: Vec<LspHover> = Vec::new();
+        for provider in providers {
+            match provider.hover(path, line, character).await {
+                Ok(Some(hover)) => hovers.push(hover),
+                Ok(None) => continue,
+                Err(e) => debug!("LSP hover provider error (ignored): {}", e),
+            }
+        }
+
+        if hovers.is_empty() {
+            return Ok(None);
+        }
+
+        // If only one hover, return it directly
+        if hovers.len() == 1 {
+            return Ok(Some(hovers.remove(0)));
+        }
+
+        // Merge multiple hovers by combining their contents
+        let merged_value = hovers
+            .iter()
+            .map(|h| h.contents.value.as_str())
+            .collect::<Vec<_>>()
+            .join("\n\n---\n\n");
+
+        // Use markdown if any hover is markdown
+        let kind = if hovers.iter().any(|h| h.contents.kind == "markdown") {
+            "markdown".to_string()
+        } else {
+            "plaintext".to_string()
+        };
+
+        // Use the first hover's range
+        let range = hovers.first().and_then(|h| h.range.clone());
+
+        Ok(Some(LspHover {
+            contents: LspMarkupContent {
+                kind,
+                value: merged_value,
+            },
+            range,
+        }))
     }
 
-    /// Get completions
+    /// Get completions - merges results from all providers
     pub async fn lsp_completion(
         &self,
         language: &str,
@@ -371,12 +428,29 @@ impl PluginHost {
         trigger_character: Option<&str>,
     ) -> Result<LspCompletionList, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.completion(path, line, character, trigger_character).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        let mut merged = LspCompletionList {
+            is_incomplete: false,
+            items: Vec::new(),
+        };
+
+        for provider in providers {
+            match provider.completion(path, line, character, trigger_character).await {
+                Ok(list) => {
+                    merged.is_incomplete |= list.is_incomplete;
+                    merged.items.extend(list.items);
+                }
+                Err(e) => debug!("LSP completion provider error (ignored): {}", e),
+            }
+        }
+        Ok(merged)
     }
 
-    /// Find references
+    /// Find references - merges results from all providers
     pub async fn lsp_references(
         &self,
         language: &str,
@@ -386,12 +460,22 @@ impl PluginHost {
         include_declaration: bool,
     ) -> Result<Vec<LspLocation>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.references(path, line, character, include_declaration).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        let mut all_locations = Vec::new();
+        for provider in providers {
+            match provider.references(path, line, character, include_declaration).await {
+                Ok(locations) => all_locations.extend(locations),
+                Err(e) => debug!("LSP references provider error (ignored): {}", e),
+            }
+        }
+        Ok(all_locations)
     }
 
-    /// Rename symbol
+    /// Rename symbol - returns first valid result (can't merge workspace edits)
     pub async fn lsp_rename(
         &self,
         language: &str,
@@ -401,12 +485,33 @@ impl PluginHost {
         new_name: &str,
     ) -> Result<LspWorkspaceEdit, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.rename(path, line, character, new_name).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        // Return first valid rename result
+        let mut last_error = String::new();
+        for provider in providers {
+            match provider.rename(path, line, character, new_name).await {
+                Ok(edit) => {
+                    // Check if edit has any changes
+                    let has_changes = edit.changes.as_ref().map(|c| !c.is_empty()).unwrap_or(false);
+                    let has_doc_changes = edit.document_changes.as_ref().map(|c| !c.is_empty()).unwrap_or(false);
+                    if has_changes || has_doc_changes {
+                        return Ok(edit);
+                    }
+                }
+                Err(e) => {
+                    debug!("LSP rename provider error (ignored): {}", e);
+                    last_error = e;
+                }
+            }
+        }
+        Err(last_error)
     }
 
-    /// Get code actions
+    /// Get code actions - merges results from all providers
     pub async fn lsp_code_action(
         &self,
         language: &str,
@@ -418,26 +523,47 @@ impl PluginHost {
         diagnostics: Vec<serde_json::Value>,
     ) -> Result<Vec<LspCodeAction>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider
-            .code_action(path, start_line, start_character, end_line, end_character, diagnostics)
-            .await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        let mut all_actions = Vec::new();
+        for provider in providers {
+            match provider
+                .code_action(path, start_line, start_character, end_line, end_character, diagnostics.clone())
+                .await
+            {
+                Ok(actions) => all_actions.extend(actions),
+                Err(e) => debug!("LSP code_action provider error (ignored): {}", e),
+            }
+        }
+        Ok(all_actions)
     }
 
-    /// Get document symbols
+    /// Get document symbols - merges results from all providers
     pub async fn lsp_document_symbols(
         &self,
         language: &str,
         path: &PathBuf,
     ) -> Result<Vec<LspDocumentSymbol>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.document_symbols(path).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        let mut all_symbols = Vec::new();
+        for provider in providers {
+            match provider.document_symbols(path).await {
+                Ok(symbols) => all_symbols.extend(symbols),
+                Err(e) => debug!("LSP document_symbols provider error (ignored): {}", e),
+            }
+        }
+        Ok(all_symbols)
     }
 
-    /// Get inlay hints
+    /// Get inlay hints - merges results from all providers
     pub async fn lsp_inlay_hints(
         &self,
         language: &str,
@@ -448,14 +574,25 @@ impl PluginHost {
         end_character: u32,
     ) -> Result<Vec<LspInlayHint>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider
-            .inlay_hints(path, start_line, start_character, end_line, end_character)
-            .await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        let mut all_hints = Vec::new();
+        for provider in providers {
+            match provider
+                .inlay_hints(path, start_line, start_character, end_line, end_character)
+                .await
+            {
+                Ok(hints) => all_hints.extend(hints),
+                Err(e) => debug!("LSP inlay_hints provider error (ignored): {}", e),
+            }
+        }
+        Ok(all_hints)
     }
 
-    /// Get document highlights
+    /// Get document highlights - merges results from all providers
     pub async fn lsp_document_highlight(
         &self,
         language: &str,
@@ -464,12 +601,22 @@ impl PluginHost {
         character: u32,
     ) -> Result<Vec<LspDocumentHighlight>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.document_highlight(path, line, character).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        let mut all_highlights = Vec::new();
+        for provider in providers {
+            match provider.document_highlight(path, line, character).await {
+                Ok(highlights) => all_highlights.extend(highlights),
+                Err(e) => debug!("LSP document_highlight provider error (ignored): {}", e),
+            }
+        }
+        Ok(all_highlights)
     }
 
-    /// Get signature help
+    /// Get signature help - returns first valid result
     pub async fn lsp_signature_help(
         &self,
         language: &str,
@@ -479,14 +626,26 @@ impl PluginHost {
         trigger_character: Option<&str>,
     ) -> Result<Option<LspSignatureHelp>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider
-            .signature_help(path, line, character, trigger_character)
-            .await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        // Return first valid signature help
+        for provider in providers {
+            match provider
+                .signature_help(path, line, character, trigger_character)
+                .await
+            {
+                Ok(Some(help)) => return Ok(Some(help)),
+                Ok(None) => continue,
+                Err(e) => debug!("LSP signature_help provider error (ignored): {}", e),
+            }
+        }
+        Ok(None)
     }
 
-    /// Format document
+    /// Format document - returns first valid result
     pub async fn lsp_format_document(
         &self,
         language: &str,
@@ -494,12 +653,32 @@ impl PluginHost {
         options: LspFormattingOptions,
     ) -> Result<Vec<LspTextEdit>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.format_document(path, options).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        // Return first valid format result
+        let mut last_error = String::new();
+        for provider in providers {
+            match provider.format_document(path, options.clone()).await {
+                Ok(edits) if !edits.is_empty() => return Ok(edits),
+                Ok(_) => continue,
+                Err(e) => {
+                    debug!("LSP format_document provider error (ignored): {}", e);
+                    last_error = e;
+                }
+            }
+        }
+        // Return empty if no provider had results
+        if last_error.is_empty() {
+            Ok(Vec::new())
+        } else {
+            Err(last_error)
+        }
     }
 
-    /// Format range
+    /// Format range - returns first valid result
     pub async fn lsp_format_range(
         &self,
         language: &str,
@@ -511,21 +690,41 @@ impl PluginHost {
         options: LspFormattingOptions,
     ) -> Result<Vec<LspTextEdit>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider
-            .format_range(
-                path,
-                start_line,
-                start_character,
-                end_line,
-                end_character,
-                options,
-            )
-            .await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        // Return first valid format result
+        let mut last_error = String::new();
+        for provider in providers {
+            match provider
+                .format_range(
+                    path,
+                    start_line,
+                    start_character,
+                    end_line,
+                    end_character,
+                    options.clone(),
+                )
+                .await
+            {
+                Ok(edits) if !edits.is_empty() => return Ok(edits),
+                Ok(_) => continue,
+                Err(e) => {
+                    debug!("LSP format_range provider error (ignored): {}", e);
+                    last_error = e;
+                }
+            }
+        }
+        if last_error.is_empty() {
+            Ok(Vec::new())
+        } else {
+            Err(last_error)
+        }
     }
 
-    /// Format on type
+    /// Format on type - returns first valid result
     pub async fn lsp_format_on_type(
         &self,
         language: &str,
@@ -536,14 +735,34 @@ impl PluginHost {
         options: LspFormattingOptions,
     ) -> Result<Vec<LspTextEdit>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider
-            .format_on_type(path, line, character, trigger_character, options)
-            .await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        // Return first valid format result
+        let mut last_error = String::new();
+        for provider in providers {
+            match provider
+                .format_on_type(path, line, character, trigger_character, options.clone())
+                .await
+            {
+                Ok(edits) if !edits.is_empty() => return Ok(edits),
+                Ok(_) => continue,
+                Err(e) => {
+                    debug!("LSP format_on_type provider error (ignored): {}", e);
+                    last_error = e;
+                }
+            }
+        }
+        if last_error.is_empty() {
+            Ok(Vec::new())
+        } else {
+            Err(last_error)
+        }
     }
 
-    /// Go to type definition
+    /// Go to type definition - merges results from all providers
     pub async fn lsp_type_definition(
         &self,
         language: &str,
@@ -552,12 +771,22 @@ impl PluginHost {
         character: u32,
     ) -> Result<Vec<LspLocation>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.type_definition(path, line, character).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        let mut all_locations = Vec::new();
+        for provider in providers {
+            match provider.type_definition(path, line, character).await {
+                Ok(locations) => all_locations.extend(locations),
+                Err(e) => debug!("LSP type_definition provider error (ignored): {}", e),
+            }
+        }
+        Ok(all_locations)
     }
 
-    /// Go to implementation
+    /// Go to implementation - merges results from all providers
     pub async fn lsp_implementation(
         &self,
         language: &str,
@@ -566,24 +795,44 @@ impl PluginHost {
         character: u32,
     ) -> Result<Vec<LspLocation>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.implementation(path, line, character).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        let mut all_locations = Vec::new();
+        for provider in providers {
+            match provider.implementation(path, line, character).await {
+                Ok(locations) => all_locations.extend(locations),
+                Err(e) => debug!("LSP implementation provider error (ignored): {}", e),
+            }
+        }
+        Ok(all_locations)
     }
 
-    /// Get folding ranges
+    /// Get folding ranges - merges results from all providers
     pub async fn lsp_folding_range(
         &self,
         language: &str,
         path: &PathBuf,
     ) -> Result<Vec<LspFoldingRange>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.folding_range(path).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        let mut all_ranges = Vec::new();
+        for provider in providers {
+            match provider.folding_range(path).await {
+                Ok(ranges) => all_ranges.extend(ranges),
+                Err(e) => debug!("LSP folding_range provider error (ignored): {}", e),
+            }
+        }
+        Ok(all_ranges)
     }
 
-    /// Get selection ranges
+    /// Get selection ranges - returns first valid result
     pub async fn lsp_selection_range(
         &self,
         language: &str,
@@ -591,12 +840,31 @@ impl PluginHost {
         positions: Vec<LspPosition>,
     ) -> Result<Vec<LspSelectionRange>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.selection_range(path, positions).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        // Return first valid selection range result
+        let mut last_error = String::new();
+        for provider in providers {
+            match provider.selection_range(path, positions.clone()).await {
+                Ok(ranges) if !ranges.is_empty() => return Ok(ranges),
+                Ok(_) => continue,
+                Err(e) => {
+                    debug!("LSP selection_range provider error (ignored): {}", e);
+                    last_error = e;
+                }
+            }
+        }
+        if last_error.is_empty() {
+            Ok(Vec::new())
+        } else {
+            Err(last_error)
+        }
     }
 
-    /// Get linked editing ranges
+    /// Get linked editing ranges - returns first valid result
     pub async fn lsp_linked_editing_range(
         &self,
         language: &str,
@@ -605,9 +873,20 @@ impl PluginHost {
         character: u32,
     ) -> Result<Option<LspLinkedEditingRanges>, String> {
         let plugins = self.plugins.read().await;
-        let provider = Self::find_lsp_provider_for_language(&plugins, language)
-            .ok_or_else(|| format!("No LSP provider for language: {}", language))?;
-        provider.linked_editing_range(path, line, character).await
+        let providers = Self::find_lsp_providers_for_language(&plugins, language);
+        if providers.is_empty() {
+            return Err(format!("No LSP provider for language: {}", language));
+        }
+
+        // Return first valid linked editing range result
+        for provider in providers {
+            match provider.linked_editing_range(path, line, character).await {
+                Ok(Some(ranges)) => return Ok(Some(ranges)),
+                Ok(None) => continue,
+                Err(e) => debug!("LSP linked_editing_range provider error (ignored): {}", e),
+            }
+        }
+        Ok(None)
     }
 }
 
