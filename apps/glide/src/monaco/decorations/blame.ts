@@ -73,6 +73,7 @@ function createBlameWidget(
 export class BlameWidgetManager {
   private editor: editor.IStandaloneCodeEditor | null = null;
   private filePath: string | null = null;
+  private groupId: string | null = null;
   private widget: editor.IContentWidget | null = null;
   private debounceTimer: number | null = null;
   private lastLine: number | null = null;
@@ -82,11 +83,12 @@ export class BlameWidgetManager {
   /**
    * Attach the manager to an editor instance.
    */
-  attach(editorInstance: editor.IStandaloneCodeEditor, filePath: string): void {
+  attach(editorInstance: editor.IStandaloneCodeEditor, filePath: string, groupId?: string): void {
     this.detach(); // Clean up any previous attachment
 
     this.editor = editorInstance;
     this.filePath = filePath;
+    this.groupId = groupId ?? null;
 
     // Listen for cursor position changes
     this.cursorDisposable = editorInstance.onDidChangeCursorPosition((e) => {
@@ -108,13 +110,17 @@ export class BlameWidgetManager {
 
     // Subscribe to editor store changes (blame data, lineDiff)
     // Track previous values for comparison
-    let prevBlameData = useMonacoStore.getState().getFileState(filePath)?.blameData;
-    let prevLineDiff = useMonacoStore.getState().getFileState(filePath)?.lineDiff;
+    const metadata = this.groupId
+      ? useMonacoStore.getState().getEditorMetadata(filePath, this.groupId)
+      : null;
+    let prevBlameData = metadata?.blameData;
+    let prevLineDiff = metadata?.lineDiff;
 
     const editorUnsubscribe = useMonacoStore.subscribe((state) => {
-      const fileState = state.getFileState(filePath);
-      const blameData = fileState?.blameData;
-      const lineDiff = fileState?.lineDiff;
+      if (!this.groupId) return;
+      const editorMetadata = state.getEditorMetadata(filePath, this.groupId);
+      const blameData = editorMetadata?.blameData;
+      const lineDiff = editorMetadata?.lineDiff;
 
       // Check if relevant state changed
       if (blameData !== prevBlameData || lineDiff !== prevLineDiff) {
@@ -210,8 +216,13 @@ export class BlameWidgetManager {
       return;
     }
 
-    const fileState = useMonacoStore.getState().getFileState(this.filePath);
-    if (!fileState) {
+    if (!this.groupId) {
+      this.removeWidget();
+      return;
+    }
+
+    const editorMetadata = useMonacoStore.getState().getEditorMetadata(this.filePath, this.groupId);
+    if (!editorMetadata) {
       this.removeWidget();
       return;
     }
@@ -220,7 +231,7 @@ export class BlameWidgetManager {
     this.removeWidget();
 
     // Need blame data to show anything
-    const { blameData, lineDiff } = fileState;
+    const { blameData, lineDiff } = editorMetadata;
     if (!blameData) return;
 
     // Use virtual diff to map current line to original line

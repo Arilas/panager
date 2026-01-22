@@ -3,11 +3,10 @@
  *
  * Single source of truth for:
  * - Monaco instance and active editor
- * - Per-file blame data and symbols
- * - Line diff computation
+ * - Per-tab metadata (blame, symbols, lineDiff) keyed by path+groupId
  *
- * NOTE: Tab management is handled by the tabs store.
- * This store only manages Monaco-specific state.
+ * NOTE: Tab-specific data (content, headContent, cursor, scroll, isDirty) is in tabs.ts.
+ * This store only manages Monaco-specific state per editor instance.
  */
 
 import { create } from "zustand";
@@ -16,7 +15,6 @@ import type { Monaco } from "@monaco-editor/react";
 import type { LineDiffResult } from "../lib/lineDiff";
 import type { GitBlameResult } from "../types";
 import type { LspDocumentSymbol } from "../types/lsp";
-import { computeLineDiff } from "../lib/lineDiff";
 
 // ============================================================
 // Types
@@ -31,14 +29,14 @@ export interface MonacoInitState {
   error: string | null;
 }
 
-/** Per-file data for Monaco features (blame, symbols, diff) */
-export interface FileData {
-  path: string;
-  // Content tracking
-  currentContent: string;
-  savedContent: string;
-  headContent: string | null;
-  // Computed data
+/**
+ * Per-tab editor metadata.
+ * Keyed by `${filePath}:${groupId}` since same file can be in different groups.
+ */
+export interface EditorMetadata {
+  filePath: string;
+  groupId: string;
+  // Computed line diff (computed from headContent in tabs store)
   lineDiff: LineDiffResult | null;
   // Git blame
   blameData: GitBlameResult | null;
@@ -46,9 +44,6 @@ export interface FileData {
   // LSP symbols
   symbols: LspDocumentSymbol[];
   symbolsLoading: boolean;
-  // Session state
-  cursorPosition: { line: number; column: number };
-  scrollPosition: { top: number; left: number };
 }
 
 /** Monaco store state */
@@ -60,8 +55,8 @@ interface MonacoState {
   // Initialization tracking
   initState: MonacoInitState;
 
-  // Per-file data (keyed by file path)
-  fileData: Record<string, FileData>;
+  // Per-tab editor metadata (keyed by `${filePath}:${groupId}`)
+  editorMetadata: Record<string, EditorMetadata>;
 
   // === INITIALIZATION ACTIONS ===
   setMonacoInstance: (monaco: Monaco) => void;
@@ -70,108 +65,53 @@ interface MonacoState {
   ) => void;
   setInitStatus: (status: InitStatus, error?: string) => void;
 
-  // === FILE DATA ACTIONS ===
+  // === EDITOR METADATA ACTIONS ===
   /**
-   * Initialize file data when a file is opened.
-   * Call this when a file tab is resolved/loaded.
+   * Initialize or get editor metadata for a path+group.
+   * Creates a new entry if one doesn't exist.
    */
-  initFileData: (
-    path: string,
-    content: string,
-    savedContent: string,
-    headContent: string | null
-  ) => void;
+  ensureEditorMetadata: (filePath: string, groupId: string) => EditorMetadata;
 
   /**
-   * Update current content (called on editor changes).
-   * Also triggers lineDiff recomputation.
+   * Remove editor metadata when tab is closed.
    */
-  updateFileContent: (path: string, content: string) => void;
+  removeEditorMetadata: (filePath: string, groupId: string) => void;
 
-  /**
-   * Mark file as saved (update savedContent).
-   */
-  markFileSaved: (path: string, newSavedContent: string) => void;
+  // === LINE DIFF ===
+  setLineDiff: (filePath: string, groupId: string, diff: LineDiffResult | null) => void;
 
-  /**
-   * Remove file data when tab is closed.
-   */
-  removeFileData: (path: string) => void;
+  // === BLAME ACTIONS ===
+  setBlameData: (filePath: string, groupId: string, data: GitBlameResult | null) => void;
+  setBlameLoading: (filePath: string, groupId: string, loading: boolean) => void;
 
-  // === BLAME/SYMBOLS ACTIONS ===
-  setHeadContent: (path: string, content: string | null) => void;
-  setLineDiff: (path: string, diff: LineDiffResult | null) => void;
-  setBlameData: (path: string, data: GitBlameResult | null) => void;
-  setBlameLoading: (path: string, loading: boolean) => void;
-  setSymbols: (path: string, symbols: LspDocumentSymbol[]) => void;
-  setSymbolsLoading: (path: string, loading: boolean) => void;
-
-  // === SESSION ACTIONS ===
-  saveCursorPosition: (
-    path: string,
-    pos: { line: number; column: number }
-  ) => void;
-  saveScrollPosition: (
-    path: string,
-    pos: { top: number; left: number }
-  ) => void;
+  // === SYMBOLS ACTIONS ===
+  setSymbols: (filePath: string, groupId: string, symbols: LspDocumentSymbol[]) => void;
+  setSymbolsLoading: (filePath: string, groupId: string, loading: boolean) => void;
 
   // === GETTERS ===
-  getFileData: (path: string) => FileData | null;
-  /** @deprecated Use getFileData instead - provided for backwards compatibility */
-  getFileState: (path: string) => FileData | null;
-  isDirty: (path: string) => boolean;
+  getEditorMetadata: (filePath: string, groupId: string) => EditorMetadata | null;
 
   // === CLEANUP ===
   clearAllBlameCaches: () => void;
 }
 
 // ============================================================
-// Debouncing for line diff computation
+// Helpers
 // ============================================================
 
-const diffDebounceMap = new Map<string, number>();
-const DIFF_DEBOUNCE_MS = 200;
-
-function scheduleDiffUpdate(path: string) {
-  const existing = diffDebounceMap.get(path);
-  if (existing) clearTimeout(existing);
-
-  const timeout = window.setTimeout(() => {
-    diffDebounceMap.delete(path);
-    const state = useMonacoStore.getState();
-    const fileData = state.getFileData(path);
-    if (!fileData || fileData.headContent === null) return;
-
-    const lineDiff = computeLineDiff(fileData.headContent, fileData.currentContent);
-    state.setLineDiff(path, lineDiff);
-  }, DIFF_DEBOUNCE_MS);
-
-  diffDebounceMap.set(path, timeout);
+function makeKey(filePath: string, groupId: string): string {
+  return `${filePath}:${groupId}`;
 }
 
-// ============================================================
-// Helper to create default file data
-// ============================================================
-
-function createDefaultFileData(
-  path: string,
-  content: string,
-  savedContent: string,
-  headContent: string | null
-): FileData {
+function createDefaultEditorMetadata(filePath: string, groupId: string): EditorMetadata {
   return {
-    path,
-    currentContent: content,
-    savedContent,
-    headContent,
-    lineDiff: headContent ? computeLineDiff(headContent, content) : null,
+    filePath,
+    groupId,
+    lineDiff: null,
     blameData: null,
     blameLoading: false,
     symbols: [],
     symbolsLoading: false,
-    cursorPosition: { line: 1, column: 1 },
-    scrollPosition: { top: 0, left: 0 },
   };
 }
 
@@ -187,7 +127,7 @@ export const useMonacoStore = create<MonacoState>()((set, get) => ({
     status: "idle",
     error: null,
   },
-  fileData: {},
+  editorMetadata: {},
 
   // === INITIALIZATION ACTIONS ===
 
@@ -208,210 +148,184 @@ export const useMonacoStore = create<MonacoState>()((set, get) => ({
     });
   },
 
-  // === FILE DATA ACTIONS ===
+  // === EDITOR METADATA ACTIONS ===
 
-  initFileData: (path, content, savedContent, headContent) => {
-    const existing = get().fileData[path];
-    if (existing) {
-      // Already initialized, just update content
+  ensureEditorMetadata: (filePath, groupId) => {
+    const key = makeKey(filePath, groupId);
+    const existing = get().editorMetadata[key];
+    if (existing) return existing;
+
+    const newMetadata = createDefaultEditorMetadata(filePath, groupId);
+    set((state) => ({
+      editorMetadata: {
+        ...state.editorMetadata,
+        [key]: newMetadata,
+      },
+    }));
+    return newMetadata;
+  },
+
+  removeEditorMetadata: (filePath, groupId) => {
+    const key = makeKey(filePath, groupId);
+    const { [key]: _, ...rest } = get().editorMetadata;
+    set({ editorMetadata: rest });
+  },
+
+  // === LINE DIFF ===
+
+  setLineDiff: (filePath, groupId, diff) => {
+    const key = makeKey(filePath, groupId);
+    const metadata = get().editorMetadata[key];
+
+    if (!metadata) {
       set((state) => ({
-        fileData: {
-          ...state.fileData,
-          [path]: {
-            ...existing,
-            currentContent: content,
-            savedContent,
-            headContent,
-            lineDiff: headContent ? computeLineDiff(headContent, content) : null,
+        editorMetadata: {
+          ...state.editorMetadata,
+          [key]: {
+            ...createDefaultEditorMetadata(filePath, groupId),
+            lineDiff: diff,
           },
         },
       }));
-    } else {
-      // Create new entry
+      return;
+    }
+
+    set((state) => ({
+      editorMetadata: {
+        ...state.editorMetadata,
+        [key]: { ...metadata, lineDiff: diff },
+      },
+    }));
+  },
+
+  // === BLAME ACTIONS ===
+
+  setBlameData: (filePath, groupId, data) => {
+    const key = makeKey(filePath, groupId);
+    const metadata = get().editorMetadata[key];
+
+    if (!metadata) {
       set((state) => ({
-        fileData: {
-          ...state.fileData,
-          [path]: createDefaultFileData(path, content, savedContent, headContent),
+        editorMetadata: {
+          ...state.editorMetadata,
+          [key]: {
+            ...createDefaultEditorMetadata(filePath, groupId),
+            blameData: data,
+            blameLoading: false,
+          },
         },
       }));
+      return;
     }
-  },
-
-  updateFileContent: (path, content) => {
-    const fileData = get().fileData[path];
-    if (!fileData) return;
 
     set((state) => ({
-      fileData: {
-        ...state.fileData,
-        [path]: { ...fileData, currentContent: content },
-      },
-    }));
-
-    // Schedule diff update
-    scheduleDiffUpdate(path);
-  },
-
-  markFileSaved: (path, newSavedContent) => {
-    const fileData = get().fileData[path];
-    if (!fileData) return;
-
-    set((state) => ({
-      fileData: {
-        ...state.fileData,
-        [path]: { ...fileData, savedContent: newSavedContent },
+      editorMetadata: {
+        ...state.editorMetadata,
+        [key]: { ...metadata, blameData: data, blameLoading: false },
       },
     }));
   },
 
-  removeFileData: (path) => {
-    const { [path]: _, ...rest } = get().fileData;
-    set({ fileData: rest });
-  },
+  setBlameLoading: (filePath, groupId, loading) => {
+    const key = makeKey(filePath, groupId);
+    const metadata = get().editorMetadata[key];
 
-  // === BLAME/SYMBOLS ACTIONS ===
-
-  setHeadContent: (path, content) => {
-    const fileData = get().fileData[path];
-    if (!fileData) return;
-
-    const lineDiff =
-      content !== null ? computeLineDiff(content, fileData.currentContent) : null;
+    if (!metadata) {
+      set((state) => ({
+        editorMetadata: {
+          ...state.editorMetadata,
+          [key]: {
+            ...createDefaultEditorMetadata(filePath, groupId),
+            blameLoading: loading,
+          },
+        },
+      }));
+      return;
+    }
 
     set((state) => ({
-      fileData: {
-        ...state.fileData,
-        [path]: { ...fileData, headContent: content, lineDiff },
+      editorMetadata: {
+        ...state.editorMetadata,
+        [key]: { ...metadata, blameLoading: loading },
       },
     }));
   },
 
-  setLineDiff: (path, diff) => {
-    const fileData = get().fileData[path];
-    if (!fileData) return;
+  // === SYMBOLS ACTIONS ===
+
+  setSymbols: (filePath, groupId, symbols) => {
+    const key = makeKey(filePath, groupId);
+    const metadata = get().editorMetadata[key];
+
+    if (!metadata) {
+      set((state) => ({
+        editorMetadata: {
+          ...state.editorMetadata,
+          [key]: {
+            ...createDefaultEditorMetadata(filePath, groupId),
+            symbols,
+            symbolsLoading: false,
+          },
+        },
+      }));
+      return;
+    }
 
     set((state) => ({
-      fileData: {
-        ...state.fileData,
-        [path]: { ...fileData, lineDiff: diff },
+      editorMetadata: {
+        ...state.editorMetadata,
+        [key]: { ...metadata, symbols, symbolsLoading: false },
       },
     }));
   },
 
-  setBlameData: (path, data) => {
-    const fileData = get().fileData[path];
-    if (!fileData) return;
+  setSymbolsLoading: (filePath, groupId, loading) => {
+    const key = makeKey(filePath, groupId);
+    const metadata = get().editorMetadata[key];
+
+    if (!metadata) {
+      set((state) => ({
+        editorMetadata: {
+          ...state.editorMetadata,
+          [key]: {
+            ...createDefaultEditorMetadata(filePath, groupId),
+            symbolsLoading: loading,
+          },
+        },
+      }));
+      return;
+    }
 
     set((state) => ({
-      fileData: {
-        ...state.fileData,
-        [path]: { ...fileData, blameData: data, blameLoading: false },
-      },
-    }));
-  },
-
-  setBlameLoading: (path, loading) => {
-    const fileData = get().fileData[path];
-    if (!fileData) return;
-
-    set((state) => ({
-      fileData: {
-        ...state.fileData,
-        [path]: { ...fileData, blameLoading: loading },
-      },
-    }));
-  },
-
-  setSymbols: (path, symbols) => {
-    const fileData = get().fileData[path];
-    if (!fileData) return;
-
-    set((state) => ({
-      fileData: {
-        ...state.fileData,
-        [path]: { ...fileData, symbols, symbolsLoading: false },
-      },
-    }));
-  },
-
-  setSymbolsLoading: (path, loading) => {
-    const fileData = get().fileData[path];
-    if (!fileData) return;
-
-    set((state) => ({
-      fileData: {
-        ...state.fileData,
-        [path]: { ...fileData, symbolsLoading: loading },
-      },
-    }));
-  },
-
-  // === SESSION ACTIONS ===
-
-  saveCursorPosition: (path, pos) => {
-    const fileData = get().fileData[path];
-    if (!fileData) return;
-
-    set((state) => ({
-      fileData: {
-        ...state.fileData,
-        [path]: { ...fileData, cursorPosition: pos },
-      },
-    }));
-  },
-
-  saveScrollPosition: (path, pos) => {
-    const fileData = get().fileData[path];
-    if (!fileData) return;
-
-    set((state) => ({
-      fileData: {
-        ...state.fileData,
-        [path]: { ...fileData, scrollPosition: pos },
+      editorMetadata: {
+        ...state.editorMetadata,
+        [key]: { ...metadata, symbolsLoading: loading },
       },
     }));
   },
 
   // === GETTERS ===
 
-  getFileData: (path) => {
-    return get().fileData[path] ?? null;
-  },
-
-  /** @deprecated Use getFileData instead - provided for backwards compatibility */
-  getFileState: (path) => {
-    return get().fileData[path] ?? null;
-  },
-
-  isDirty: (path) => {
-    const fileData = get().fileData[path];
-    if (!fileData) return false;
-    return fileData.currentContent !== fileData.savedContent;
+  getEditorMetadata: (filePath, groupId) => {
+    const key = makeKey(filePath, groupId);
+    return get().editorMetadata[key] ?? null;
   },
 
   // === CLEANUP ===
 
   clearAllBlameCaches: () => {
     set((state) => {
-      const newFileData: Record<string, FileData> = {};
+      const newEditorMetadata: Record<string, EditorMetadata> = {};
 
-      for (const [path, data] of Object.entries(state.fileData)) {
-        newFileData[path] = {
+      for (const [key, data] of Object.entries(state.editorMetadata)) {
+        newEditorMetadata[key] = {
           ...data,
           blameData: null,
-          headContent: null,
           lineDiff: null,
         };
       }
 
-      return { fileData: newFileData };
+      return { editorMetadata: newEditorMetadata };
     });
   },
 }));
-
-// ============================================================
-// Re-export for backwards compatibility during migration
-// ============================================================
-
-/** @deprecated Use useMonacoStore instead */
-export const useEditorStore = useMonacoStore;

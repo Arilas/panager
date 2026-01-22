@@ -12,7 +12,7 @@ pub mod plugins;
 pub mod utils;
 
 use ide::commands::session::get_restorable_windows;
-use ide::commands::window::{create_window, register_window, SHOULD_SPAWN_WELCOME};
+use ide::commands::window::{create_window, register_window, PERMISSIVE_CSP, SHOULD_SPAWN_WELCOME};
 use plugins::host::PluginHost;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -392,7 +392,14 @@ fn create_main_window_with_geometry(
         .decorations(true)
         .title_bar_style(TitleBarStyle::Overlay)
         .hidden_title(true)
-        .position(geometry.x, geometry.y);
+        .position(geometry.x, geometry.y)
+        // Set CSP to allow Monaco Editor workers (blob: URLs) and eval
+        .on_web_resource_request(|_request, response| {
+            response.headers_mut().insert(
+                "Content-Security-Policy",
+                PERMISSIVE_CSP.parse().unwrap(),
+            );
+        });
 
     let window = builder.build()?;
 

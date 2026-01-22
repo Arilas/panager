@@ -47,13 +47,20 @@ interface TabsState {
    * Initialize the store with project path and resolver registry.
    * Loads tabs from database.
    */
-  initialize: (projectPath: string, registry: TabResolverRegistry) => Promise<void>;
+  initialize: (
+    projectPath: string,
+    registry: TabResolverRegistry,
+  ) => Promise<void>;
 
   // === GROUP ACTIONS ===
   createGroup: () => Promise<string>;
   closeGroup: (groupId: string) => Promise<void>;
   setActiveGroup: (groupId: string) => void;
-  moveTabToGroup: (url: string, fromGroupId: string, toGroupId: string) => Promise<void>;
+  moveTabToGroup: (
+    url: string,
+    fromGroupId: string,
+    toGroupId: string,
+  ) => Promise<void>;
 
   // === TAB ACTIONS ===
   openTab: (options: OpenTabOptions) => Promise<void>;
@@ -63,7 +70,11 @@ interface TabsState {
   setActiveTab: (url: string, groupId?: string) => void;
   pinTab: (url: string, groupId?: string) => Promise<void>;
   unpinTab: (url: string, groupId?: string) => Promise<void>;
-  reorderTabs: (fromIndex: number, toIndex: number, groupId?: string) => Promise<void>;
+  reorderTabs: (
+    fromIndex: number,
+    toIndex: number,
+    groupId?: string,
+  ) => Promise<void>;
   convertPreviewToPermanent: (url: string, groupId?: string) => Promise<void>;
 
   // === RESOLUTION ===
@@ -71,16 +82,27 @@ interface TabsState {
 
   // === CONTENT UPDATES ===
   updateContent: (url: string, content: string) => void;
+  updateHeadContent: (url: string, headContent: string) => void;
   markSaved: (url: string) => void;
   reloadContent: (url: string) => Promise<void>;
 
   // === SESSION PERSISTENCE ===
-  updateCursorPosition: (url: string, position: { line: number; column: number }) => void;
-  updateScrollPosition: (url: string, position: { top: number; left: number }) => void;
+  updateCursorPosition: (
+    url: string,
+    position: { line: number; column: number },
+  ) => void;
+  updateScrollPosition: (
+    url: string,
+    position: { top: number; left: number },
+  ) => void;
   persistSession: (url: string, groupId?: string) => Promise<void>;
 
   // === URL UPDATES ===
-  updateTabUrl: (oldUrl: string, newUrl: string, groupId?: string) => Promise<void>;
+  updateTabUrl: (
+    oldUrl: string,
+    newUrl: string,
+    groupId?: string,
+  ) => Promise<void>;
 
   // === HELPERS ===
   getActiveGroup: () => TabGroup | null;
@@ -93,7 +115,7 @@ interface TabsState {
   getActiveFilePath: () => string | null;
   findTabInGroup: (url: string, groupId: string) => TabEntry | null;
   findTabInAnyGroup: (url: string) => { group: TabGroup; tab: TabEntry } | null;
-  getTabsWithUrl: (url: string) => TabEntry[];
+  getTabsWithUrl: (url: string) => { tab: TabEntry; groupId: string }[];
   isDirty: (url: string) => boolean;
   hasUnsavedChanges: () => boolean;
   getResolver: (url: string) => TabResolver | null;
@@ -125,19 +147,27 @@ function dbTabToEntry(dbTab: DbTab): TabEntry {
     isPinned: dbTab.isPinned,
     isDirty: false,
     resolved: null,
-    cursorPosition: dbTab.cursorLine !== null && dbTab.cursorColumn !== null
-      ? { line: dbTab.cursorLine, column: dbTab.cursorColumn }
-      : undefined,
-    scrollPosition: dbTab.scrollTop !== null && dbTab.scrollLeft !== null
-      ? { top: dbTab.scrollTop, left: dbTab.scrollLeft }
-      : undefined,
+    cursorPosition:
+      dbTab.cursorLine !== null && dbTab.cursorColumn !== null
+        ? { line: dbTab.cursorLine, column: dbTab.cursorColumn }
+        : undefined,
+    scrollPosition:
+      dbTab.scrollTop !== null && dbTab.scrollLeft !== null
+        ? { top: dbTab.scrollTop, left: dbTab.scrollLeft }
+        : undefined,
     selections: dbTab.selections ? JSON.parse(dbTab.selections) : undefined,
-    foldedRegions: dbTab.foldedRegions ? JSON.parse(dbTab.foldedRegions) : undefined,
+    foldedRegions: dbTab.foldedRegions
+      ? JSON.parse(dbTab.foldedRegions)
+      : undefined,
   };
 }
 
 /** Convert TabEntry to DB tab format */
-function entryToDbTab(entry: TabEntry, groupId: string, position: number): DbTab {
+function entryToDbTab(
+  entry: TabEntry,
+  groupId: string,
+  position: number,
+): DbTab {
   return {
     id: null,
     groupId,
@@ -153,7 +183,9 @@ function entryToDbTab(entry: TabEntry, groupId: string, position: number): DbTab
     scrollTop: entry.scrollPosition?.top ?? null,
     scrollLeft: entry.scrollPosition?.left ?? null,
     selections: entry.selections ? JSON.stringify(entry.selections) : null,
-    foldedRegions: entry.foldedRegions ? JSON.stringify(entry.foldedRegions) : null,
+    foldedRegions: entry.foldedRegions
+      ? JSON.stringify(entry.foldedRegions)
+      : null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -166,10 +198,7 @@ function entryToDbTab(entry: TabEntry, groupId: string, position: number): DbTab
 const persistDebounceMap = new Map<string, number>();
 const PERSIST_DEBOUNCE_MS = 500;
 
-function debouncedPersist(
-  key: string,
-  fn: () => Promise<void>
-): void {
+function debouncedPersist(key: string, fn: () => Promise<void>): void {
   const existing = persistDebounceMap.get(key);
   if (existing) clearTimeout(existing);
 
@@ -291,7 +320,8 @@ export const useTabsStore = create<TabsState>()(
         if (activeGroupId === groupId) {
           // Find next group to activate
           const closedIndex = groups.findIndex((g) => g.id === groupId);
-          newActiveGroupId = newGroups[Math.min(closedIndex, newGroups.length - 1)]?.id ?? "";
+          newActiveGroupId =
+            newGroups[Math.min(closedIndex, newGroups.length - 1)]?.id ?? "";
         }
 
         return {
@@ -401,7 +431,9 @@ export const useTabsStore = create<TabsState>()(
 
         if (isPreview) {
           // Find and replace existing preview tab
-          const previewIndex = newTabs.findIndex((t) => t.isPreview && !t.isPinned);
+          const previewIndex = newTabs.findIndex(
+            (t) => t.isPreview && !t.isPinned,
+          );
           if (previewIndex !== -1) {
             newTabs[previewIndex] = newTab;
           } else {
@@ -419,7 +451,7 @@ export const useTabsStore = create<TabsState>()(
                 tabs: newTabs,
                 activeUrl: autoFocus ? url : g.activeUrl,
               }
-            : g
+            : g,
         );
 
         return { groups: newGroups };
@@ -473,7 +505,7 @@ export const useTabsStore = create<TabsState>()(
         const newGroups = state.groups.map((g) =>
           g.id === targetGroupId
             ? { ...g, tabs: newTabs, activeUrl: newActiveUrl }
-            : g
+            : g,
         );
 
         return { groups: newGroups };
@@ -489,7 +521,9 @@ export const useTabsStore = create<TabsState>()(
       if (!group) return;
 
       // Close all tabs except pinned and the specified one
-      const tabsToClose = group.tabs.filter((t) => t.url !== url && !t.isPinned);
+      const tabsToClose = group.tabs.filter(
+        (t) => t.url !== url && !t.isPinned,
+      );
 
       for (const tab of tabsToClose) {
         await tabsApi.deleteTab(projectPath, targetGroupId, tab.url);
@@ -499,12 +533,12 @@ export const useTabsStore = create<TabsState>()(
         const targetGroup = state.groups.find((g) => g.id === targetGroupId);
         if (!targetGroup) return state;
 
-        const newTabs = targetGroup.tabs.filter((t) => t.url === url || t.isPinned);
+        const newTabs = targetGroup.tabs.filter(
+          (t) => t.url === url || t.isPinned,
+        );
 
         const newGroups = state.groups.map((g) =>
-          g.id === targetGroupId
-            ? { ...g, tabs: newTabs, activeUrl: url }
-            : g
+          g.id === targetGroupId ? { ...g, tabs: newTabs, activeUrl: url } : g,
         );
 
         return { groups: newGroups };
@@ -544,7 +578,7 @@ export const useTabsStore = create<TabsState>()(
           const newGroups = state.groups.map((g) =>
             g.id === targetGroupId
               ? { ...g, tabs: newTabs, activeUrl: newActiveUrl }
-              : g
+              : g,
           );
 
           return { groups: newGroups };
@@ -561,15 +595,20 @@ export const useTabsStore = create<TabsState>()(
       // Update UI immediately
       set((state) => {
         const newGroups = state.groups.map((g) =>
-          g.id === targetGroupId ? { ...g, activeUrl: url } : g
+          g.id === targetGroupId ? { ...g, activeUrl: url } : g,
         );
         return { groups: newGroups };
       });
 
-      // Debounce database persistence for rapid tab switching
-      debouncedPersist(`active-tab-${targetGroupId}`, () =>
-        tabsApi.setActiveTab(projectPath, targetGroupId, url)
-      );
+      const targetTab = groups
+        .find((g) => g.id === targetGroupId)
+        ?.tabs.find((t) => t.url === url);
+      if (targetTab && !targetTab.isPreview) {
+        // Debounce database persistence for rapid tab switching
+        debouncedPersist(`active-tab-${targetGroupId}`, () =>
+          tabsApi.setActiveTab(projectPath, targetGroupId, url),
+        );
+      }
 
       // Resolve if not already resolved
       const group = groups.find((g) => g.id === targetGroupId);
@@ -601,10 +640,14 @@ export const useTabsStore = create<TabsState>()(
         // Move to pinned section (before first non-pinned)
         const newTabs = targetGroup.tabs.filter((t) => t.url !== url);
         const insertIndex = newTabs.findIndex((t) => !t.isPinned);
-        newTabs.splice(insertIndex === -1 ? newTabs.length : insertIndex, 0, updatedTab);
+        newTabs.splice(
+          insertIndex === -1 ? newTabs.length : insertIndex,
+          0,
+          updatedTab,
+        );
 
         const newGroups = state.groups.map((g) =>
-          g.id === targetGroupId ? { ...g, tabs: newTabs } : g
+          g.id === targetGroupId ? { ...g, tabs: newTabs } : g,
         );
 
         return { groups: newGroups };
@@ -642,7 +685,7 @@ export const useTabsStore = create<TabsState>()(
         newTabs.splice(lastPinnedIndex + 1, 0, updatedTab);
 
         const newGroups = state.groups.map((g) =>
-          g.id === targetGroupId ? { ...g, tabs: newTabs } : g
+          g.id === targetGroupId ? { ...g, tabs: newTabs } : g,
         );
 
         return { groups: newGroups };
@@ -678,7 +721,7 @@ export const useTabsStore = create<TabsState>()(
         newTabs.splice(adjustedToIndex, 0, removed);
 
         const newGroups = state.groups.map((g) =>
-          g.id === targetGroupId ? { ...g, tabs: newTabs } : g
+          g.id === targetGroupId ? { ...g, tabs: newTabs } : g,
         );
 
         return { groups: newGroups };
@@ -707,7 +750,7 @@ export const useTabsStore = create<TabsState>()(
           return {
             ...g,
             tabs: g.tabs.map((t) =>
-              t.url === url ? { ...t, isPreview: false } : t
+              t.url === url ? { ...t, isPreview: false } : t,
             ),
           };
         });
@@ -737,7 +780,7 @@ export const useTabsStore = create<TabsState>()(
             return {
               ...g,
               tabs: g.tabs.map((t) =>
-                t.url === url ? { ...t, error: "No resolver found" } : t
+                t.url === url ? { ...t, error: "No resolver found" } : t,
               ),
             };
           });
@@ -762,7 +805,7 @@ export const useTabsStore = create<TabsState>()(
               tabs: g.tabs.map((t) =>
                 t.url === url || t.url === resolved.url
                   ? { ...t, url: resolved.url, resolved, error: undefined }
-                  : t
+                  : t,
               ),
               activeUrl: g.activeUrl === url ? resolved.url : g.activeUrl,
             };
@@ -778,8 +821,12 @@ export const useTabsStore = create<TabsState>()(
               ...g,
               tabs: g.tabs.map((t) =>
                 t.url === url
-                  ? { ...t, error: error instanceof Error ? error.message : String(error) }
-                  : t
+                  ? {
+                      ...t,
+                      error:
+                        error instanceof Error ? error.message : String(error),
+                    }
+                  : t,
               ),
             };
           });
@@ -807,7 +854,8 @@ export const useTabsStore = create<TabsState>()(
 
               // Check dirty status
               const savedContent = data.savedContent as string | undefined;
-              const isDirty = savedContent !== undefined && content !== savedContent;
+              const isDirty =
+                savedContent !== undefined && content !== savedContent;
 
               // Convert preview to permanent on edit
               return {
@@ -831,11 +879,38 @@ export const useTabsStore = create<TabsState>()(
         for (const group of currentGroups) {
           const tab = group.tabs.find((t) => t.url === url);
           if (tab?.isPreview === false && tab.isDirty) {
-            tabsApi.convertPreviewToPermanent(projectPath, group.id, url).catch(console.error);
+            tabsApi
+              .convertPreviewToPermanent(projectPath, group.id, url)
+              .catch(console.error);
             break;
           }
         }
       }
+    },
+
+    updateHeadContent: (url, headContent) => {
+      set((state) => {
+        const newGroups = state.groups.map((g) => ({
+          ...g,
+          tabs: g.tabs.map((t) => {
+            if (t.url !== url || !t.resolved) return t;
+
+            // Update headContent in resolved data
+            const data = t.resolved.data as Record<string, unknown>;
+            if ("headContent" in data || "currentContent" in data) {
+              const newResolved: ResolvedTabState = {
+                ...t.resolved,
+                data: { ...data, headContent },
+              };
+              return { ...t, resolved: newResolved };
+            }
+
+            return t;
+          }),
+        }));
+
+        return { groups: newGroups };
+      });
     },
 
     markSaved: (url) => {
@@ -879,7 +954,9 @@ export const useTabsStore = create<TabsState>()(
                   const newGroups = state.groups.map((g) => ({
                     ...g,
                     tabs: g.tabs.map((t) =>
-                      t.url === url ? { ...t, resolved: newResolved, isDirty: false } : t
+                      t.url === url
+                        ? { ...t, resolved: newResolved, isDirty: false }
+                        : t,
                     ),
                   }));
                   return { groups: newGroups };
@@ -901,7 +978,7 @@ export const useTabsStore = create<TabsState>()(
         const newGroups = state.groups.map((g) => ({
           ...g,
           tabs: g.tabs.map((t) =>
-            t.url === url ? { ...t, cursorPosition: position } : t
+            t.url === url ? { ...t, cursorPosition: position } : t,
           ),
         }));
         return { groups: newGroups };
@@ -910,18 +987,26 @@ export const useTabsStore = create<TabsState>()(
       // Debounced persist
       const { projectPath, groups: currentGroups } = get();
       if (projectPath) {
-        const group = currentGroups.find((g) => g.tabs.some((t) => t.url === url));
+        const group = currentGroups.find((g) =>
+          g.tabs.some((t) => t.url === url),
+        );
         if (group) {
           debouncedPersist(`cursor-${url}`, async () => {
-            const tab = get().groups.find((g) => g.id === group.id)?.tabs.find((t) => t.url === url);
+            const tab = get()
+              .groups.find((g) => g.id === group.id)
+              ?.tabs.find((t) => t.url === url);
             if (tab) {
               await tabsApi.updateTabSession(projectPath, group.id, url, {
                 cursorLine: tab.cursorPosition?.line ?? null,
                 cursorColumn: tab.cursorPosition?.column ?? null,
                 scrollTop: tab.scrollPosition?.top ?? null,
                 scrollLeft: tab.scrollPosition?.left ?? null,
-                selections: tab.selections ? JSON.stringify(tab.selections) : null,
-                foldedRegions: tab.foldedRegions ? JSON.stringify(tab.foldedRegions) : null,
+                selections: tab.selections
+                  ? JSON.stringify(tab.selections)
+                  : null,
+                foldedRegions: tab.foldedRegions
+                  ? JSON.stringify(tab.foldedRegions)
+                  : null,
               });
             }
           });
@@ -934,7 +1019,7 @@ export const useTabsStore = create<TabsState>()(
         const newGroups = state.groups.map((g) => ({
           ...g,
           tabs: g.tabs.map((t) =>
-            t.url === url ? { ...t, scrollPosition: position } : t
+            t.url === url ? { ...t, scrollPosition: position } : t,
           ),
         }));
         return { groups: newGroups };
@@ -946,15 +1031,21 @@ export const useTabsStore = create<TabsState>()(
         const group = groups.find((g) => g.tabs.some((t) => t.url === url));
         if (group) {
           debouncedPersist(`scroll-${url}`, async () => {
-            const tab = get().groups.find((g) => g.id === group.id)?.tabs.find((t) => t.url === url);
+            const tab = get()
+              .groups.find((g) => g.id === group.id)
+              ?.tabs.find((t) => t.url === url);
             if (tab) {
               await tabsApi.updateTabSession(projectPath, group.id, url, {
                 cursorLine: tab.cursorPosition?.line ?? null,
                 cursorColumn: tab.cursorPosition?.column ?? null,
                 scrollTop: tab.scrollPosition?.top ?? null,
                 scrollLeft: tab.scrollPosition?.left ?? null,
-                selections: tab.selections ? JSON.stringify(tab.selections) : null,
-                foldedRegions: tab.foldedRegions ? JSON.stringify(tab.foldedRegions) : null,
+                selections: tab.selections
+                  ? JSON.stringify(tab.selections)
+                  : null,
+                foldedRegions: tab.foldedRegions
+                  ? JSON.stringify(tab.foldedRegions)
+                  : null,
               });
             }
           });
@@ -978,7 +1069,9 @@ export const useTabsStore = create<TabsState>()(
         scrollTop: tab.scrollPosition?.top ?? null,
         scrollLeft: tab.scrollPosition?.left ?? null,
         selections: tab.selections ? JSON.stringify(tab.selections) : null,
-        foldedRegions: tab.foldedRegions ? JSON.stringify(tab.foldedRegions) : null,
+        foldedRegions: tab.foldedRegions
+          ? JSON.stringify(tab.foldedRegions)
+          : null,
       });
     },
 
@@ -997,7 +1090,9 @@ export const useTabsStore = create<TabsState>()(
           if (g.id !== targetGroupId) return g;
           return {
             ...g,
-            tabs: g.tabs.map((t) => (t.url === oldUrl ? { ...t, url: newUrl } : t)),
+            tabs: g.tabs.map((t) =>
+              t.url === oldUrl ? { ...t, url: newUrl } : t,
+            ),
             activeUrl: g.activeUrl === oldUrl ? newUrl : g.activeUrl,
           };
         });
@@ -1059,10 +1154,10 @@ export const useTabsStore = create<TabsState>()(
 
     getTabsWithUrl: (url) => {
       const { groups } = get();
-      const tabs: TabEntry[] = [];
+      const tabs: { tab: TabEntry; groupId: string }[] = [];
       for (const group of groups) {
         const tab = group.tabs.find((t) => t.url === url);
-        if (tab) tabs.push(tab);
+        if (tab) tabs.push({ tab, groupId: group.id });
       }
       return tabs;
     },
@@ -1090,7 +1185,7 @@ export const useTabsStore = create<TabsState>()(
       const { registry } = get();
       return registry?.findResolver(url) ?? null;
     },
-  }))
+  })),
 );
 
 // ============================================================

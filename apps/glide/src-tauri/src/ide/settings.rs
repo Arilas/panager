@@ -921,15 +921,14 @@ pub fn load_level_settings(
     scope_default_folder: Option<&str>,
 ) -> Result<PartialIdeSettings, String> {
     let path = match level {
-        SettingsLevel::User => get_user_settings_path(),
-        SettingsLevel::Scope => {
-            let folder = scope_default_folder.ok_or("Scope default folder is required for scope settings")?;
-            get_scope_settings_path(folder)
-        }
-        SettingsLevel::Workspace => {
-            let path = project_path.ok_or("Project path is required for workspace settings")?;
-            get_workspace_settings_path(path)
-        }
+        SettingsLevel::User => Some(get_user_settings_path()),
+        SettingsLevel::Scope => scope_default_folder.map(get_scope_settings_path),
+        SettingsLevel::Workspace => project_path.map(get_workspace_settings_path),
+    };
+
+    // If no path is available (e.g., no scope folder), return default empty settings
+    let Some(path) = path else {
+        return Ok(PartialIdeSettings::default());
     };
 
     let value = read_settings_file(&path)?;

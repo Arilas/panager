@@ -7,12 +7,13 @@
 import { MonacoEditor } from "./MonacoEditor";
 import type { TabComponentProps, FileTabData } from "../../lib/tabs/types";
 
-export function FileTabContent({ data }: TabComponentProps<FileTabData>) {
+export function FileTabContent({ data, groupId }: TabComponentProps<FileTabData>) {
   return (
     <MonacoEditor
       content={data.currentContent}
       language={data.language}
       path={data.path}
+      groupId={groupId}
     />
   );
 }

@@ -11,6 +11,15 @@ use std::sync::RwLock;
 use tauri::{AppHandle, Emitter, Manager, TitleBarStyle, WebviewUrl, WebviewWindowBuilder};
 use tracing::info;
 
+/// CSP policy that allows Monaco Editor workers and Tauri IPC to function properly.
+/// Permits blob: URLs for workers, unsafe-eval for Monaco's syntax highlighting,
+/// data: URLs for various editor features, and ipc:/tauri: for Tauri commands.
+pub const PERMISSIVE_CSP: &str = "default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: tauri: ipc:; \
+    connect-src 'self' blob: data: tauri: ipc: ipc://localhost; \
+    worker-src 'self' blob:; \
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: tauri:; \
+    style-src 'self' 'unsafe-inline';";
+
 /// Tracks whether the closing window had a project open.
 /// If true, we should spawn a new welcome window after the last window closes.
 /// If false (welcome screen was closed), let the app exit.
@@ -166,7 +175,14 @@ pub fn create_window(
         .transparent(true)
         .decorations(true)
         .title_bar_style(TitleBarStyle::Overlay)
-        .hidden_title(true);
+        .hidden_title(true)
+        // Set CSP to allow Monaco Editor workers (blob: URLs) and eval
+        .on_web_resource_request(|_request, response| {
+            response.headers_mut().insert(
+                "Content-Security-Policy",
+                PERMISSIVE_CSP.parse().unwrap(),
+            );
+        });
 
     // Set position if provided
     if let Some(g) = geometry {

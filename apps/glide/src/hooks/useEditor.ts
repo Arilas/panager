@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { editor, IDisposable } from "monaco-editor";
 import type { Monaco, OnMount } from "@monaco-editor/react";
 import { useMonacoStore } from "../stores/monaco";
+import { useTabsStore } from "../stores/tabs";
 import { useIdeStore } from "../stores/ide";
 import {
   blameWidgetManager,
@@ -20,10 +21,14 @@ import {
   isMonacoReady,
 } from "../monaco";
 import { gitBlame, gitShowHead, lspDocumentSymbols } from "../lib/tauri-ide";
+import { buildFileUrl } from "../lib/tabs/url";
+import { computeLineDiff } from "../lib/lineDiff";
 import { SymbolKind, type LspDocumentSymbol } from "../types/lsp";
+import type { FileTabData } from "../lib/tabs/types";
 
 interface UseEditorOptions {
   filePath: string;
+  groupId: string;
   language: string;
 }
 
@@ -53,7 +58,7 @@ const SUPPORTED_LANGUAGES = new Set([
  */
 function flattenBlameableSymbols(
   symbols: LspDocumentSymbol[],
-  result: LspDocumentSymbol[] = [],
+  result: LspDocumentSymbol[] = []
 ): LspDocumentSymbol[] {
   for (const symbol of symbols) {
     if (BLAME_SYMBOL_KINDS.has(symbol.kind)) {
@@ -69,44 +74,63 @@ function flattenBlameableSymbols(
 /**
  * Load blame data for a file.
  */
-async function loadBlameData(filePath: string): Promise<void> {
+async function loadBlameData(filePath: string, groupId: string): Promise<void> {
   const projectContext = useIdeStore.getState().projectContext;
   if (!projectContext) return;
 
   const store = useMonacoStore.getState();
 
   // Check if already loading
-  const fileState = store.getFileState(filePath);
-  if (fileState?.blameLoading || fileState?.blameData) return;
+  const metadata = store.getEditorMetadata(filePath, groupId);
+  if (metadata?.blameLoading || metadata?.blameData) return;
 
-  store.setBlameLoading(filePath, true);
+  store.setBlameLoading(filePath, groupId, true);
 
   try {
     const blameResult = await gitBlame(projectContext.projectPath, filePath);
-    store.setBlameData(filePath, blameResult);
+    store.setBlameData(filePath, groupId, blameResult);
   } catch (error) {
     console.error("[useEditor] Failed to load blame:", error);
-    store.setBlameLoading(filePath, false);
+    store.setBlameLoading(filePath, groupId, false);
   }
 }
 
 /**
- * Load HEAD content for a file (for diff computation).
+ * Load HEAD content and compute line diff.
  */
-async function loadHeadContent(filePath: string): Promise<void> {
+async function loadHeadContentAndDiff(filePath: string, groupId: string): Promise<void> {
   const projectContext = useIdeStore.getState().projectContext;
   if (!projectContext) return;
 
-  const store = useMonacoStore.getState();
+  const tabsStore = useTabsStore.getState();
+  const monacoStore = useMonacoStore.getState();
 
-  // Check if already have HEAD content
-  const fileState = store.getFileState(filePath);
-  if (fileState?.headContent !== null) return;
+  // Get the tab to check current content
+  const url = buildFileUrl(filePath);
+  const tabInfo = tabsStore.findTabInGroup(url, groupId);
+  if (!tabInfo?.resolved) return;
 
+  const tabData = tabInfo.resolved.data as FileTabData;
+
+  // If we already have headContent in the tab, compute diff directly
+  if (tabData.headContent !== null) {
+    const lineDiff = computeLineDiff(tabData.headContent, tabData.currentContent);
+    monacoStore.setLineDiff(filePath, groupId, lineDiff);
+    return;
+  }
+
+  // Otherwise load HEAD content
   try {
-    const content = await gitShowHead(projectContext.projectPath, filePath);
+    const headContent = await gitShowHead(projectContext.projectPath, filePath);
     // Use empty string for new files (not in HEAD)
-    store.setHeadContent(filePath, content ?? "");
+    const content = headContent ?? "";
+
+    // Update the tab's headContent
+    tabsStore.updateHeadContent(url, content);
+
+    // Compute and store line diff
+    const lineDiff = computeLineDiff(content, tabData.currentContent);
+    monacoStore.setLineDiff(filePath, groupId, lineDiff);
   } catch (error) {
     console.error("[useEditor] Failed to load HEAD content:", error);
   }
@@ -115,21 +139,21 @@ async function loadHeadContent(filePath: string): Promise<void> {
 /**
  * Load document symbols for a file.
  */
-async function loadSymbols(filePath: string, language: string): Promise<void> {
+async function loadSymbols(filePath: string, groupId: string, language: string): Promise<void> {
   if (!SUPPORTED_LANGUAGES.has(language)) return;
 
   const store = useMonacoStore.getState();
 
   // Check if already loading or have symbols
-  const fileState = store.getFileState(filePath);
+  const metadata = store.getEditorMetadata(filePath, groupId);
   if (
-    fileState?.symbolsLoading ||
-    (fileState?.symbols && fileState.symbols.length > 0)
+    metadata?.symbolsLoading ||
+    (metadata?.symbols && metadata.symbols.length > 0)
   ) {
     return;
   }
 
-  store.setSymbolsLoading(filePath, true);
+  store.setSymbolsLoading(filePath, groupId, true);
 
   // Retry logic for LSP timing
   const maxRetries = 3;
@@ -139,12 +163,12 @@ async function loadSymbols(filePath: string, language: string): Promise<void> {
       const flattened = flattenBlameableSymbols(result);
 
       if (flattened.length > 0 || attempt === maxRetries - 1) {
-        store.setSymbols(filePath, flattened);
+        store.setSymbols(filePath, groupId, flattened);
         console.log(
           "[useEditor] Loaded",
           flattened.length,
           "symbols for",
-          filePath,
+          filePath
         );
         return;
       }
@@ -154,7 +178,7 @@ async function loadSymbols(filePath: string, language: string): Promise<void> {
     } catch (error) {
       if (attempt === maxRetries - 1) {
         console.error("[useEditor] Failed to load symbols:", error);
-        store.setSymbolsLoading(filePath, false);
+        store.setSymbolsLoading(filePath, groupId, false);
       }
     }
   }
@@ -163,26 +187,32 @@ async function loadSymbols(filePath: string, language: string): Promise<void> {
 /**
  * Load all editor data for a file (blame, HEAD content, symbols).
  */
-function loadFileEditorData(filePath: string, language: string): void {
+function loadFileEditorData(filePath: string, groupId: string, language: string): void {
+  // Ensure metadata exists
+  useMonacoStore.getState().ensureEditorMetadata(filePath, groupId);
+
   // Load in parallel
-  loadBlameData(filePath);
-  loadHeadContent(filePath);
-  loadSymbols(filePath, language);
+  loadBlameData(filePath, groupId);
+  loadHeadContentAndDiff(filePath, groupId);
+  loadSymbols(filePath, groupId, language);
 }
 
 /**
  * Hook for Monaco editor integration.
  */
-export function useEditor({ filePath, language }: UseEditorOptions) {
+export function useEditor({ filePath, groupId, language }: UseEditorOptions) {
   const initStatus = useMonacoStore((s) => s.initState.status);
   const setActiveEditor = useMonacoStore((s) => s.setActiveEditor);
-  const saveCursorPosition = useMonacoStore((s) => s.saveCursorPosition);
-  const saveScrollPosition = useMonacoStore((s) => s.saveScrollPosition);
+  const updateCursorPosition = useTabsStore((s) => s.updateCursorPosition);
+  const updateScrollPosition = useTabsStore((s) => s.updateScrollPosition);
   const setCursorPosition = useIdeStore((s) => s.setCursorPosition);
 
   const scrollTimeoutRef = useRef<number | null>(null);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const disposablesRef = useRef<IDisposable[]>([]);
+
+  // Get the tab URL for position updates
+  const url = buildFileUrl(filePath);
 
   const handleMount: OnMount = useCallback(
     (editorInstance: editor.IStandaloneCodeEditor, _monaco: Monaco) => {
@@ -192,26 +222,35 @@ export function useEditor({ filePath, language }: UseEditorOptions) {
       setActiveEditor(editorInstance);
 
       // Attach decoration managers
-      blameWidgetManager.attach(editorInstance, filePath);
-      gutterDecorationManager.attach(editorInstance, filePath);
+      blameWidgetManager.attach(editorInstance, filePath, groupId);
+      gutterDecorationManager.attach(editorInstance, filePath, groupId);
 
-      // Restore session state
-      const fileState = useMonacoStore.getState().getFileState(filePath);
-      if (fileState) {
+      // Restore session state from tabs store
+      const tabsStore = useTabsStore.getState();
+      const tabInfo = tabsStore.findTabInGroup(url, groupId);
+      if (tabInfo) {
+        const { cursorPosition, scrollPosition } = tabInfo;
+
         // Restore cursor position
-        editorInstance.setPosition({
-          lineNumber: fileState.cursorPosition.line,
-          column: fileState.cursorPosition.column,
-        });
+        if (cursorPosition) {
+          editorInstance.setPosition({
+            lineNumber: cursorPosition.line,
+            column: cursorPosition.column,
+          });
+        }
 
         // Restore scroll position
-        editorInstance.setScrollPosition({
-          scrollTop: fileState.scrollPosition.top,
-          scrollLeft: fileState.scrollPosition.left,
-        });
+        if (scrollPosition) {
+          editorInstance.setScrollPosition({
+            scrollTop: scrollPosition.top,
+            scrollLeft: scrollPosition.left,
+          });
+        }
 
         // Reveal the cursor line
-        editorInstance.revealLineInCenter(fileState.cursorPosition.line);
+        if (cursorPosition) {
+          editorInstance.revealLineInCenter(cursorPosition.line);
+        }
       }
 
       // Clear any previous disposables
@@ -220,8 +259,8 @@ export function useEditor({ filePath, language }: UseEditorOptions) {
 
       // Track cursor position changes
       const cursorDisposable = editorInstance.onDidChangeCursorPosition((e) => {
-        // Update editor store (for session persistence)
-        saveCursorPosition(filePath, {
+        // Update tabs store (for session persistence)
+        updateCursorPosition(url, {
           line: e.position.lineNumber,
           column: e.position.column,
         });
@@ -241,7 +280,7 @@ export function useEditor({ filePath, language }: UseEditorOptions) {
         }
 
         scrollTimeoutRef.current = window.setTimeout(() => {
-          saveScrollPosition(filePath, {
+          updateScrollPosition(url, {
             top: e.scrollTop,
             left: e.scrollLeft,
           });
@@ -259,19 +298,21 @@ export function useEditor({ filePath, language }: UseEditorOptions) {
       }
 
       // Load data for this file (blame, symbols, HEAD content)
-      loadFileEditorData(filePath, language);
+      loadFileEditorData(filePath, groupId, language);
 
       // Focus the editor
       editorInstance.focus();
     },
     [
       filePath,
+      groupId,
       language,
+      url,
       setActiveEditor,
-      saveCursorPosition,
-      saveScrollPosition,
+      updateCursorPosition,
+      updateScrollPosition,
       setCursorPosition,
-    ],
+    ]
   );
 
   // Cleanup on unmount
@@ -299,11 +340,11 @@ export function useEditor({ filePath, language }: UseEditorOptions) {
   useEffect(() => {
     const editor = editorRef.current;
     if (editor) {
-      blameWidgetManager.attach(editor, filePath);
-      gutterDecorationManager.attach(editor, filePath);
-      loadFileEditorData(filePath, language);
+      blameWidgetManager.attach(editor, filePath, groupId);
+      gutterDecorationManager.attach(editor, filePath, groupId);
+      loadFileEditorData(filePath, groupId, language);
     }
-  }, [filePath, language]);
+  }, [filePath, groupId, language]);
 
   return {
     onMount: handleMount,

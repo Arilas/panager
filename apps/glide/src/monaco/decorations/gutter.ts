@@ -18,25 +18,31 @@ import { GUTTER_ADDED_CLASS, GUTTER_MODIFIED_CLASS } from "./styles";
 export class GutterDecorationManager {
   private editor: editor.IStandaloneCodeEditor | null = null;
   private filePath: string | null = null;
+  private groupId: string | null = null;
   private decorations: string[] = [];
   private storeUnsubscribe: (() => void) | null = null;
 
   /**
    * Attach the manager to an editor instance.
    */
-  attach(editorInstance: editor.IStandaloneCodeEditor, filePath: string): void {
+  attach(editorInstance: editor.IStandaloneCodeEditor, filePath: string, groupId?: string): void {
     this.detach(); // Clean up any previous attachment
 
     this.editor = editorInstance;
     this.filePath = filePath;
+    this.groupId = groupId ?? null;
 
     // Subscribe to editor store changes (lineDiff)
     // Track previous values for comparison
-    let prevLineDiff = useMonacoStore.getState().getFileState(filePath)?.lineDiff;
+    const metadata = this.groupId
+      ? useMonacoStore.getState().getEditorMetadata(filePath, this.groupId)
+      : null;
+    let prevLineDiff = metadata?.lineDiff;
 
     const editorUnsubscribe = useMonacoStore.subscribe((state) => {
-      const fileState = state.getFileState(filePath);
-      const lineDiff = fileState?.lineDiff;
+      if (!this.groupId) return;
+      const editorMetadata = state.getEditorMetadata(filePath, this.groupId);
+      const lineDiff = editorMetadata?.lineDiff;
 
       // Check if relevant state changed
       if (lineDiff !== prevLineDiff) {
@@ -80,6 +86,7 @@ export class GutterDecorationManager {
 
     this.editor = null;
     this.filePath = null;
+    this.groupId = null;
   }
 
   /**
@@ -100,7 +107,7 @@ export class GutterDecorationManager {
    * Update gutter decorations based on current lineDiff.
    */
   private updateDecorations(): void {
-    if (!this.editor || !this.filePath) return;
+    if (!this.editor || !this.filePath || !this.groupId) return;
 
     // Check if gutter is enabled from settings store
     const gutterEnabled = useIdeSettingsStore.getState().settings.git.gutter.enabled;
@@ -109,8 +116,8 @@ export class GutterDecorationManager {
       return;
     }
 
-    const fileState = useMonacoStore.getState().getFileState(this.filePath);
-    const lineDiff = fileState?.lineDiff;
+    const editorMetadata = useMonacoStore.getState().getEditorMetadata(this.filePath, this.groupId);
+    const lineDiff = editorMetadata?.lineDiff;
 
     // Clear existing decorations
     this.clearDecorations();

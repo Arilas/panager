@@ -1,7 +1,7 @@
 /**
  * Glide Entry Point
  */
-import "./workers";
+// import "./workers";
 
 import React from "react";
 import ReactDOM from "react-dom/client";

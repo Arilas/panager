@@ -290,7 +290,7 @@ export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
 
   // Update a setting at a specific level
   updateSetting: async (key, value, level) => {
-    const { projectPath, scopeDefaultFolder } = get();
+    const { projectPath, scopeDefaultFolder, dialogLevel } = get();
 
     try {
       await api.updateSetting(
@@ -304,6 +304,14 @@ export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
       // Reload merged settings to get updated effective values
       const settings = await api.loadSettings(projectPath!, scopeDefaultFolder);
       set({ settings });
+
+      // Also update dialog settings (merged up to selected level)
+      const dialogSettings = await api.loadSettingsForLevel(
+        dialogLevel,
+        projectPath!,
+        scopeDefaultFolder,
+      );
+      set({ dialogSettings });
 
       // Also update the level-specific cache if it's loaded
       const levelSettingsData = await api.getSettingsForLevel(
@@ -326,7 +334,7 @@ export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
 
   // Delete a setting at a specific level (revert to lower level)
   deleteSetting: async (key, level) => {
-    const { projectPath, scopeDefaultFolder } = get();
+    const { projectPath, scopeDefaultFolder, dialogLevel } = get();
 
     try {
       await api.deleteSetting(level, key, projectPath, scopeDefaultFolder);
@@ -334,6 +342,14 @@ export const useIdeSettingsStore = create<IdeSettingsState>((set, get) => ({
       // Reload merged settings to get updated effective values
       const settings = await api.loadSettings(projectPath!, scopeDefaultFolder);
       set({ settings });
+
+      // Also update dialog settings (merged up to selected level)
+      const dialogSettings = await api.loadSettingsForLevel(
+        dialogLevel,
+        projectPath!,
+        scopeDefaultFolder,
+      );
+      set({ dialogSettings });
 
       // Also update the level-specific cache if it's loaded
       const levelSettingsData = await api.getSettingsForLevel(

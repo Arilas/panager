@@ -1,7 +1,7 @@
 /**
  * Hook for reading line diff from editor store
  *
- * Simplified hook that reads lineDiff data from the centralized editorStore.
+ * Simplified hook that reads lineDiff data from the centralized monacoStore.
  * The diff computation happens in the store when content or HEAD content changes.
  */
 
@@ -10,6 +10,7 @@ import type { LineDiffResult } from "../lib/lineDiff";
 
 interface UseLineDiffOptions {
   filePath: string;
+  groupId: string;
 }
 
 interface UseLineDiffResult {
@@ -27,9 +28,9 @@ interface UseLineDiffResult {
  * Hook that returns line diff for a file from the editor store.
  * The diff is computed in the store when content changes.
  */
-export function useLineDiff({ filePath }: UseLineDiffOptions): UseLineDiffResult {
-  const fileState = useMonacoStore((s) => s.getFileState(filePath));
-  const lineDiff = fileState?.lineDiff ?? null;
+export function useLineDiff({ filePath, groupId }: UseLineDiffOptions): UseLineDiffResult {
+  const editorMetadata = useMonacoStore((s) => s.getEditorMetadata(filePath, groupId));
+  const lineDiff = editorMetadata?.lineDiff ?? null;
 
   return {
     lineDiff,

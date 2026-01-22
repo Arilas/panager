@@ -66,7 +66,9 @@ export function parseTabUrl(url: string): ParsedTabUrl {
 /**
  * Parse query string into key-value pairs
  */
-function parseQueryString(queryString: string | undefined): Record<string, string> {
+export function parseQueryString(
+  queryString: string | undefined,
+): Record<string, string> {
   if (!queryString) return {};
 
   const params: Record<string, string> = {};
@@ -97,13 +99,16 @@ function parseQueryString(queryString: string | undefined): Record<string, strin
 export function buildTabUrl(
   scheme: TabScheme,
   path: string,
-  params?: Record<string, string>
+  params?: Record<string, string>,
 ): string {
   let url = `${scheme}://${path}`;
 
   if (params && Object.keys(params).length > 0) {
     const queryString = Object.entries(params)
-      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+      .map(
+        ([key, value]) =>
+          `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
+      )
       .join("&");
     url += `?${queryString}`;
   }
@@ -164,7 +169,10 @@ export function buildDiffUrl(absolutePath: string, staged: boolean): string {
  * @returns Object with filePath and staged
  * @throws Error if not a diff URL
  */
-export function parseDiffUrl(url: string): { filePath: string; staged: boolean } {
+export function parseDiffUrl(url: string): {
+  filePath: string;
+  staged: boolean;
+} {
   const parsed = parseTabUrl(url);
   if (parsed.scheme !== "diff") {
     throw new Error(`Not a diff URL: ${url}`);

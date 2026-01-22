@@ -209,7 +209,7 @@ function MarkdownPreview({ content, isDark }: MarkdownPreviewProps) {
   );
 }
 
-export function MarkdownEditor({ data }: TabComponentProps<MarkdownTabData>) {
+export function MarkdownEditor({ data, groupId }: TabComponentProps<MarkdownTabData>) {
   const effectiveTheme = useEffectiveTheme();
   const editorSettings = useEditorSettings();
   const updateContent = useTabsStore((s) => s.updateContent);
@@ -219,6 +219,9 @@ export function MarkdownEditor({ data }: TabComponentProps<MarkdownTabData>) {
 
   // Build URL for content updates
   const url = buildFileUrl(data.path);
+
+  // Build Monaco model path with groupId as query parameter
+  const monacoPath = `${data.path}?groupId=${groupId}`;
 
   // Preview mode state - default to split for markdown
   const [previewMode, setPreviewMode] = useState<PreviewMode>(
@@ -231,6 +234,7 @@ export function MarkdownEditor({ data }: TabComponentProps<MarkdownTabData>) {
   // Use the editor hook for Monaco setup
   const { onMount, isLoading, hasError } = useEditor({
     filePath: data.path,
+    groupId,
     language: "markdown",
   });
 
@@ -330,7 +334,7 @@ export function MarkdownEditor({ data }: TabComponentProps<MarkdownTabData>) {
               height="100%"
               language="markdown"
               value={currentContent}
-              path={data.path}
+              path={monacoPath}
               theme={monacoTheme}
               onMount={onMount}
               onChange={handleEditorChange}

@@ -21,6 +21,11 @@ export default defineConfig(async () => ({
 
   clearScreen: false,
   server: {
+    headers: {
+      "Content-Security-Policy":
+        "default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: tauri: ipc:; connect-src 'self' blob: data: tauri: ipc: ipc://localhost ws://localhost:*; worker-src 'self' blob:;",
+    },
+
     port: 1421,
     strictPort: true,
     host: host || false,

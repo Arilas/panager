@@ -52,6 +52,15 @@ export async function windowWillClose(windowLabel: string, hasProject: boolean):
   return invoke("ide_window_will_close", { windowLabel, hasProject });
 }
 
+/**
+ * Hide the current window (pool mode) or close it (dynamic mode).
+ * In pool mode, windows are hidden and released back to the pool.
+ * Use this instead of getCurrentWindow().close() for proper pool management.
+ */
+export async function hideWindow(windowLabel: string): Promise<void> {
+  return invoke("ide_hide_window", { windowLabel });
+}
+
 // Session management
 
 export interface WindowGeometry {

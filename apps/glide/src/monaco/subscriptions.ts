@@ -6,7 +6,7 @@
  * - Decoration updates when lineDiff changes
  */
 
-import { useMonacoStore, type FileData } from "../stores/monaco";
+import { useMonacoStore, type EditorMetadata } from "../stores/monaco";
 import { useGitStore } from "../stores/git";
 import { triggerCodeLensRefresh } from "./providers/codeLens";
 
@@ -14,7 +14,7 @@ let subscriptionsSetup = false;
 const unsubscribers: Array<() => void> = [];
 
 // Track previous state for comparison
-let prevFileData: Record<string, FileData> = {};
+let prevEditorMetadata: Record<string, EditorMetadata> = {};
 let prevBranchName: string | undefined = undefined;
 
 /**
@@ -26,23 +26,23 @@ export function setupStoreSubscriptions(): void {
 
   console.log("[Monaco] Setting up store subscriptions");
 
-  // Subscribe to monaco store for file data changes
+  // Subscribe to monaco store for editor metadata changes
   unsubscribers.push(
     useMonacoStore.subscribe((state) => {
       let needsRefresh = false;
 
-      // Check file data for blame/symbols/lineDiff changes
-      for (const [path, fileData] of Object.entries(state.fileData)) {
-        const prevData = prevFileData[path];
+      // Check editor metadata for blame/symbols/lineDiff changes
+      for (const [key, metadata] of Object.entries(state.editorMetadata)) {
+        const prevData = prevEditorMetadata[key];
         if (!prevData) {
-          // New file opened
+          // New editor opened
           needsRefresh = true;
           break;
         }
         if (
-          fileData.blameData !== prevData.blameData ||
-          fileData.symbols !== prevData.symbols ||
-          fileData.lineDiff !== prevData.lineDiff
+          metadata.blameData !== prevData.blameData ||
+          metadata.symbols !== prevData.symbols ||
+          metadata.lineDiff !== prevData.lineDiff
         ) {
           needsRefresh = true;
           break;
@@ -50,28 +50,25 @@ export function setupStoreSubscriptions(): void {
       }
 
       // Update previous state
-      prevFileData = state.fileData;
+      prevEditorMetadata = state.editorMetadata;
 
       if (needsRefresh) {
         triggerCodeLensRefresh();
       }
-    })
+    }),
   );
 
   // Subscribe to git store branch changes to clear blame caches
   unsubscribers.push(
     useGitStore.subscribe((state) => {
       const currentBranch = state.branch?.name;
-      if (
-        currentBranch !== prevBranchName &&
-        prevBranchName !== undefined
-      ) {
+      if (currentBranch !== prevBranchName && prevBranchName !== undefined) {
         console.log("[Monaco] Branch changed, clearing blame caches");
         useMonacoStore.getState().clearAllBlameCaches();
         triggerCodeLensRefresh();
       }
       prevBranchName = currentBranch;
-    })
+    }),
   );
 
   subscriptionsSetup = true;
@@ -88,7 +85,7 @@ export function cleanupSubscriptions(): void {
   }
   unsubscribers.length = 0;
   subscriptionsSetup = false;
-  prevFileData = {};
+  prevEditorMetadata = {};
   prevBranchName = undefined;
 }
 

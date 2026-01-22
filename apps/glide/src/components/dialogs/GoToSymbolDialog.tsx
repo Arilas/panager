@@ -104,7 +104,7 @@ function getSymbolKindLabel(kind: number): string {
 export function GoToSymbolDialog({ open, onOpenChange }: GoToSymbolDialogProps) {
   const setCursorPosition = useIdeStore((s) => s.setCursorPosition);
   const activeEditor = useMonacoStore((s) => s.activeEditor);
-  const getFileData = useMonacoStore((s) => s.getFileData);
+  const getEditorMetadata = useMonacoStore((s) => s.getEditorMetadata);
   const activeGroupId = useTabsStore((s) => s.activeGroupId);
   const groups = useTabsStore((s) => s.groups);
   const useLiquidGlassEnabled = useLiquidGlass();
@@ -124,18 +124,18 @@ export function GoToSymbolDialog({ open, onOpenChange }: GoToSymbolDialogProps) 
   }, [groups, activeGroupId]);
 
   // Get symbols from the active file
-  const fileData = activeFilePath ? getFileData(activeFilePath) : null;
-  const symbols = fileData?.symbols ?? [];
-  const symbolsLoading = fileData?.symbolsLoading ?? false;
+  const editorMetadata = activeFilePath ? getEditorMetadata(activeFilePath, activeGroupId) : null;
+  const symbols = editorMetadata?.symbols ?? [];
+  const symbolsLoading = editorMetadata?.symbolsLoading ?? false;
 
   // Filter symbols based on search
   const filteredSymbols = useMemo(() => {
     if (!search.trim()) return symbols;
     const query = search.toLowerCase();
     return symbols.filter(
-      (s) =>
-        s.name.toLowerCase().includes(query) ||
-        getSymbolKindLabel(s.kind).includes(query)
+      (symbol: LspDocumentSymbol) =>
+        symbol.name.toLowerCase().includes(query) ||
+        getSymbolKindLabel(symbol.kind).includes(query)
     );
   }, [symbols, search]);
 
@@ -231,7 +231,7 @@ export function GoToSymbolDialog({ open, onOpenChange }: GoToSymbolDialogProps) 
 
         {filteredSymbols.length > 0 && (
           <Command.Group heading="Symbols">
-            {filteredSymbols.map((symbol, index) => {
+            {filteredSymbols.map((symbol: LspDocumentSymbol, index: number) => {
               const Icon = getSymbolIcon(symbol.kind);
               const kindLabel = getSymbolKindLabel(symbol.kind);
               const line = symbol.selectionRange.start.line + 1;

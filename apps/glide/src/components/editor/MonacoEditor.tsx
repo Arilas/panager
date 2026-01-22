@@ -20,6 +20,7 @@ interface MonacoEditorProps {
   content: string;
   language: string;
   path: string;
+  groupId: string;
   readOnly?: boolean;
 }
 
@@ -27,6 +28,7 @@ export function MonacoEditor({
   content,
   language,
   path,
+  groupId,
   readOnly = false,
 }: MonacoEditorProps) {
   const effectiveTheme = useEffectiveTheme();
@@ -39,6 +41,7 @@ export function MonacoEditor({
   // Use the new editor hook
   const { onMount, isLoading, hasError } = useEditor({
     filePath: path,
+    groupId,
     language,
   });
 
@@ -47,6 +50,10 @@ export function MonacoEditor({
 
   // Map Monaco language ID to Shiki language ID for proper tokenization
   const shikiLanguage = mapMonacoToShikiLanguage(language);
+
+  // Build Monaco model path with groupId as query parameter
+  // This allows CodeLens and other providers to know which group the editor belongs to
+  const monacoPath = `${path}?groupId=${groupId}`;
 
   // Handle content changes
   const handleEditorChange: OnChange = useCallback(
@@ -91,7 +98,7 @@ export function MonacoEditor({
         height="100%"
         language={shikiLanguage}
         value={content}
-        path={path}
+        path={monacoPath}
         theme={monacoTheme}
         onMount={onMount}
         onChange={handleEditorChange}

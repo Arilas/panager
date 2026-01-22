@@ -17,6 +17,7 @@ import { useMonacoStore } from "../../stores/monaco";
 import { useIdeSettingsStore } from "../../stores/settings";
 import type { GitBlameLine } from "../../types";
 import { LSP_LANGUAGES } from "./index";
+import { parseQueryString } from "../../lib/tabs/url";
 
 // Module-level emitter for triggering refreshes
 let globalEmitter: Emitter<languages.CodeLensProvider> | null = null;
@@ -54,23 +55,33 @@ export function registerCodeLensProvider(monaco: Monaco): IDisposable {
 
     provideCodeLenses(
       model: editor.ITextModel,
-      _token: CancellationToken
+      _token: CancellationToken,
     ): languages.ProviderResult<languages.CodeLensList> {
+      // Parse file path and groupId from the model URI
       const filePath = model.uri.path;
+      const groupId = parseQueryString(model.uri.query).groupId;
 
       // Check if CodeLens is enabled from settings store
-      const codeLensEnabled = useIdeSettingsStore.getState().settings.git.codeLens.enabled;
+      const codeLensEnabled =
+        useIdeSettingsStore.getState().settings.git.codeLens.enabled;
       if (!codeLensEnabled) {
         return { lenses: [], dispose: () => {} };
       }
 
-      // Get file state from editor store
-      const fileState = useMonacoStore.getState().getFileState(filePath);
-      if (!fileState || !fileState.blameData || fileState.symbols.length === 0) {
+      // Get editor metadata using the groupId from the model path
+      const editorMetadata = groupId
+        ? useMonacoStore.getState().getEditorMetadata(filePath, groupId)
+        : null;
+
+      if (
+        !editorMetadata ||
+        !editorMetadata.blameData ||
+        editorMetadata.symbols.length === 0
+      ) {
         return { lenses: [], dispose: () => {} };
       }
 
-      const { symbols, blameData, lineDiff } = fileState;
+      const { symbols, blameData, lineDiff } = editorMetadata;
       const lenses: languages.CodeLens[] = [];
 
       for (const symbol of symbols) {
@@ -95,7 +106,7 @@ export function registerCodeLensProvider(monaco: Monaco): IDisposable {
           } else if (mapping.originalLine !== null) {
             // Unchanged line - map to original line and get blame
             const blameLine = blameData.lines.find(
-              (l: GitBlameLine) => l.lineNumber === mapping.originalLine
+              (l: GitBlameLine) => l.lineNumber === mapping.originalLine,
             );
             if (blameLine) {
               blameText = `${blameLine.author}, ${formatRelativeTime(blameLine.timestamp)}`;
@@ -109,7 +120,7 @@ export function registerCodeLensProvider(monaco: Monaco): IDisposable {
         } else {
           // No diff computed yet, use direct line lookup
           const blameLine = blameData.lines.find(
-            (l: GitBlameLine) => l.lineNumber === currentLineNumber
+            (l: GitBlameLine) => l.lineNumber === currentLineNumber,
           );
           if (!blameLine) continue;
 
@@ -138,7 +149,7 @@ export function registerCodeLensProvider(monaco: Monaco): IDisposable {
     resolveCodeLens(
       _model: editor.ITextModel,
       codeLens: languages.CodeLens,
-      _token: CancellationToken
+      _token: CancellationToken,
     ): languages.ProviderResult<languages.CodeLens> {
       return codeLens;
     },
@@ -164,7 +175,7 @@ export function registerCodeLensProvider(monaco: Monaco): IDisposable {
 
   console.log(
     "[Monaco] Registered CodeLens provider for languages:",
-    LSP_LANGUAGES.join(", ")
+    LSP_LANGUAGES.join(", "),
   );
 
   return globalProviderDisposable;

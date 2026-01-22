@@ -58,6 +58,7 @@ async function doInitialize(): Promise<Monaco> {
         // paths: { vs: MONACO_CDN },
         monaco: monacoEditor,
       });
+      await import("../workers");
 
       // Load Monaco (this downloads from CDN)
       console.log("[Monaco] Loading from CDN...");

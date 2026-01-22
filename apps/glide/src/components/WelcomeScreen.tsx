@@ -17,6 +17,7 @@ import {
   getRecentProjects,
   removeRecentProject,
   openIdeWindow,
+  hideWindow,
   type RecentProject,
 } from "../lib/tauri-ide";
 
@@ -94,12 +95,16 @@ export function WelcomeScreen() {
         // Check if project is already open in another window
         const createdNew = await openIdeWindow(projectId, selected, projectName);
 
-        if (createdNew) {
-          // New window was created, close this welcome window
+        // Hide/close this welcome window (uses pool-aware hideWindow)
+        const windowLabel = getCurrentWindow().label;
+        await hideWindow(windowLabel).catch(() => {
+          // Fallback to close() if hideWindow fails
           getCurrentWindow().close();
-        } else {
-          // Existing window was focused, close this welcome window
-          getCurrentWindow().close();
+        });
+
+        // Log whether a new window was created or existing was focused
+        if (!createdNew) {
+          console.log("Focused existing window for project");
         }
       }
     } catch (error) {
@@ -113,12 +118,16 @@ export function WelcomeScreen() {
     // Check if project is already open in another window
     const createdNew = await openIdeWindow(project.id, project.path, project.name);
 
-    if (createdNew) {
-      // New window was created, close this welcome window
+    // Hide/close this welcome window (uses pool-aware hideWindow)
+    const windowLabel = getCurrentWindow().label;
+    await hideWindow(windowLabel).catch(() => {
+      // Fallback to close() if hideWindow fails
       getCurrentWindow().close();
-    } else {
-      // Existing window was focused, close this welcome window
-      getCurrentWindow().close();
+    });
+
+    // Log whether a new window was created or existing was focused
+    if (!createdNew) {
+      console.log("Focused existing window for project:", project.name);
     }
   };
 
