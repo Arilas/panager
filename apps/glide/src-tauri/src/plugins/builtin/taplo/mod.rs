@@ -1,7 +1,7 @@
-//! Taplo Plugin
+//! Tombi Plugin
 //!
-//! Provides TOML language support via taplo.
-//! Requires taplo to be installed and available in PATH.
+//! Provides TOML language support via tombi.
+//! Uses npx for easy installation without requiring a binary in PATH.
 //! Auto-activates for any project with TOML files.
 
 use std::path::PathBuf;
@@ -19,32 +19,26 @@ use crate::plugins::types::{
     LspWorkspaceEdit, Plugin, PluginManifest, StatusBarAlignment, StatusBarItem,
 };
 
-/// Taplo language server configuration
-pub struct TaploConfig;
+/// Tombi language server configuration
+pub struct TombiConfig;
 
-impl TaploConfig {
-    /// Check if taplo is available in PATH
-    pub fn is_available() -> bool {
-        std::process::Command::new("taplo")
-            .arg("--version")
-            .output()
-            .is_ok()
-    }
-
+impl TombiConfig {
     /// Check if a project has TOML files
     pub fn has_toml_files(root: &PathBuf) -> bool {
         // Common TOML config files
         let toml_files = [
             "Cargo.toml",
             "pyproject.toml",
-            "taplo.toml",
-            ".taplo.toml",
+            "tombi.toml",
+            ".tombi.toml",
             "rustfmt.toml",
             ".rustfmt.toml",
             "clippy.toml",
             ".clippy.toml",
             "deny.toml",
             "Pipfile",
+            "taplo.toml",
+            ".taplo.toml",
         ];
 
         for file in toml_files {
@@ -57,20 +51,21 @@ impl TaploConfig {
     }
 }
 
-impl LspConfig for TaploConfig {
+impl LspConfig for TombiConfig {
     fn command(&self) -> &str {
-        "taplo"
+        "npx"
     }
 
     fn args(&self) -> Vec<String> {
-        vec!["lsp".to_string(), "stdio".to_string()]
+        vec![
+            "--yes".to_string(),
+            "tombi".to_string(),
+            "lsp".to_string(),
+        ]
     }
 
     fn initialization_options(&self, _root: &PathBuf) -> serde_json::Value {
-        serde_json::json!({
-            "cachePath": null,
-            "configuration": null
-        })
+        serde_json::json!({})
     }
 
     fn capabilities(&self) -> serde_json::Value {
@@ -98,7 +93,19 @@ impl LspConfig for TaploConfig {
                     "hierarchicalDocumentSymbolSupport": true
                 },
                 "foldingRange": {},
-                "documentLink": {}
+                "documentLink": {},
+                "codeAction": {
+                    "codeActionLiteralSupport": {
+                        "codeActionKind": {
+                            "valueSet": [
+                                "quickfix",
+                                "source",
+                                "source.fixAll",
+                                "source.organizeImports"
+                            ]
+                        }
+                    }
+                }
             },
             "workspace": {
                 "workspaceFolders": true,
@@ -109,20 +116,17 @@ impl LspConfig for TaploConfig {
 
     fn workspace_configuration(&self) -> serde_json::Value {
         serde_json::json!({
-            "evenBetterToml": {
+            "tombi": {
                 "formatter": {
                     "alignEntries": false,
                     "alignComments": true,
-                    "arrayTrailingComma": true,
-                    "arrayAutoExpand": true,
-                    "arrayAutoCollapse": true,
-                    "compactArrays": true,
-                    "compactInlineTables": false,
+                    "trailingComma": true,
                     "columnWidth": 80,
-                    "indentTables": false,
-                    "indentEntries": false,
-                    "reorderKeys": false,
-                    "trailingNewline": true
+                    "indentStyle": "space",
+                    "indentWidth": 2
+                },
+                "linter": {
+                    "enabled": true
                 },
                 "schema": {
                     "enabled": true
@@ -139,24 +143,24 @@ impl LspConfig for TaploConfig {
     }
 
     fn diagnostic_source(&self) -> &str {
-        "taplo"
+        "tombi"
     }
 
     fn should_activate(&self, root: &PathBuf) -> bool {
-        Self::has_toml_files(root) && Self::is_available()
+        Self::has_toml_files(root)
     }
 }
 
-/// Type alias for Taplo LSP client
-pub type TaploLspClient = LspClient<TaploConfig>;
+/// Type alias for Tombi LSP client
+pub type TombiLspClient = LspClient<TombiConfig>;
 
-/// Taplo plugin state
+/// Tombi plugin state (exported as TaploPlugin for backwards compatibility)
 pub struct TaploPlugin {
     manifest: PluginManifest,
     ctx: Option<PluginContext>,
-    lsp: Arc<RwLock<Option<TaploLspClient>>>,
+    lsp: Arc<RwLock<Option<TombiLspClient>>>,
     project_root: Option<PathBuf>,
-    config: TaploConfig,
+    config: TombiConfig,
 }
 
 impl TaploPlugin {
@@ -164,21 +168,21 @@ impl TaploPlugin {
         Self {
             manifest: PluginManifest {
                 id: "panager.taplo".to_string(),
-                name: "Taplo".to_string(),
+                name: "Tombi".to_string(),
                 version: "1.0.0".to_string(),
-                description: "TOML language support via taplo".to_string(),
+                description: "TOML language support via Tombi".to_string(),
                 languages: vec!["toml".to_string()],
                 is_builtin: true,
             },
             ctx: None,
             lsp: Arc::new(RwLock::new(None)),
             project_root: None,
-            config: TaploConfig,
+            config: TombiConfig,
         }
     }
 
     async fn stop_lsp(&mut self) {
-        info!("Stopping Taplo LSP");
+        info!("Stopping Tombi LSP");
 
         if let Some(lsp) = self.lsp.write().await.take() {
             lsp.shutdown().await;
@@ -187,7 +191,7 @@ impl TaploPlugin {
         self.project_root = None;
 
         if let Some(ref ctx) = self.ctx {
-            ctx.remove_status_bar("taplo-status".to_string());
+            ctx.remove_status_bar("tombi-status".to_string());
         }
     }
 }
@@ -205,13 +209,13 @@ impl Plugin for TaploPlugin {
     }
 
     async fn activate(&mut self, ctx: PluginContext) -> Result<(), String> {
-        info!("Activating Taplo plugin");
+        info!("Activating Tombi plugin");
         self.ctx = Some(ctx);
         Ok(())
     }
 
     async fn deactivate(&mut self) -> Result<(), String> {
-        info!("Deactivating Taplo plugin");
+        info!("Deactivating Tombi plugin");
         self.stop_lsp().await;
         self.ctx = None;
         Ok(())
@@ -220,36 +224,31 @@ impl Plugin for TaploPlugin {
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
             HostEvent::ProjectOpened { path } => {
-                if !TaploConfig::has_toml_files(&path) {
-                    debug!("No TOML files detected, skipping Taplo LSP start");
-                    return Ok(());
-                }
-
-                if !TaploConfig::is_available() {
-                    warn!("taplo not found in PATH, skipping LSP start");
+                if !TombiConfig::has_toml_files(&path) {
+                    debug!("No TOML files detected, skipping Tombi LSP start");
                     return Ok(());
                 }
 
                 self.project_root = Some(path.clone());
                 let lsp = self.lsp.clone();
                 let ctx = self.ctx.clone();
-                let config = TaploConfig;
+                let config = TombiConfig;
                 tokio::spawn(async move {
-                    info!("Starting Taplo LSP for: {:?}", path);
+                    info!("Starting Tombi LSP for: {:?}", path);
                     match LspClient::start(&config, &path, ctx.clone().unwrap()).await {
                         Ok(client) => {
                             *lsp.write().await = Some(client);
                             if let Some(ctx) = ctx {
                                 ctx.update_status_bar(StatusBarItem {
-                                    id: "taplo-status".to_string(),
+                                    id: "tombi-status".to_string(),
                                     text: "TOML".to_string(),
-                                    tooltip: Some("Taplo TOML language server active".to_string()),
+                                    tooltip: Some("Tombi TOML language server active".to_string()),
                                     alignment: StatusBarAlignment::Right,
                                     priority: 46,
                                 });
                             }
                         }
-                        Err(e) => warn!("Failed to start Taplo LSP: {}", e),
+                        Err(e) => warn!("Failed to start Tombi LSP: {}", e),
                     }
                 });
             }
@@ -259,7 +258,7 @@ impl Plugin for TaploPlugin {
             }
 
             HostEvent::FileOpened { path, content, language } => {
-                debug!("Taplo plugin received FileOpened: {:?}, lang: {}", path, language);
+                debug!("Tombi plugin received FileOpened: {:?}, lang: {}", path, language);
                 if let Some(lsp) = self.lsp.read().await.as_ref() {
                     lsp.did_open(&self.config, &path, &content).await;
                 }

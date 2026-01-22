@@ -73,7 +73,7 @@ pub async fn register_builtin_plugins(host: &PluginHost) {
     host.register(Box::new(rust_analyzer::RustAnalyzerPlugin::new()))
         .await;
 
-    // Taplo plugin for TOML (requires taplo in PATH)
+    // Tombi plugin for TOML (via npx)
     host.register(Box::new(taplo::TaploPlugin::new())).await;
 
     // SQL plugin (auto-detected based on database context)
@@ -111,7 +111,7 @@ pub async fn activate_default_plugins(host: &PluginHost) {
         "panager.oxfmt",          // Activates for JS/TS projects (Prettier alternative)
         "panager.dockerfile",     // Activates if Dockerfile exists
         "panager.rust-analyzer",  // Activates if Cargo.toml exists and rust-analyzer is in PATH
-        "panager.taplo",          // Activates if TOML files exist and taplo is in PATH
+        "panager.taplo",          // Activates if TOML files exist (uses Tombi via npx)
         "panager.sql",            // Activates if SQL/database context detected
     ];
 
