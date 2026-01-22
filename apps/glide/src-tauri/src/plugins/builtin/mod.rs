@@ -4,13 +4,18 @@
 
 pub mod biome;
 pub mod css;
+pub mod dockerfile;
 pub mod emmet;
 pub mod eslint;
 pub mod html;
 pub mod json;
+pub mod oxfmt;
 pub mod oxlint;
 pub mod prettier;
+pub mod rust_analyzer;
+pub mod sql;
 pub mod tailwindcss;
+pub mod taplo;
 pub mod typescript;
 pub mod yaml;
 
@@ -56,6 +61,23 @@ pub async fn register_builtin_plugins(host: &PluginHost) {
 
     // Emmet plugin (always active for HTML/JSX)
     host.register(Box::new(emmet::EmmetPlugin::new())).await;
+
+    // Oxfmt plugin (fast Prettier-compatible formatter)
+    host.register(Box::new(oxfmt::OxfmtPlugin::new())).await;
+
+    // Dockerfile plugin (auto-detected based on Dockerfile)
+    host.register(Box::new(dockerfile::DockerfilePlugin::new()))
+        .await;
+
+    // Rust Analyzer plugin (requires rust-analyzer in PATH)
+    host.register(Box::new(rust_analyzer::RustAnalyzerPlugin::new()))
+        .await;
+
+    // Taplo plugin for TOML (requires taplo in PATH)
+    host.register(Box::new(taplo::TaploPlugin::new())).await;
+
+    // SQL plugin (auto-detected based on database context)
+    host.register(Box::new(sql::SqlPlugin::new())).await;
 }
 
 /// Activate all built-in plugins that should start automatically
@@ -81,11 +103,16 @@ pub async fn activate_default_plugins(host: &PluginHost) {
     // Conditional plugins (auto-detect based on project configuration)
     // These plugins check for their config files before actually starting their LSP
     let conditional_plugins = [
-        "panager.tailwindcss", // Activates if tailwind is in package.json/lock files
-        "panager.eslint",      // Activates if .eslintrc.* or eslint.config.* exists
-        "panager.oxlint",      // Activates if oxlintrc.json exists or oxlint in package.json
-        "panager.prettier",    // Activates if .prettierrc.* exists
-        "panager.biome",       // Activates if biome.json exists
+        "panager.tailwindcss",    // Activates if tailwind is in package.json/lock files
+        "panager.eslint",         // Activates if .eslintrc.* or eslint.config.* exists
+        "panager.oxlint",         // Activates if oxlintrc.json exists or oxlint in package.json
+        "panager.prettier",       // Activates if .prettierrc.* exists
+        "panager.biome",          // Activates if biome.json exists
+        "panager.oxfmt",          // Activates for JS/TS projects (Prettier alternative)
+        "panager.dockerfile",     // Activates if Dockerfile exists
+        "panager.rust-analyzer",  // Activates if Cargo.toml exists and rust-analyzer is in PATH
+        "panager.taplo",          // Activates if TOML files exist and taplo is in PATH
+        "panager.sql",            // Activates if SQL/database context detected
     ];
 
     for plugin_id in conditional_plugins {

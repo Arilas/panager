@@ -65,6 +65,18 @@ export const LSP_LANGUAGES = [
 
   // GraphQL (Prettier support)
   "graphql",
+
+  // Rust (rust-analyzer support)
+  "rust",
+
+  // TOML (taplo support)
+  "toml",
+
+  // SQL (sql-language-server support)
+  "sql",
+
+  // Dockerfile (dockerfile-language-server support)
+  "dockerfile",
 ];
 
 let providersRegistered = false;
