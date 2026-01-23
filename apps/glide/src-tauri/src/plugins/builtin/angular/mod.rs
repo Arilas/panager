@@ -306,14 +306,12 @@ impl Plugin for AngularPlugin {
     }
 
     fn supports_language(&self, language: &str) -> bool {
+        // Return true if the language is in our supported list
+        // The actual LSP request will fail gracefully if LSP isn't ready
+        // This avoids race conditions with try_read() during initialization
+        self.manifest.languages.iter().any(|l| l == language)
         // Angular only provides additional support for Angular projects
         // Basic TS support comes from typescript plugin
-        if self.lsp.try_read().map(|l| l.is_some()).unwrap_or(false) {
-            // Support angular template files and component files
-            language == "html" || language == "typescript"
-        } else {
-            false
-        }
     }
 
     fn as_lsp_provider(&self) -> Option<&dyn LspProvider> {

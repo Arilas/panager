@@ -249,11 +249,10 @@ impl Plugin for MdxPlugin {
     }
 
     fn supports_language(&self, language: &str) -> bool {
-        if self.lsp.try_read().map(|l| l.is_some()).unwrap_or(false) {
-            self.manifest.languages.iter().any(|l| l == language)
-        } else {
-            false
-        }
+        // Return true if the language is in our supported list
+        // The actual LSP request will fail gracefully if LSP isn't ready
+        // This avoids race conditions with try_read() during initialization
+        self.manifest.languages.iter().any(|l| l == language)
     }
 
     fn as_lsp_provider(&self) -> Option<&dyn LspProvider> {

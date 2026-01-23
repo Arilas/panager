@@ -36,6 +36,26 @@ impl PrismaConfig {
             }
         }
 
+        // Check in monorepo directories (apps/*, packages/*, libs/*)
+        let monorepo_dirs = ["apps", "packages", "libs"];
+        for monorepo_dir in monorepo_dirs {
+            let dir_path = root.join(monorepo_dir);
+            if dir_path.exists() && dir_path.is_dir() {
+                if let Ok(entries) = std::fs::read_dir(&dir_path) {
+                    for entry in entries.flatten() {
+                        if entry.path().is_dir() {
+                            for file in &prisma_files {
+                                if entry.path().join(file).exists() {
+                                    info!("Found Prisma schema in monorepo: {:?}", entry.path().join(file));
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Check package.json for prisma dependency
         let package_json = root.join("package.json");
         if package_json.exists() {
@@ -149,6 +169,12 @@ impl LspConfig for PrismaConfig {
 /// Type alias for Prisma LSP client
 pub type PrismaLspClient = LspClient<PrismaConfig>;
 
+/// Struct to hold file info for pending files
+struct OpenFile {
+    path: PathBuf,
+    content: String,
+}
+
 /// Prisma plugin state
 pub struct PrismaPlugin {
     manifest: PluginManifest,
@@ -156,6 +182,8 @@ pub struct PrismaPlugin {
     lsp: Arc<RwLock<Option<PrismaLspClient>>>,
     project_root: Option<PathBuf>,
     config: PrismaConfig,
+    /// Files that were opened before LSP was ready - will be synced when LSP starts
+    pending_files: Arc<RwLock<Vec<OpenFile>>>,
 }
 
 impl PrismaPlugin {
@@ -173,6 +201,7 @@ impl PrismaPlugin {
             lsp: Arc::new(RwLock::new(None)),
             project_root: None,
             config: PrismaConfig,
+            pending_files: Arc::new(RwLock::new(Vec::new())),
         }
     }
 
@@ -182,6 +211,9 @@ impl PrismaPlugin {
         if let Some(lsp) = self.lsp.write().await.take() {
             lsp.shutdown().await;
         }
+
+        // Clear pending files
+        self.pending_files.write().await.clear();
 
         self.project_root = None;
 
@@ -228,10 +260,18 @@ impl Plugin for PrismaPlugin {
                 let lsp = self.lsp.clone();
                 let ctx = self.ctx.clone();
                 let config = PrismaConfig;
+                let pending_files = self.pending_files.clone();
                 tokio::spawn(async move {
                     info!("Starting Prisma LSP for: {:?}", path);
                     match LspClient::start(&config, &path, ctx.clone().unwrap()).await {
                         Ok(client) => {
+                            // Sync any files that were opened before LSP was ready
+                            let files_to_sync = pending_files.write().await.drain(..).collect::<Vec<_>>();
+                            for file in files_to_sync {
+                                debug!("Syncing pending file to Prisma LSP: {:?}", file.path);
+                                client.did_open(&config, &file.path, &file.content).await;
+                            }
+
                             *lsp.write().await = Some(client);
                             if let Some(ctx) = ctx {
                                 ctx.update_status_bar(StatusBarItem {
@@ -256,6 +296,13 @@ impl Plugin for PrismaPlugin {
                 debug!("Prisma plugin received FileOpened: {:?}, lang: {}", path, language);
                 if let Some(lsp) = self.lsp.read().await.as_ref() {
                     lsp.did_open(&self.config, &path, &content).await;
+                } else {
+                    // LSP not ready yet, queue the file for later sync
+                    debug!("Prisma LSP not ready, queuing file: {:?}", path);
+                    self.pending_files.write().await.push(OpenFile {
+                        path: path.clone(),
+                        content: content.clone(),
+                    });
                 }
             }
 
@@ -282,11 +329,10 @@ impl Plugin for PrismaPlugin {
     }
 
     fn supports_language(&self, language: &str) -> bool {
-        if self.lsp.try_read().map(|l| l.is_some()).unwrap_or(false) {
-            self.manifest.languages.iter().any(|l| l == language)
-        } else {
-            false
-        }
+        // Return true if the language is in our supported list
+        // The actual LSP request will fail gracefully if LSP isn't ready
+        // This avoids race conditions with try_read() during initialization
+        self.manifest.languages.iter().any(|l| l == language)
     }
 
     fn as_lsp_provider(&self) -> Option<&dyn LspProvider> {

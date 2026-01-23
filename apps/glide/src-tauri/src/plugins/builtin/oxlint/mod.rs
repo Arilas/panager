@@ -277,12 +277,11 @@ impl Plugin for OxlintPlugin {
     }
 
     fn supports_language(&self, language: &str) -> bool {
+        // Return true if the language is in our supported list
+        // The actual LSP request will fail gracefully if LSP isn't ready
+        // This avoids race conditions with try_read() during initialization
+        self.manifest.languages.iter().any(|l| l == language)
         // Only provide support if LSP is running (meaning oxlint config was detected)
-        if self.lsp.try_read().map(|l| l.is_some()).unwrap_or(false) {
-            self.manifest.languages.iter().any(|l| l == language)
-        } else {
-            false
-        }
     }
 
     fn as_lsp_provider(&self) -> Option<&dyn LspProvider> {
