@@ -128,6 +128,20 @@ export interface InlayHintsSettings {
   enumMemberValues: boolean;
 }
 
+/** Error Lens settings for inline diagnostic display */
+export interface ErrorLensSettings {
+  /** Master toggle for error lens */
+  enabled: boolean;
+  /** Show error diagnostics */
+  showErrors: boolean;
+  /** Show warning diagnostics */
+  showWarnings: boolean;
+  /** Show information diagnostics */
+  showInformation: boolean;
+  /** Show hint diagnostics */
+  showHints: boolean;
+}
+
 export interface EditorSettings {
   /** Font size in pixels */
   fontSize: number;
@@ -153,6 +167,8 @@ export interface EditorSettings {
   guides: GuidesSettings;
   /** Inlay hints settings */
   inlayHints: InlayHintsSettings;
+  /** Error Lens inline diagnostic display */
+  errorLens: ErrorLensSettings;
   /** Cursor blinking style */
   cursorBlinking: CursorBlinking;
   /** Cursor style */
@@ -383,6 +399,13 @@ export const DEFAULT_IDE_SETTINGS: IdeSettings = {
       propertyDeclarationTypes: false,
       functionReturnTypes: true,
       enumMemberValues: true,
+    },
+    errorLens: {
+      enabled: true,
+      showErrors: true,
+      showWarnings: true,
+      showInformation: true,
+      showHints: true,
     },
     cursorBlinking: "smooth",
     cursorStyle: "line",

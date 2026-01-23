@@ -17,6 +17,16 @@ export const GUTTER_ADDED_CLASS = "git-gutter-added";
 export const GUTTER_MODIFIED_CLASS = "git-gutter-modified";
 export const BLAME_DECORATION_CLASS = "git-blame-decoration";
 
+// Error Lens CSS class names
+export const ERROR_LENS_ERROR_LINE_CLASS = "error-lens-error-line";
+export const ERROR_LENS_WARNING_LINE_CLASS = "error-lens-warning-line";
+export const ERROR_LENS_INFO_LINE_CLASS = "error-lens-info-line";
+export const ERROR_LENS_HINT_LINE_CLASS = "error-lens-hint-line";
+export const ERROR_LENS_ERROR_MESSAGE_CLASS = "error-lens-error-message";
+export const ERROR_LENS_WARNING_MESSAGE_CLASS = "error-lens-warning-message";
+export const ERROR_LENS_INFO_MESSAGE_CLASS = "error-lens-info-message";
+export const ERROR_LENS_HINT_MESSAGE_CLASS = "error-lens-hint-message";
+
 /**
  * Inject CSS styles for all Monaco decorations.
  * Should be called once during Monaco initialization.
@@ -63,6 +73,56 @@ export function injectEditorStyles(): void {
 
     .git-blame-widget--committed {
       color: rgba(139, 148, 158, 0.7);
+    }
+
+    /* ========================================
+       Error Lens - Inline diagnostic display
+       ======================================== */
+
+    /* Error Lens - Line background highlighting */
+    .${ERROR_LENS_ERROR_LINE_CLASS} {
+      background-color: rgba(244, 63, 94, 0.12) !important;
+    }
+
+    .${ERROR_LENS_WARNING_LINE_CLASS} {
+      background-color: rgba(234, 179, 8, 0.12) !important;
+    }
+
+    .${ERROR_LENS_INFO_LINE_CLASS} {
+      background-color: rgba(59, 130, 246, 0.08) !important;
+    }
+
+    .${ERROR_LENS_HINT_LINE_CLASS} {
+      background-color: rgba(34, 197, 94, 0.08) !important;
+    }
+
+    /* Error Lens - Inline message styling */
+    .${ERROR_LENS_ERROR_MESSAGE_CLASS} {
+      color: rgba(244, 63, 94, 0.8) !important;
+      font-style: italic;
+      margin-left: 2em;
+      font-size: 0.9em;
+    }
+
+    .${ERROR_LENS_WARNING_MESSAGE_CLASS} {
+      color: rgba(234, 179, 8, 0.8) !important;
+      font-style: italic;
+      margin-left: 2em;
+      font-size: 0.9em;
+    }
+
+    .${ERROR_LENS_INFO_MESSAGE_CLASS} {
+      color: rgba(59, 130, 246, 0.7) !important;
+      font-style: italic;
+      margin-left: 2em;
+      font-size: 0.9em;
+    }
+
+    .${ERROR_LENS_HINT_MESSAGE_CLASS} {
+      color: rgba(34, 197, 94, 0.7) !important;
+      font-style: italic;
+      margin-left: 2em;
+      font-size: 0.9em;
     }
 
     /* ========================================

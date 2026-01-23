@@ -438,6 +438,34 @@ impl Default for InlayHintsSettings {
     }
 }
 
+/// Error Lens settings for inline diagnostic display (nested under editor)
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ErrorLensSettings {
+    /// Master toggle for error lens
+    pub enabled: bool,
+    /// Show error diagnostics
+    pub show_errors: bool,
+    /// Show warning diagnostics
+    pub show_warnings: bool,
+    /// Show information diagnostics
+    pub show_information: bool,
+    /// Show hint diagnostics
+    pub show_hints: bool,
+}
+
+impl Default for ErrorLensSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            show_errors: true,
+            show_warnings: true,
+            show_information: true,
+            show_hints: true,
+        }
+    }
+}
+
 /// Editor settings
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]
@@ -458,6 +486,8 @@ pub struct EditorSettings {
     pub guides: GuidesSettings,
     #[serde(default)]
     pub inlay_hints: InlayHintsSettings,
+    #[serde(default)]
+    pub error_lens: ErrorLensSettings,
     pub cursor_blinking: CursorBlinking,
     pub cursor_style: CursorStyle,
     pub cursor_smooth_caret_animation: CursorSmoothCaretAnimation,
@@ -484,6 +514,7 @@ impl Default for EditorSettings {
             bracket_pair_colorization: BracketPairColorizationSettings::default(),
             guides: GuidesSettings::default(),
             inlay_hints: InlayHintsSettings::default(),
+            error_lens: ErrorLensSettings::default(),
             cursor_blinking: CursorBlinking::Smooth,
             cursor_style: CursorStyle::Line,
             cursor_smooth_caret_animation: CursorSmoothCaretAnimation::On,

@@ -18,6 +18,7 @@ import { useIdeStore } from "../stores/ide";
 import {
   blameWidgetManager,
   gutterDecorationManager,
+  errorLensManager,
   isMonacoReady,
 } from "../monaco";
 import { gitBlame, gitShowHead, lspDocumentSymbols } from "../lib/tauri-ide";
@@ -224,6 +225,7 @@ export function useEditor({ filePath, groupId, language }: UseEditorOptions) {
       // Attach decoration managers
       blameWidgetManager.attach(editorInstance, filePath, groupId);
       gutterDecorationManager.attach(editorInstance, filePath, groupId);
+      errorLensManager.attach(editorInstance, filePath);
 
       // Restore session state from tabs store
       const tabsStore = useTabsStore.getState();
@@ -329,6 +331,7 @@ export function useEditor({ filePath, groupId, language }: UseEditorOptions) {
       // Detach decoration managers
       blameWidgetManager.detach();
       gutterDecorationManager.detach();
+      errorLensManager.detach();
 
       // Clear editor reference
       setActiveEditor(null);
@@ -342,6 +345,7 @@ export function useEditor({ filePath, groupId, language }: UseEditorOptions) {
     if (editor) {
       blameWidgetManager.attach(editor, filePath, groupId);
       gutterDecorationManager.attach(editor, filePath, groupId);
+      errorLensManager.attach(editor, filePath);
       loadFileEditorData(filePath, groupId, language);
     }
   }, [filePath, groupId, language]);

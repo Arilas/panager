@@ -4,7 +4,7 @@
  * Monaco editor configuration: fonts, indentation, display options.
  */
 
-import { Type, AlignLeft, Hash, Map, Eye, Sparkles } from "lucide-react";
+import { Type, AlignLeft, Hash, Map, Eye, Sparkles, AlertCircle } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
   useIdeSettingsStore,
@@ -401,6 +401,50 @@ export function EditorSettingsTab({ level }: EditorSettingsTabProps) {
                 description="Show values for enum members."
                 checked={editorSettings.inlayHints.enumMemberValues}
                 onChange={(v) => handleUpdate("inlayHints.enumMemberValues", v)}
+              />
+            </>
+          )}
+        </div>
+      </SettingSection>
+
+      {/* Error Lens */}
+      <SettingSection
+        title="Error Lens"
+        description="Display diagnostic messages inline at the end of affected lines."
+        icon={<AlertCircle className="w-4 h-4" />}
+      >
+        <div className="space-y-3">
+          <ToggleSetting
+            label="Enable Error Lens"
+            description="Show errors and warnings inline with your code."
+            checked={editorSettings.errorLens?.enabled ?? true}
+            onChange={(v) => handleUpdate("errorLens.enabled", v)}
+          />
+          {editorSettings.errorLens?.enabled && (
+            <>
+              <ToggleSetting
+                label="Show Errors"
+                description="Display error diagnostics inline."
+                checked={editorSettings.errorLens?.showErrors ?? true}
+                onChange={(v) => handleUpdate("errorLens.showErrors", v)}
+              />
+              <ToggleSetting
+                label="Show Warnings"
+                description="Display warning diagnostics inline."
+                checked={editorSettings.errorLens?.showWarnings ?? true}
+                onChange={(v) => handleUpdate("errorLens.showWarnings", v)}
+              />
+              <ToggleSetting
+                label="Show Information"
+                description="Display information diagnostics inline."
+                checked={editorSettings.errorLens?.showInformation ?? true}
+                onChange={(v) => handleUpdate("errorLens.showInformation", v)}
+              />
+              <ToggleSetting
+                label="Show Hints"
+                description="Display hint diagnostics inline."
+                checked={editorSettings.errorLens?.showHints ?? true}
+                onChange={(v) => handleUpdate("errorLens.showHints", v)}
               />
             </>
           )}
