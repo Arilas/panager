@@ -438,6 +438,7 @@ fn detect_language(file_path: &str) -> String {
         // Build tools
         "cmake" => "cmake",
         "ninja" => "ninja",
+        "dockerfile" => "dockerfile",
 
         // Misc languages
         "graphql" | "gql" => "graphql",
@@ -947,14 +948,28 @@ pub async fn ide_notify_file_closed(
 pub async fn ide_notify_project_opened(
     host: State<'_, Arc<PluginHost>>,
     project_path: String,
+    scope_default_folder: Option<String>,
 ) -> Result<(), String> {
     let path = Path::new(&project_path);
 
     info!("Project opened: {}", project_path);
 
+    // Load merged settings to get LSP configurations
+    let lsp_settings = match crate::ide::settings::load_merged_settings(
+        &project_path,
+        scope_default_folder.as_deref(),
+    ) {
+        Ok(settings) => settings.language_servers,
+        Err(e) => {
+            tracing::warn!("Failed to load settings for LSP: {}, using defaults", e);
+            std::collections::HashMap::new()
+        }
+    };
+
     host.broadcast(
         HostEvent::ProjectOpened {
             path: path.to_path_buf(),
+            lsp_settings,
         },
         None, // Broadcast to all plugins
     )

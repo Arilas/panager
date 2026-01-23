@@ -11,6 +11,7 @@ import type { Monaco } from "@monaco-editor/react";
 import type { editor, Position, Range, CancellationToken, IDisposable } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
 import type { LspTextEdit, LspFormattingOptions } from "../../types/lsp";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Convert LSP text edits to Monaco text edits.
@@ -52,7 +53,7 @@ export function registerDocumentFormattingProvider(
         const edits = await lspApi.lspFormatDocument(model.uri.path, lspOptions);
         return convertTextEdits(edits);
       } catch (e) {
-        console.error("[LSP] format_document error:", e);
+        logLspErrorIfNeeded("format_document", e);
         return [];
       }
     },
@@ -90,7 +91,7 @@ export function registerDocumentRangeFormattingProvider(
         );
         return convertTextEdits(edits);
       } catch (e) {
-        console.error("[LSP] format_range error:", e);
+        logLspErrorIfNeeded("format_range", e);
         return [];
       }
     },
@@ -130,7 +131,7 @@ export function registerOnTypeFormattingProvider(
         );
         return convertTextEdits(edits);
       } catch (e) {
-        console.error("[LSP] format_on_type error:", e);
+        logLspErrorIfNeeded("format_on_type", e);
         return [];
       }
     },

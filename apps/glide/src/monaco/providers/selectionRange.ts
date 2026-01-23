@@ -9,6 +9,7 @@ import type { Monaco } from "@monaco-editor/react";
 import type { editor, Position, CancellationToken, IDisposable, languages } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
 import type { LspSelectionRange } from "../../types/lsp";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Flatten a nested LSP SelectionRange into an array of Monaco SelectionRanges.
@@ -60,7 +61,7 @@ export function registerSelectionRangeProvider(
         // Convert each LSP selection range to Monaco format (one array per position)
         return ranges.map((range) => flattenSelectionRange(range));
       } catch (e) {
-        console.error("[LSP] selection_range error:", e);
+        logLspErrorIfNeeded("selection_range", e);
         // Return empty arrays for each position
         return positions.map(() => []);
       }

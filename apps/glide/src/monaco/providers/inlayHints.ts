@@ -8,6 +8,7 @@ import type { Monaco } from "@monaco-editor/react";
 import type { editor, CancellationToken, IDisposable } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
 import { InlayHintKind } from "../../types/lsp";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Register inlay hints provider for a language.
@@ -53,7 +54,7 @@ export function registerInlayHintsProvider(
           dispose: () => {},
         };
       } catch (e) {
-        console.error("[LSP] inlay hints error:", e);
+        logLspErrorIfNeeded("inlay hints", e);
         return { hints: [], dispose: () => {} };
       }
     },

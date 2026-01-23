@@ -14,6 +14,7 @@ import type {
 } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
 import { ensureModelsForUris } from "../fileContentProvider";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Register references provider for a language.
@@ -53,7 +54,7 @@ export function registerReferencesProvider(
 
         return monacoLocations;
       } catch (e) {
-        console.error("[LSP] references error:", e);
+        logLspErrorIfNeeded("references", e);
         return [];
       }
     },

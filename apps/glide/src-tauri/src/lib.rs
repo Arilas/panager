@@ -169,6 +169,7 @@ pub fn run_with_project(project: Option<(&str, &str, &str)>) {
             ide::commands::ide_enable_plugin,
             ide::commands::ide_disable_plugin,
             ide::commands::ide_get_plugin,
+            ide::commands::ide_restart_plugin,
             // IDE - LSP commands
             ide::commands::ide_lsp_goto_definition,
             ide::commands::ide_lsp_hover,

@@ -8,6 +8,7 @@
 import type { Monaco } from "@monaco-editor/react";
 import type { editor, IDisposable, IPosition, IRange } from "monaco-editor";
 import { useTabsStore } from "../stores/tabs";
+import { useMonacoStore } from "../stores/monaco";
 import { buildFileUrl } from "../lib/tabs/url";
 
 let openerRegistered = false;
@@ -42,9 +43,35 @@ export function registerEditorOpener(monaco: Monaco): IDisposable | null {
 
       console.log("[EditorOpener] Opening file:", filePath, "at position:", position);
 
+      const url = buildFileUrl(filePath);
+      const tabsStore = useTabsStore.getState();
+      const monacoStore = useMonacoStore.getState();
+
+      // Check if this file is already the active tab in the current group
+      const activeGroupId = tabsStore.activeGroupId;
+      if (activeGroupId) {
+        const group = tabsStore.groups.find((g) => g.id === activeGroupId);
+        if (group?.activeUrl === url) {
+          // Same file is already active - just scroll to position
+          console.log("[EditorOpener] Same file active, scrolling to position:", position);
+          const activeEditor = monacoStore.activeEditor;
+          if (activeEditor) {
+            activeEditor.setPosition({
+              lineNumber: position.line,
+              column: position.column,
+            });
+            activeEditor.revealLineInCenter(position.line);
+            activeEditor.focus();
+          }
+          // Still update the store for persistence
+          tabsStore.updateCursorPosition(url, position);
+          return true;
+        }
+      }
+
       // Open the file through the tabs store with cursor position
-      useTabsStore.getState().openTab({
-        url: buildFileUrl(filePath),
+      tabsStore.openTab({
+        url,
         isPreview: false,
         cursorPosition: position,
       });

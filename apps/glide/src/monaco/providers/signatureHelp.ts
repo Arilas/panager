@@ -9,6 +9,7 @@ import type { Monaco } from "@monaco-editor/react";
 import type { editor, Position, CancellationToken, IDisposable, languages, IMarkdownString } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
 import type { LspSignatureHelp, LspMarkupContent } from "../../types/lsp";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Convert LSP documentation to Monaco MarkdownString.
@@ -84,7 +85,7 @@ export function registerSignatureHelpProvider(
 
         return convertSignatureHelp(result);
       } catch (e) {
-        console.error("[LSP] signature_help error:", e);
+        logLspErrorIfNeeded("signature_help", e);
         return null;
       }
     },

@@ -44,16 +44,63 @@ export const LSP_LANGUAGES = [
   "json",
   "jsonc",
 
-  // CSS
+  // CSS (also used by Tailwind CSS)
   "css",
   "scss",
   "less",
 
-  // HTML
+  // HTML (also used by Emmet, Tailwind CSS)
   "html",
 
   // YAML
   "yaml",
+
+  // Web frameworks (Vue, Svelte, Astro LSP support)
+  "vue",
+  "svelte",
+  "astro",
+
+  // Angular uses TypeScript and HTML (already registered above)
+
+  // Markdown (Prettier, ESLint support)
+  "markdown",
+
+  // GraphQL (Prettier support)
+  "graphql",
+
+  // Rust (rust-analyzer support)
+  "rust",
+
+  // TOML (tombi support)
+  "toml",
+
+  // SQL (sql-language-server support)
+  "sql",
+
+  // Dockerfile (dockerfile-language-server support)
+  "dockerfile",
+
+  // Prisma (prisma-language-server support)
+  "prisma",
+
+  // Python (pyright support)
+  "python",
+
+  // Go (gopls support)
+  "go",
+
+  // Zig (zls support)
+  "zig",
+
+  // Shell scripts (bash-language-server support)
+  "shellscript",
+  "bash",
+  "sh",
+
+  // MDX (mdx-language-server support)
+  "mdx",
+
+  // Deno (deno lsp support) - uses typescript/javascript IDs above
 ];
 
 let providersRegistered = false;

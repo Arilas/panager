@@ -16,6 +16,13 @@ use crate::plugins::types::{
 
 /// Get language ID from file path
 fn get_language_from_path(path: &str) -> String {
+    // Handle special filenames first (before extension matching)
+    let filename = path.rsplit('/').next().unwrap_or(path);
+    match filename.to_lowercase().as_str() {
+        "dockerfile" => return "dockerfile".to_string(),
+        _ => {}
+    }
+
     match path.rsplit('.').next() {
         // TypeScript/JavaScript
         Some("ts") => "typescript",
@@ -44,6 +51,49 @@ fn get_language_from_path(path: &str) -> String {
         // YAML
         Some("yaml") => "yaml",
         Some("yml") => "yaml",
+
+        // Prisma
+        Some("prisma") => "prisma",
+
+        // Rust
+        Some("rs") => "rust",
+
+        // Python
+        Some("py") => "python",
+        Some("pyi") => "python",
+
+        // Go
+        Some("go") => "go",
+
+        // SQL
+        Some("sql") => "sql",
+
+        // TOML
+        Some("toml") => "toml",
+
+        // Markdown
+        Some("md") => "markdown",
+        Some("mdx") => "mdx",
+
+        // Shell/Bash
+        Some("sh") => "shellscript",
+        Some("bash") => "shellscript",
+        Some("zsh") => "shellscript",
+
+        // GraphQL
+        Some("graphql") => "graphql",
+        Some("gql") => "graphql",
+
+        // Vue/Svelte/Astro
+        Some("vue") => "vue",
+        Some("svelte") => "svelte",
+        Some("astro") => "astro",
+
+        // Zig
+        Some("zig") => "zig",
+
+        // Angular templates
+        Some("ng") => "html",
 
         _ => "plaintext",
     }

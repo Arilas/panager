@@ -21,6 +21,10 @@ use crate::plugins::types::{
 pub struct YamlConfig;
 
 impl LspConfig for YamlConfig {
+    fn server_id(&self) -> &str {
+        "yaml"
+    }
+
     fn command(&self) -> &str {
         "npx"
     }
@@ -187,7 +191,7 @@ impl Plugin for YamlPlugin {
 
     async fn on_event(&mut self, event: HostEvent) -> Result<(), String> {
         match event {
-            HostEvent::ProjectOpened { path } => {
+            HostEvent::ProjectOpened { path, .. } => {
                 // Spawn in background to not block other plugins
                 self.project_root = Some(path.clone());
                 let lsp = self.lsp.clone();

@@ -36,6 +36,7 @@ import { QuickOpenDialog } from "../dialogs/QuickOpenDialog";
 import { GoToLineDialog } from "../dialogs/GoToLineDialog";
 import { GoToSymbolDialog } from "../dialogs/GoToSymbolDialog";
 import { BranchSwitchDialog } from "../dialogs/BranchSwitchDialog";
+import { LspDialog } from "../dialogs/LspDialog";
 import { IdeSettingsDialog } from "../settings/IdeSettingsDialog";
 import { useIdeKeyboard } from "../../hooks/useIdeKeyboard";
 import { usePluginEvents } from "../../hooks/usePluginEvents";
@@ -54,6 +55,8 @@ export function IdeLayout() {
   const setShowSettingsDialog = useIdeStore((s) => s.setShowSettingsDialog);
   const showBranchSwitch = useIdeStore((s) => s.showBranchSwitch);
   const setShowBranchSwitch = useIdeStore((s) => s.setShowBranchSwitch);
+  const showLspDialog = useIdeStore((s) => s.showLspDialog);
+  const setShowLspDialog = useIdeStore((s) => s.setShowLspDialog);
   const rightSidebarPanel = useIdeStore((s) => s.rightSidebarPanel);
   const rightSidebarCollapsed = useIdeStore((s) => s.rightSidebarCollapsed);
   const effectiveTheme = useEffectiveTheme();
@@ -140,6 +143,7 @@ export function IdeLayout() {
       <GoToLineDialog open={showGoToLine} onOpenChange={setShowGoToLine} />
       <GoToSymbolDialog open={showGoToSymbol} onOpenChange={setShowGoToSymbol} />
       <BranchSwitchDialog open={showBranchSwitch} onOpenChange={setShowBranchSwitch} />
+      <LspDialog open={showLspDialog} onOpenChange={setShowLspDialog} />
       <IdeSettingsDialog
         open={showSettingsDialog}
         onOpenChange={setShowSettingsDialog}

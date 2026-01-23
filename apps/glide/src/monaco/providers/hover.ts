@@ -7,6 +7,7 @@
 import type { Monaco } from "@monaco-editor/react";
 import type { editor, Position, CancellationToken, IDisposable } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Register hover provider for a language.
@@ -50,7 +51,7 @@ export function registerHoverProvider(
             : undefined,
         };
       } catch (e) {
-        console.error("[LSP] hover error:", e);
+        logLspErrorIfNeeded("hover", e);
         return null;
       }
     },

@@ -20,8 +20,10 @@ export { getMonacoTheme, isShikiInitialized } from "./themes";
 export {
   blameWidgetManager,
   gutterDecorationManager,
+  errorLensManager,
   BlameWidgetManager,
   GutterDecorationManager,
+  ErrorLensManager,
 } from "./decorations";
 
 // Provider utilities

@@ -8,6 +8,7 @@
 import type { Monaco } from "@monaco-editor/react";
 import type { editor, Position, CancellationToken, IDisposable } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Register linked editing range provider for a language.
@@ -45,7 +46,7 @@ export function registerLinkedEditingRangeProvider(
             : undefined,
         };
       } catch (e) {
-        console.error("[LSP] linked_editing_range error:", e);
+        logLspErrorIfNeeded("linked_editing_range", e);
         return null;
       }
     },

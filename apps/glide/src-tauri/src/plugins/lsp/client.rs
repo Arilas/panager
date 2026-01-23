@@ -58,7 +58,8 @@ impl<C: LspConfig> LspClient<C> {
     pub async fn start(config: &C, root: &PathBuf, ctx: PluginContext) -> Result<Self, String> {
         let cmd = config.command();
         let args = config.args();
-        info!("Starting LSP server: {} {:?} at {:?}", cmd, args, root);
+        let server_id = config.server_id();
+        info!("Starting LSP server [{}]: {} {:?} at {:?}", server_id, cmd, args, root);
 
         let mut child = Command::new(cmd)
             .args(&args)
@@ -110,6 +111,7 @@ impl<C: LspConfig> LspClient<C> {
         let root_clone = root.clone();
         let pending_clone = pending_requests.clone();
         let stdin_tx_clone = stdin_tx.clone();
+        let server_id_for_stdout = server_id.to_string();
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout);
             let mut header_buf = String::new();
@@ -120,12 +122,12 @@ impl<C: LspConfig> LspClient<C> {
                 // Read Content-Length header
                 match reader.read_line(&mut header_buf).await {
                     Ok(0) => {
-                        debug!("LSP stdout EOF");
+                        debug!("LSP [{}] stdout EOF", server_id_for_stdout);
                         break;
                     }
                     Ok(_) => {}
                     Err(e) => {
-                        error!("Failed to read LSP header: {}", e);
+                        error!("LSP [{}] failed to read header: {}", server_id_for_stdout, e);
                         break;
                     }
                 }
@@ -154,16 +156,16 @@ impl<C: LspConfig> LspClient<C> {
                 let mut content = vec![0u8; length];
                 if let Err(e) = tokio::io::AsyncReadExt::read_exact(&mut reader, &mut content).await
                 {
-                    error!("Failed to read LSP content: {}", e);
+                    error!("LSP [{}] failed to read content: {}", server_id_for_stdout, e);
                     break;
                 }
 
                 // Parse JSON
                 if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&content) {
                     if let Some(method) = json.get("method").and_then(|m| m.as_str()) {
-                        debug!("LSP incoming notification: {}", method);
+                        debug!("LSP [{}] incoming notification: {}", server_id_for_stdout, method);
                     } else if let Some(id) = json.get("id") {
-                        debug!("LSP incoming response for id: {:?}", id);
+                        debug!("LSP [{}] incoming response for id: {:?}", server_id_for_stdout, id);
                     }
                     Self::handle_message(
                         &ctx_clone,
@@ -173,14 +175,18 @@ impl<C: LspConfig> LspClient<C> {
                         &stdin_tx_clone,
                         &workspace_config,
                         &diagnostic_source,
+                        &server_id_for_stdout,
                     ).await;
                 } else {
-                    warn!("LSP failed to parse JSON response");
+                    warn!("LSP [{}] failed to parse JSON response", server_id_for_stdout);
                 }
             }
         });
 
-        // Spawn stderr reader task
+        // Spawn stderr reader task - collect stderr for error reporting
+        let stderr_lines: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(Vec::new()));
+        let stderr_lines_clone = stderr_lines.clone();
+        let server_id_clone = server_id.to_string();
         tokio::spawn(async move {
             let mut reader = BufReader::new(stderr);
             let mut line = String::new();
@@ -189,8 +195,12 @@ impl<C: LspConfig> LspClient<C> {
                 match reader.read_line(&mut line).await {
                     Ok(0) => break,
                     Ok(_) => {
-                        if !line.trim().is_empty() {
-                            debug!("LSP stderr: {}", line.trim());
+                        let trimmed = line.trim().to_string();
+                        if !trimmed.is_empty() {
+                            // Log all stderr at info level to help debug issues like Tailwind not loading
+                            info!("LSP [{}] stderr: {}", server_id_clone, trimmed);
+                            // Store for error reporting
+                            stderr_lines_clone.write().await.push(trimmed);
                         }
                     }
                     Err(_) => break,
@@ -208,14 +218,15 @@ impl<C: LspConfig> LspClient<C> {
             _config: PhantomData,
         };
 
-        // Send initialize request
-        client.initialize(config).await;
+        // Send initialize request - if it fails, return error
+        client.initialize(config).await?;
 
         Ok(client)
     }
 
     /// Send initialize request and wait for response
-    async fn initialize(&self, config: &C) {
+    async fn initialize(&self, config: &C) -> Result<(), String> {
+        let server_id = config.server_id();
         let root_uri = format!("file://{}", self.root.display());
 
         let params = serde_json::json!({
@@ -232,18 +243,32 @@ impl<C: LspConfig> LspClient<C> {
         });
 
         // Send initialize request and wait for response
+        // Use longer timeout for npx-based servers that may need to download packages
+        let timeout_duration = if config.command() == "npx" {
+            Duration::from_secs(60) // 60 seconds for npx (package download time)
+        } else {
+            Duration::from_secs(30) // 30 seconds for direct executables
+        };
+        
         let result: Result<serde_json::Value, String> = self
-            .request_with_timeout("initialize", params, Duration::from_secs(30))
+            .request_with_timeout("initialize", params, timeout_duration)
             .await;
 
         match result {
             Ok(capabilities) => {
-                info!("LSP initialized successfully, capabilities: {:?}",
+                info!("LSP [{}] initialized successfully, capabilities: {:?}",
+                    server_id,
                     capabilities.get("capabilities").map(|c| c.to_string().chars().take(200).collect::<String>()));
             }
             Err(e) => {
-                error!("LSP initialize failed: {}", e);
-                return;
+                error!("LSP [{}] initialize failed: {}", server_id, e);
+                // Provide helpful error message for timeouts
+                let error_msg = if e.contains("timed out") {
+                    format!("LSP [{}] initialization failed: {}. The server may be downloading packages or taking longer than expected to start. Check the logs above for stderr output.", server_id, e)
+                } else {
+                    format!("LSP [{}] initialization failed: {}", server_id, e)
+                };
+                return Err(error_msg);
             }
         }
 
@@ -254,7 +279,7 @@ impl<C: LspConfig> LspClient<C> {
             "params": {}
         });
         self.send(initialized_msg);
-        debug!("Sent initialized notification");
+        debug!("LSP [{}] sent initialized notification", server_id);
 
         // Send workspace configuration
         let workspace_config = config.workspace_configuration();
@@ -267,8 +292,10 @@ impl<C: LspConfig> LspClient<C> {
                 }
             });
             self.send(config_msg);
-            debug!("Sent workspace configuration");
+            debug!("LSP [{}] sent workspace configuration", server_id);
         }
+        
+        Ok(())
     }
 
     /// Send a request with a custom timeout
@@ -296,10 +323,25 @@ impl<C: LspConfig> LspClient<C> {
         let response = tokio::time::timeout(timeout, rx)
             .await
             .map_err(|_| format!("LSP request '{}' timed out after {:?}", method, timeout))?
-            .map_err(|_| "LSP response channel closed".to_string())?;
+            .map_err(|_| format!("LSP request '{}' response channel closed", method))?;
+
+        // Check if this is an error response (wrapped in a special object)
+        if let Some(error_obj) = response.get("__lsp_error__") {
+            let code = error_obj.get("code").and_then(|c| c.as_i64()).unwrap_or(-1);
+            let message = error_obj.get("message").and_then(|m| m.as_str()).unwrap_or("Unknown error");
+            let data = error_obj.get("data");
+            
+            let error_msg = if let Some(data_str) = data.and_then(|d| d.as_str()) {
+                format!("LSP request '{}' returned error (code {}): {} - {}", method, code, message, data_str)
+            } else {
+                format!("LSP request '{}' returned error (code {}): {}", method, code, message)
+            };
+            
+            return Err(error_msg);
+        }
 
         if response.is_null() {
-            return Err(format!("LSP request '{}' returned error", method));
+            return Err(format!("LSP request '{}' returned null response", method));
         }
 
         serde_json::from_value(response)
@@ -315,22 +357,39 @@ impl<C: LspConfig> LspClient<C> {
         stdin_tx: &mpsc::UnboundedSender<String>,
         workspace_config: &serde_json::Value,
         diagnostic_source: &str,
+        server_id: &str,
     ) {
         // Check if this is a request FROM the server
         if let (Some(id), Some(method)) = (msg.get("id"), msg.get("method").and_then(|m| m.as_str())) {
-            debug!("LSP server request: method={}, id={:?}", method, id);
+            debug!("LSP [{}] server request: method={}, id={:?}", server_id, method, id);
 
             // Handle workspace/configuration request
             if method == "workspace/configuration" {
                 let items = msg.get("params")
                     .and_then(|p| p.get("items"))
-                    .and_then(|i| i.as_array())
-                    .map(|arr| arr.len())
-                    .unwrap_or(0);
+                    .and_then(|i| i.as_array());
 
-                let config_response: Vec<serde_json::Value> = (0..items)
-                    .map(|_| workspace_config.clone())
-                    .collect();
+                info!("LSP [{}] workspace/configuration request: {:?}", server_id, items);
+
+                let config_response: Vec<serde_json::Value> = if let Some(items) = items {
+                    items.iter().map(|item| {
+                        // Each item may have a "section" field specifying what config to return
+                        let section = item.get("section").and_then(|s| s.as_str());
+
+                        if let Some(section) = section {
+                            // Return the specific section from workspace config
+                            // e.g., if section is "tailwindCSS", return workspace_config["tailwindCSS"]
+                            let value = workspace_config.get(section).cloned().unwrap_or(serde_json::Value::Null);
+                            debug!("LSP [{}] config section '{}' = {:?}", server_id, section, value);
+                            value
+                        } else {
+                            // No section specified, return the whole config
+                            workspace_config.clone()
+                        }
+                    }).collect()
+                } else {
+                    vec![]
+                };
 
                 let response = serde_json::json!({
                     "jsonrpc": "2.0",
@@ -338,7 +397,8 @@ impl<C: LspConfig> LspClient<C> {
                     "result": config_response
                 });
 
-                debug!("LSP responding to workspace/configuration with {} items", items);
+                info!("LSP [{}] responding to workspace/configuration with {} items",
+                    server_id, config_response.len());
                 let _ = stdin_tx.send(response.to_string());
                 return;
             }
@@ -354,7 +414,31 @@ impl<C: LspConfig> LspClient<C> {
                 return;
             }
 
-            debug!("LSP unhandled server request: {}", method);
+            // Handle client/registerCapability - servers use this for dynamic capability registration
+            if method == "client/registerCapability" {
+                info!("LSP [{}] server registering capabilities: {:?}", server_id, msg.get("params"));
+                let response = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": null
+                });
+                let _ = stdin_tx.send(response.to_string());
+                return;
+            }
+
+            // Handle client/unregisterCapability
+            if method == "client/unregisterCapability" {
+                info!("LSP [{}] server unregistering capabilities: {:?}", server_id, msg.get("params"));
+                let response = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": null
+                });
+                let _ = stdin_tx.send(response.to_string());
+                return;
+            }
+
+            warn!("LSP [{}] unhandled server request: {}", server_id, method);
             return;
         }
 
@@ -378,11 +462,25 @@ impl<C: LspConfig> LspClient<C> {
                     if has_result || has_error {
                         if let Some(sender) = pending.write().await.remove(&id) {
                             if let Some(result) = msg.get("result") {
-                                debug!("LSP response received for id {}", id);
+                                debug!("LSP [{}] response received for id {}", server_id, id);
                                 let _ = sender.send(result.clone());
                             } else if let Some(error) = msg.get("error") {
-                                warn!("LSP error response for id {}: {:?}", id, error);
-                                let _ = sender.send(serde_json::Value::Null);
+                                // Extract error details
+                                let code = error.get("code").and_then(|c| c.as_i64()).unwrap_or(-1);
+                                let message = error.get("message").and_then(|m| m.as_str()).unwrap_or("Unknown error");
+                                let data = error.get("data");
+                                
+                                warn!("LSP [{}] error response for id {}: code={}, message={}, data={:?}", server_id, id, code, message, data);
+                                
+                                // Send error wrapped in a special object so request_with_timeout can extract it
+                                let error_wrapper = serde_json::json!({
+                                    "__lsp_error__": {
+                                        "code": code,
+                                        "message": message,
+                                        "data": data
+                                    }
+                                });
+                                let _ = sender.send(error_wrapper);
                             }
                         }
                         return;
@@ -509,8 +607,23 @@ impl<C: LspConfig> LspClient<C> {
             .map_err(|_| format!("LSP request '{}' timed out", method))?
             .map_err(|_| "LSP response channel closed".to_string())?;
 
+        // Check if this is an error response (wrapped in a special object)
+        if let Some(error_obj) = response.get("__lsp_error__") {
+            let code = error_obj.get("code").and_then(|c| c.as_i64()).unwrap_or(-1);
+            let message = error_obj.get("message").and_then(|m| m.as_str()).unwrap_or("Unknown error");
+            let data = error_obj.get("data");
+            
+            let error_msg = if let Some(data_str) = data.and_then(|d| d.as_str()) {
+                format!("LSP request '{}' returned error (code {}): {} - {}", method, code, message, data_str)
+            } else {
+                format!("LSP request '{}' returned error (code {}): {}", method, code, message)
+            };
+            
+            return Err(error_msg);
+        }
+
         if response.is_null() {
-            return Err(format!("LSP request '{}' returned error", method));
+            return Err(format!("LSP request '{}' returned null response", method));
         }
 
         serde_json::from_value(response)

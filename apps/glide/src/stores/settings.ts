@@ -107,6 +107,13 @@ const defaultSettings: IdeSettings = {
       functionReturnTypes: true,
       enumMemberValues: true,
     },
+    errorLens: {
+      enabled: true,
+      showErrors: true,
+      showWarnings: true,
+      showInformation: true,
+      showHints: true,
+    },
     cursorBlinking: "smooth",
     cursorStyle: "line",
     cursorSmoothCaretAnimation: "on",

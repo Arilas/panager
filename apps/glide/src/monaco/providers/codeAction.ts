@@ -13,6 +13,7 @@ import type {
   IRange,
 } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Register code action provider for a language.
@@ -88,7 +89,7 @@ export function registerCodeActionProvider(
           dispose: () => {},
         };
       } catch (e) {
-        console.error("[LSP] codeAction error:", e);
+        logLspErrorIfNeeded("codeAction", e);
         return { actions: [], dispose: () => {} };
       }
     },

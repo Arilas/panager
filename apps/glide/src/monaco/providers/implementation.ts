@@ -14,6 +14,7 @@ import type {
 } from "monaco-editor";
 import * as lspApi from "../../lib/tauri-ide";
 import { ensureModelsForUris } from "../fileContentProvider";
+import { logLspErrorIfNeeded } from "./utils";
 
 /**
  * Register implementation provider for a language.
@@ -51,7 +52,7 @@ export function registerImplementationProvider(
 
         return monacoLocations;
       } catch (e) {
-        console.error("[LSP] implementation error:", e);
+        logLspErrorIfNeeded("implementation", e);
         return [];
       }
     },
